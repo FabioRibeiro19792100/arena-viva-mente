@@ -32,14 +32,20 @@ export const Header = () => {
             onClick={() => navigate("/galeria")}
             className="text-sm font-medium text-foreground hover:text-primary transition-colors"
           >
-            Galeria de Resumos
+            Galeria
+          </button>
+          <button 
+            onClick={() => navigate("/perfil")}
+            className="text-sm font-medium text-foreground hover:text-primary transition-colors flex items-center gap-1"
+          >
+            <User className="h-4 w-4" />
+            Perfil
           </button>
           <Button 
             variant="stadium" 
             size="sm"
             onClick={() => navigate("/login")}
           >
-            <User className="h-4 w-4" />
             Entrar
           </Button>
         </nav>

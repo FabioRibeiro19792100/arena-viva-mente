@@ -7,6 +7,9 @@ import Index from "./pages/Index";
 import Login from "./pages/Login";
 import Arquibancada from "./pages/Arquibancada";
 import Galeria from "./pages/Galeria";
+import Booking from "./pages/Booking";
+import Resumo from "./pages/Resumo";
+import Perfil from "./pages/Perfil";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -21,7 +24,10 @@ const App = () => (
           <Route path="/" element={<Index />} />
           <Route path="/login" element={<Login />} />
           <Route path="/arquibancada/:id" element={<Arquibancada />} />
+          <Route path="/booking/:id" element={<Booking />} />
           <Route path="/galeria" element={<Galeria />} />
+          <Route path="/resumo/:id" element={<Resumo />} />
+          <Route path="/perfil" element={<Perfil />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

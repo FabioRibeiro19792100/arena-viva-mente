@@ -1,146 +1,244 @@
+import { useState, useEffect, useRef } from "react";
+import { useParams } from "react-router-dom";
 import { Header } from "@/components/Header";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Brain, Send, ThumbsUp, ThumbsDown, Users } from "lucide-react";
-import { useState } from "react";
-import { useParams } from "react-router-dom";
-
-interface Message {
-  id: string;
-  user: string;
-  content: string;
-  timestamp: Date;
-  likes: number;
-  dislikes: number;
-}
+import { Input } from "@/components/ui/input";
+import { useToast } from "@/hooks/use-toast";
+import { Users, ThumbsUp, ThumbsDown, Send, Shield, AlertTriangle } from "lucide-react";
+import matchLive from "@/assets/match-live.jpg";
 
 const Arquibancada = () => {
   const { id } = useParams();
+  const { toast } = useToast();
   const [message, setMessage] = useState("");
-  const [cooldown, setCooldown] = useState(false);
+  const [cooldown, setCooldown] = useState(0);
+  const [isBlocked, setIsBlocked] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Mock data
-  const [messages] = useState<Message[]>([
-    {
-      id: "1",
-      user: "João Torcedor",
-      content: "QUE GOLAÇO!!! VAMOS PALMEIRAS!!!",
-      timestamp: new Date(Date.now() - 30000),
-      likes: 45,
-      dislikes: 2,
-    },
-    {
-      id: "2",
-      user: "Maria Silva",
-      content: "Juiz tá roubando demais, absurdo esse lance",
-      timestamp: new Date(Date.now() - 25000),
-      likes: 28,
-      dislikes: 15,
-    },
-    {
-      id: "3",
-      user: "Pedro Santos",
-      content: "Vai dar tempo de virar ainda, FÉ NO PAI",
-      timestamp: new Date(Date.now() - 15000),
-      likes: 67,
-      dislikes: 3,
-    },
+  const game = {
+    homeTeam: "Palmeiras",
+    awayTeam: "Grêmio",
+    homeScore: 2,
+    awayScore: 1,
+    league: "Brasileirão Série A",
+    status: "Ao vivo • 78'",
+    viewers: 2984,
+    maxSeats: 3000,
+    image: matchLive,
+  };
+
+  const [messages, setMessages] = useState([
+    { id: 1, user: "Verdão123", text: "GOOOL DO VERDÃO! NUNCA CRITIQUEI!", time: "76'", likes: 23, dislikes: 2 },
+    { id: 2, user: "TorcidaFiel", text: "Esse time tem raça demais!", time: "76'", likes: 15, dislikes: 0 },
+    { id: 3, user: "PalmeirasSempre", text: "ABEL FERREIRA GENIAL", time: "77'", likes: 31, dislikes: 1 },
+    { id: 4, user: "Gremista1903", text: "juiz ladrão, pênalti claro não marcado", time: "77'", likes: 8, dislikes: 12 },
+    { id: 5, user: "NeutralViewer", text: "Que jogaço! Vale cada segundo", time: "78'", likes: 19, dislikes: 0 },
   ]);
 
-  const handleSendMessage = () => {
-    if (message.trim() && !cooldown) {
-      setCooldown(true);
-      setTimeout(() => setCooldown(false), 3000);
-      setMessage("");
+  // Auto-scroll para última mensagem
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  // Cooldown timer
+  useEffect(() => {
+    if (cooldown > 0) {
+      const timer = setTimeout(() => setCooldown(cooldown - 1), 1000);
+      return () => clearTimeout(timer);
     }
+  }, [cooldown]);
+
+  // Simula moderação por IA
+  const moderateMessage = (text: string) => {
+    const bannedWords = ["idiota", "lixo", "merda", "burro"];
+    const hasBannedWord = bannedWords.some(word => text.toLowerCase().includes(word));
+    
+    if (hasBannedWord) {
+      return { blocked: true, severity: "high" };
+    }
+    
+    // Simula detecção de flood (muitas maiúsculas)
+    const upperCaseRatio = (text.match(/[A-Z]/g) || []).length / text.length;
+    if (upperCaseRatio > 0.7 && text.length > 20) {
+      return { blocked: true, severity: "low" };
+    }
+    
+    return { blocked: false, severity: "none" };
+  };
+
+  const handleSendMessage = () => {
+    if (cooldown > 0) {
+      toast({
+        title: "⏱️ Calma, torcida!",
+        description: `Aguarde ${cooldown}s antes de enviar outra mensagem.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!message.trim()) return;
+    
+    if (message.length > 180) {
+      toast({
+        title: "✂️ Mensagem muito longa",
+        description: "Máximo de 180 caracteres permitido.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Moderação por IA
+    const moderation = moderateMessage(message);
+    
+    if (moderation.blocked) {
+      if (moderation.severity === "high") {
+        setIsBlocked(true);
+        toast({
+          title: "🚫 Mensagem bloqueada",
+          description: "Linguagem ofensiva detectada. Você foi temporariamente bloqueado por 10 minutos.",
+          variant: "destructive",
+        });
+        setTimeout(() => setIsBlocked(false), 600000); // 10 minutos
+      } else {
+        toast({
+          title: "⚠️ Ei, pegue leve!",
+          description: "Sua mensagem foi moderada. Mantenha um clima respeitoso.",
+          variant: "destructive",
+        });
+      }
+      return;
+    }
+
+    // Envia mensagem
+    const newMessage = {
+      id: messages.length + 1,
+      user: "VocêAgora",
+      text: message,
+      time: "Agora",
+      likes: 0,
+      dislikes: 0,
+    };
+    setMessages([...messages, newMessage]);
+    setMessage("");
+    setCooldown(3); // 3 segundos de cooldown
   };
 
   return (
     <div className="min-h-screen bg-background">
       <Header />
       
-      <div className="container max-w-4xl py-6 px-4">
-        {/* Match Header */}
-        <Card className="bg-card border-border p-6 mb-6">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <Badge variant="live" className="mb-2">🟢 Ao vivo - 78'</Badge>
-              <h1 className="text-2xl font-bold">Palmeiras 2 x 1 Grêmio</h1>
-              <p className="text-sm text-muted-foreground">Brasileirão Série A - Allianz Parque</p>
-            </div>
-            <div className="text-right">
-              <div className="flex items-center gap-2 text-muted-foreground mb-2">
-                <Users className="h-4 w-4" />
-                <span className="text-sm">2.984 torcedores</span>
+      <div className="container max-w-4xl py-6 px-4 flex flex-col h-[calc(100vh-4rem)]">
+        {/* Cabeçalho da partida */}
+        <Card className="mb-4">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <Badge variant="live" className="mb-2">{game.status}</Badge>
+                <h1 className="text-2xl font-bold">
+                  {game.homeTeam} {game.homeScore} <span className="text-muted-foreground">x</span> {game.awayScore} {game.awayTeam}
+                </h1>
+                <p className="text-sm text-muted-foreground">{game.league}</p>
               </div>
-              <Badge variant="outline" className="gap-2">
-                <Brain className="h-3 w-3" />
-                <span className="text-xs">IA moderando</span>
-              </Badge>
+            </div>
+            
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Users className="h-4 w-4" />
+              <span>{game.viewers.toLocaleString()} / {game.maxSeats.toLocaleString()} torcedores</span>
+            </div>
+            <div className="flex items-center gap-2 text-xs">
+              <Shield className="h-4 w-4 text-accent animate-pulse" />
+              <span className="text-accent font-medium">🧠 IA moderando</span>
             </div>
           </div>
 
-          {/* Sponsor Banner */}
-          <div className="bg-gradient-to-r from-accent/20 to-accent/10 rounded-lg p-3 text-center">
-            <p className="text-sm font-semibold">🍺 Arena Brahma — 20% off até o apito final</p>
-          </div>
+            {/* Patrocínio */}
+            <div className="mt-3 p-2 rounded-lg bg-gradient-to-r from-accent/20 to-primary/10 text-center">
+              <p className="text-xs font-semibold">🍺 Arena Brahma — 20% off até o apito final</p>
+            </div>
+          </CardContent>
         </Card>
 
-        {/* Messages Timeline */}
-        <div className="space-y-3 mb-6">
-          {messages.map((msg) => (
-            <Card key={msg.id} className="bg-card border-border p-4 hover:bg-card/80 transition-colors">
-              <div className="flex items-start justify-between mb-2">
-                <div>
-                  <p className="font-semibold text-sm">{msg.user}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {msg.timestamp.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                  </p>
+        {/* Timeline de mensagens */}
+        <Card className="flex-1 overflow-hidden">
+          <CardContent className="p-4 h-full flex flex-col">
+            <div className="flex-1 overflow-y-auto space-y-3 mb-4 scroll-smooth">
+              {messages.map((msg, index) => (
+                <div 
+                  key={msg.id} 
+                  className="p-3 rounded-lg bg-card-hover border border-border animate-fade-in hover:border-primary/30 transition-all"
+                  style={{ animationDelay: `${index * 0.05}s` }}
+                >
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-sm text-primary">{msg.user}</span>
+                      <Badge variant="scheduled" className="text-xs">{msg.time}</Badge>
+                    </div>
+                  </div>
+                  <p className="text-sm mb-2">{msg.text}</p>
+                  <div className="flex gap-4 text-xs text-muted-foreground">
+                    <button className="flex items-center gap-1 hover:text-primary transition-colors">
+                      <ThumbsUp className="h-3 w-3" />
+                      {msg.likes}
+                    </button>
+                    <button className="flex items-center gap-1 hover:text-destructive transition-colors">
+                      <ThumbsDown className="h-3 w-3" />
+                      {msg.dislikes}
+                    </button>
+                  </div>
                 </div>
-                <div className="flex gap-3">
-                  <button className="flex items-center gap-1 text-muted-foreground hover:text-primary transition-colors">
-                    <ThumbsUp className="h-4 w-4" />
-                    <span className="text-xs">{msg.likes}</span>
-                  </button>
-                  <button className="flex items-center gap-1 text-muted-foreground hover:text-destructive transition-colors">
-                    <ThumbsDown className="h-4 w-4" />
-                    <span className="text-xs">{msg.dislikes}</span>
-                  </button>
-                </div>
-              </div>
-              <p className="text-foreground">{msg.content}</p>
-            </Card>
-          ))}
-        </div>
+              ))}
+              <div ref={messagesEndRef} />
+            </div>
 
-        {/* Message Input */}
-        <Card className="bg-card border-border p-4 sticky bottom-6">
-          <div className="flex gap-2">
-            <Input
-              placeholder="Escreva seu grito de arquibancada… (máx. 180 caracteres)"
-              value={message}
-              onChange={(e) => setMessage(e.target.value.slice(0, 180))}
-              maxLength={180}
-              disabled={cooldown}
-              onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
-            />
-            <Button 
-              variant="stadium" 
-              size="icon"
-              onClick={handleSendMessage}
-              disabled={cooldown || !message.trim()}
-            >
-              <Send className="h-4 w-4" />
-            </Button>
-          </div>
-          <div className="flex items-center justify-between mt-2 text-xs text-muted-foreground">
-            <span>{message.length}/180</span>
-            {cooldown && (
-              <span className="text-accent">⏱️ Respira, torcida! Espere um pouco antes de enviar de novo.</span>
+            {/* Aviso de bloqueio */}
+            {isBlocked && (
+              <div className="flex items-center gap-2 p-3 mb-3 rounded-lg bg-destructive/10 border border-destructive/50 text-destructive">
+                <AlertTriangle className="h-4 w-4 shrink-0" />
+                <p className="text-xs font-medium">
+                  Você foi removido desta arquibancada por 10 minutos. Volte com espírito esportivo.
+                </p>
+              </div>
             )}
-          </div>
+
+            {/* Input de mensagem */}
+            <div className="space-y-2">
+              <div className="flex gap-2">
+                <Input
+                  placeholder={isBlocked ? "Você está bloqueado temporariamente..." : "Escreva seu grito de arquibancada..."}
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && !isBlocked && cooldown === 0 && handleSendMessage()}
+                  maxLength={180}
+                  className="flex-1"
+                  disabled={isBlocked || cooldown > 0}
+                />
+                <Button 
+                  onClick={handleSendMessage} 
+                  size="icon"
+                  disabled={isBlocked || cooldown > 0}
+                  variant={cooldown > 0 ? "secondary" : "default"}
+                >
+                  {cooldown > 0 ? (
+                    <span className="text-xs font-bold">{cooldown}</span>
+                  ) : (
+                    <Send className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>{message.length}/180 caracteres</span>
+                {cooldown > 0 && (
+                  <span className="text-accent font-medium">
+                    ⏱️ Aguarde {cooldown}s para enviar outra mensagem
+                  </span>
+                )}
+              </div>
+            </div>
+          </CardContent>
         </Card>
       </div>
     </div>
