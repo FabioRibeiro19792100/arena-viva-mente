@@ -1,0 +1,130 @@
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Users } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+
+interface GameCardProps {
+  id: string;
+  homeTeam: string;
+  awayTeam: string;
+  homeScore?: number;
+  awayScore?: number;
+  league: string;
+  status: "live" | "scheduled" | "almost-full" | "full";
+  seatsRemaining?: number;
+  maxSeats: number;
+  startTime?: string;
+  image: string;
+}
+
+export const GameCard = ({
+  id,
+  homeTeam,
+  awayTeam,
+  homeScore,
+  awayScore,
+  league,
+  status,
+  seatsRemaining,
+  maxSeats,
+  startTime,
+  image,
+}: GameCardProps) => {
+  const navigate = useNavigate();
+
+  const getStatusBadge = () => {
+    switch (status) {
+      case "live":
+        return <Badge variant="live">🟢 Ao vivo</Badge>;
+      case "scheduled":
+        return <Badge variant="scheduled">⚪ Agendado</Badge>;
+      case "almost-full":
+        return <Badge variant="almost-full">🟧 Quase cheia</Badge>;
+      case "full":
+        return <Badge variant="full">🟥 Lotada</Badge>;
+    }
+  };
+
+  const getActionButton = () => {
+    if (status === "live") {
+      return (
+        <Button 
+          variant="live" 
+          className="w-full"
+          onClick={() => navigate(`/arquibancada/${id}`)}
+        >
+          Entrar na arquibancada
+        </Button>
+      );
+    }
+    if (status === "full") {
+      return (
+        <Button 
+          variant="secondary" 
+          className="w-full"
+          onClick={() => navigate(`/arquibancada/${id}`)}
+        >
+          Entrar como espectador
+        </Button>
+      );
+    }
+    return (
+      <Button 
+        variant={status === "almost-full" ? "energy" : "stadium"}
+        className="w-full"
+        onClick={() => navigate(`/booking/${id}`)}
+      >
+        {status === "almost-full" ? "Reservar agora" : "Reservar assento"}
+      </Button>
+    );
+  };
+
+  const getSeatsMessage = () => {
+    if (status === "full") {
+      return "Arquibancada cheia";
+    }
+    if (status === "almost-full" && seatsRemaining) {
+      return `Últimos ${seatsRemaining} lugares`;
+    }
+    if (seatsRemaining) {
+      return `${seatsRemaining.toLocaleString()} lugares restantes`;
+    }
+    return null;
+  };
+
+  return (
+    <Card className="overflow-hidden hover:shadow-[0_8px_32px_hsl(var(--card-foreground)/0.2)] transition-all duration-300 hover:scale-[1.02] bg-card border-border">
+      <div className="relative h-48 overflow-hidden">
+        <img
+          src={image}
+          alt={`${homeTeam} vs ${awayTeam}`}
+          className="w-full h-full object-cover"
+        />
+        <div className="absolute top-3 right-3">
+          {getStatusBadge()}
+        </div>
+        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-card via-card/90 to-transparent p-4">
+          <p className="text-xs text-muted-foreground mb-1">{league}</p>
+          <h3 className="text-lg font-bold">
+            {homeTeam} {homeScore !== undefined && <span className="text-primary">{homeScore}</span>}
+            <span className="text-muted-foreground mx-2">x</span>
+            {awayScore !== undefined && <span className="text-primary">{awayScore}</span>} {awayTeam}
+          </h3>
+        </div>
+      </div>
+      <CardContent className="p-4 space-y-3">
+        <div className="flex items-center justify-between text-sm">
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <Users className="h-4 w-4" />
+            <span>{getSeatsMessage()}</span>
+          </div>
+          {startTime && status === "scheduled" && (
+            <span className="text-accent font-semibold">{startTime}</span>
+          )}
+        </div>
+        {getActionButton()}
+      </CardContent>
+    </Card>
+  );
+};
