@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { Users, ThumbsUp, ThumbsDown, Send, Shield, AlertTriangle, Pin, Filter, Crown } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { TeamOnboarding } from "@/components/TeamOnboarding";
 import matchLive from "@/assets/match-live.jpg";
 
 const Arquibancada = () => {
@@ -19,9 +20,20 @@ const Arquibancada = () => {
   const [filterTeam, setFilterTeam] = useState<string>("all");
   const [pinnedUsers, setPinnedUsers] = useState<string[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  // Mock: identificação da torcida do usuário atual
-  const currentUserTeam = "homeTeam"; // "homeTeam", "awayTeam", "neutral"
+  
+  // Onboarding e seleção de torcida
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [currentUserTeam, setCurrentUserTeam] = useState<"home" | "away" | "neutral">("neutral");
+  
+  // Verifica se usuário já escolheu torcida
+  useEffect(() => {
+    const savedTeam = localStorage.getItem(`game-${id}-team`);
+    if (savedTeam) {
+      setCurrentUserTeam(savedTeam as "home" | "away" | "neutral");
+    } else {
+      setShowOnboarding(true);
+    }
+  }, [id]);
 
   // Mock data
   const game = {
@@ -126,11 +138,21 @@ const Arquibancada = () => {
       time: "Agora",
       likes: 0,
       dislikes: 0,
-      team: currentUserTeam,
+      team: currentUserTeam === "home" ? "homeTeam" : currentUserTeam === "away" ? "awayTeam" : "neutral",
     };
     setMessages([...messages, newMessage]);
     setMessage("");
     setCooldown(3); // 3 segundos de cooldown
+  };
+
+  const handleOnboardingComplete = (team: "home" | "away" | "neutral") => {
+    setCurrentUserTeam(team);
+    localStorage.setItem(`game-${id}-team`, team);
+    setShowOnboarding(false);
+    toast({
+      title: "🎉 Bem-vindo!",
+      description: "Você entrou na arquibancada. Aproveite o jogo!",
+    });
   };
 
   const togglePinUser = (username: string) => {
@@ -142,8 +164,8 @@ const Arquibancada = () => {
   };
 
   const getTeamBadge = (team: string) => {
-    if (team === "homeTeam") return { text: game.homeTeam, color: "bg-primary/20 text-primary border-primary/30" };
-    if (team === "awayTeam") return { text: game.awayTeam, color: "bg-secondary/20 text-secondary border-secondary/30" };
+    if (team === "homeTeam" || team === "home") return { text: game.homeTeam, color: "bg-primary/20 text-primary border-primary/30" };
+    if (team === "awayTeam" || team === "away") return { text: game.awayTeam, color: "bg-secondary/20 text-secondary border-secondary/30" };
     return { text: "Neutro", color: "bg-muted text-muted-foreground border-border" };
   };
 
@@ -158,6 +180,13 @@ const Arquibancada = () => {
   return (
     <div className="min-h-screen bg-background">
       <Header />
+      
+      <TeamOnboarding
+        open={showOnboarding}
+        onComplete={handleOnboardingComplete}
+        homeTeam={game.homeTeam}
+        awayTeam={game.awayTeam}
+      />
       
       <div className="container max-w-4xl py-6 px-4 flex flex-col h-[calc(100vh-4rem)]">
         {/* Cabeçalho da partida */}
