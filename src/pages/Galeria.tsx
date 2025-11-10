@@ -117,13 +117,22 @@ const Galeria = () => {
               🏐 Vôlei
             </Badge>
             <Badge variant="outline" className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors">
-              🔥 Euforia
+              🇧🇷 Brasileirão
             </Badge>
             <Badge variant="outline" className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors">
-              😤 Tensão
+              🏆 Libertadores
             </Badge>
             <Badge variant="outline" className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors">
-              😓 Frustração
+              🌍 Champions League
+            </Badge>
+            <Badge variant="outline" className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors">
+              Palmeiras
+            </Badge>
+            <Badge variant="outline" className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors">
+              Flamengo
+            </Badge>
+            <Badge variant="outline" className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors">
+              Lakers
             </Badge>
           </div>
         </div>
