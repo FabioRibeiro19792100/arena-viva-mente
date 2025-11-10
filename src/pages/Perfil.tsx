@@ -13,11 +13,15 @@ import {
   Flame,
   Award,
   Star,
-  Bell
+  Bell,
+  Shield
 } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useState } from "react";
 
 const Perfil = () => {
   const navigate = useNavigate();
+  const [favoriteTeam, setFavoriteTeam] = useState("Palmeiras");
 
   // Mock data
   const user = {
@@ -64,11 +68,28 @@ const Perfil = () => {
               <p className="text-sm text-muted-foreground">{user.username}</p>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-center gap-2 text-sm">
-                <Star className="h-4 w-4 text-primary" />
-                <span className="text-muted-foreground">Time do coração:</span>
-                <span className="font-semibold">{user.favoriteTeam}</span>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Star className="h-4 w-4 text-primary" />
+                  <span>Time do coração</span>
+                </div>
+                <Select value={favoriteTeam} onValueChange={setFavoriteTeam}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Palmeiras">🟢 Palmeiras</SelectItem>
+                    <SelectItem value="Grêmio">🔵 Grêmio</SelectItem>
+                    <SelectItem value="Flamengo">🔴 Flamengo</SelectItem>
+                    <SelectItem value="Corinthians">⚫ Corinthians</SelectItem>
+                    <SelectItem value="Neutral">⚪ Neutro (sem time)</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Sua escolha aparece como badge nos seus comentários
+                </p>
               </div>
+              
               <div className="flex items-center gap-2 text-sm">
                 <Calendar className="h-4 w-4 text-muted-foreground" />
                 <span className="text-muted-foreground">Membro desde {user.joinDate}</span>

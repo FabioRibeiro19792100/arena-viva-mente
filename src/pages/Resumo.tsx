@@ -102,6 +102,27 @@ const Resumo = () => {
           </Badge>
         </div>
 
+        {/* Sinopse Narrativa */}
+        <Card className="mb-6 bg-gradient-to-br from-card via-card to-primary/5 border-primary/20">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <MessageSquare className="h-5 w-5 text-primary" />
+              Sinopse da Arquibancada
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-base leading-relaxed text-foreground">
+              Uma noite épica no Allianz Parque. O Verdão começou sonolento, mas a torcida manteve a fé. 
+              Aos 23', Rony Rústico silenciou os críticos com um gol de placa - a arquibancada explodiu. 
+              A tensão voltou aos 67' quando o juiz expulsou nosso zagueiro em lance polêmico: palavras de 
+              revolta ecoaram pela timeline. Nos acréscimos, a Fiel segurou a respiração a cada bola levantada, 
+              cada grito de "SEGURA" pedia piedade ao goleiro. No apito final, 2x1. 
+              <strong className="text-primary"> Raça, coração e arquibancada em chamas</strong>. 
+              Um espetáculo dentro e fora de campo.
+            </p>
+          </CardContent>
+        </Card>
+
         <div className="grid md:grid-cols-2 gap-6">
           {/* Humor Dominante */}
           <Card className="bg-gradient-to-br from-primary/20 to-accent/20 border-primary/30">

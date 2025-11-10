@@ -6,7 +6,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { Users, ThumbsUp, ThumbsDown, Send, Shield, AlertTriangle } from "lucide-react";
+import { Users, ThumbsUp, ThumbsDown, Send, Shield, AlertTriangle, Pin, Filter, Crown } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import matchLive from "@/assets/match-live.jpg";
 
 const Arquibancada = () => {
@@ -15,7 +16,12 @@ const Arquibancada = () => {
   const [message, setMessage] = useState("");
   const [cooldown, setCooldown] = useState(0);
   const [isBlocked, setIsBlocked] = useState(false);
+  const [filterTeam, setFilterTeam] = useState<string>("all");
+  const [pinnedUsers, setPinnedUsers] = useState<string[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Mock: identificação da torcida do usuário atual
+  const currentUserTeam = "homeTeam"; // "homeTeam", "awayTeam", "neutral"
 
   // Mock data
   const game = {
@@ -31,11 +37,11 @@ const Arquibancada = () => {
   };
 
   const [messages, setMessages] = useState([
-    { id: 1, user: "Verdão123", text: "GOOOL DO VERDÃO! NUNCA CRITIQUEI!", time: "76'", likes: 23, dislikes: 2 },
-    { id: 2, user: "TorcidaFiel", text: "Esse time tem raça demais!", time: "76'", likes: 15, dislikes: 0 },
-    { id: 3, user: "PalmeirasSempre", text: "ABEL FERREIRA GENIAL", time: "77'", likes: 31, dislikes: 1 },
-    { id: 4, user: "Gremista1903", text: "juiz ladrão, pênalti claro não marcado", time: "77'", likes: 8, dislikes: 12 },
-    { id: 5, user: "NeutralViewer", text: "Que jogaço! Vale cada segundo", time: "78'", likes: 19, dislikes: 0 },
+    { id: 1, user: "Verdão123", text: "GOOOL DO VERDÃO! NUNCA CRITIQUEI!", time: "76'", likes: 23, dislikes: 2, team: "homeTeam" },
+    { id: 2, user: "TorcidaFiel", text: "Esse time tem raça demais!", time: "76'", likes: 15, dislikes: 0, team: "homeTeam" },
+    { id: 3, user: "PalmeirasSempre", text: "ABEL FERREIRA GENIAL", time: "77'", likes: 31, dislikes: 1, team: "homeTeam" },
+    { id: 4, user: "Gremista1903", text: "juiz ladrão, pênalti claro não marcado", time: "77'", likes: 8, dislikes: 12, team: "awayTeam" },
+    { id: 5, user: "NeutralViewer", text: "Que jogaço! Vale cada segundo", time: "78'", likes: 19, dislikes: 0, team: "neutral" },
   ]);
 
   // Auto-scroll para última mensagem
@@ -120,11 +126,34 @@ const Arquibancada = () => {
       time: "Agora",
       likes: 0,
       dislikes: 0,
+      team: currentUserTeam,
     };
     setMessages([...messages, newMessage]);
     setMessage("");
     setCooldown(3); // 3 segundos de cooldown
   };
+
+  const togglePinUser = (username: string) => {
+    toast({
+      title: "🔒 Recurso PRO",
+      description: "Fixar comentários de usuários é exclusivo para assinantes PRO.",
+      variant: "default",
+    });
+  };
+
+  const getTeamBadge = (team: string) => {
+    if (team === "homeTeam") return { text: game.homeTeam, color: "bg-primary/20 text-primary border-primary/30" };
+    if (team === "awayTeam") return { text: game.awayTeam, color: "bg-secondary/20 text-secondary border-secondary/30" };
+    return { text: "Neutro", color: "bg-muted text-muted-foreground border-border" };
+  };
+
+  const filteredMessages = messages.filter(msg => {
+    if (filterTeam === "all") return true;
+    if (filterTeam === "homeTeam") return msg.team === "homeTeam";
+    if (filterTeam === "awayTeam") return msg.team === "awayTeam";
+    if (filterTeam === "neutral") return msg.team === "neutral";
+    return true;
+  });
 
   return (
     <div className="min-h-screen bg-background">
@@ -165,32 +194,76 @@ const Arquibancada = () => {
         {/* Timeline de mensagens */}
         <Card className="flex-1 overflow-hidden">
           <CardContent className="p-4 h-full flex flex-col">
+            {/* Filtros PRO */}
+            <div className="flex gap-2 mb-3 items-center">
+              <div className="flex-1 flex items-center gap-2">
+                <Filter className="h-4 w-4 text-muted-foreground" />
+                <Select value={filterTeam} onValueChange={setFilterTeam}>
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue placeholder="Filtrar torcida" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas as torcidas</SelectItem>
+                    <SelectItem value="homeTeam">{game.homeTeam}</SelectItem>
+                    <SelectItem value="awayTeam">{game.awayTeam}</SelectItem>
+                    <SelectItem value="neutral">Neutros</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <Badge variant="secondary" className="text-xs px-2 py-1 flex items-center gap-1">
+                <Crown className="h-3 w-3" />
+                PRO
+              </Badge>
+            </div>
+
             <div className="flex-1 overflow-y-auto space-y-3 mb-4 scroll-smooth">
-              {messages.map((msg, index) => (
-                <div 
-                  key={msg.id} 
-                  className="p-3 rounded-lg bg-card-hover border border-border animate-fade-in hover:border-primary/30 transition-all"
-                  style={{ animationDelay: `${index * 0.05}s` }}
-                >
-                  <div className="flex items-start justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold text-sm text-primary">{msg.user}</span>
-                      <Badge variant="scheduled" className="text-xs">{msg.time}</Badge>
+              {filteredMessages.map((msg, index) => {
+                const teamBadge = getTeamBadge(msg.team);
+                const isPinned = pinnedUsers.includes(msg.user);
+                
+                return (
+                  <div 
+                    key={msg.id} 
+                    className={`p-3 rounded-lg bg-card-hover border animate-fade-in hover:border-primary/30 transition-all ${
+                      isPinned ? "border-accent/50 shadow-[0_0_12px_hsl(var(--accent)/0.3)]" : "border-border"
+                    }`}
+                    style={{ animationDelay: `${index * 0.05}s` }}
+                  >
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-semibold text-sm text-primary">{msg.user}</span>
+                        <Badge variant="scheduled" className="text-xs">{msg.time}</Badge>
+                        <Badge className={`text-xs ${teamBadge.color}`}>{teamBadge.text}</Badge>
+                        {isPinned && (
+                          <Badge className="text-xs bg-accent/20 text-accent border-accent/30">
+                            <Pin className="h-3 w-3 mr-1" />
+                            Fixado
+                          </Badge>
+                        )}
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0"
+                        onClick={() => togglePinUser(msg.user)}
+                      >
+                        <Pin className={`h-3 w-3 ${isPinned ? "text-accent" : "text-muted-foreground"}`} />
+                      </Button>
+                    </div>
+                    <p className="text-sm mb-2">{msg.text}</p>
+                    <div className="flex gap-4 text-xs text-muted-foreground">
+                      <button className="flex items-center gap-1 hover:text-primary transition-colors">
+                        <ThumbsUp className="h-3 w-3" />
+                        {msg.likes}
+                      </button>
+                      <button className="flex items-center gap-1 hover:text-destructive transition-colors">
+                        <ThumbsDown className="h-3 w-3" />
+                        {msg.dislikes}
+                      </button>
                     </div>
                   </div>
-                  <p className="text-sm mb-2">{msg.text}</p>
-                  <div className="flex gap-4 text-xs text-muted-foreground">
-                    <button className="flex items-center gap-1 hover:text-primary transition-colors">
-                      <ThumbsUp className="h-3 w-3" />
-                      {msg.likes}
-                    </button>
-                    <button className="flex items-center gap-1 hover:text-destructive transition-colors">
-                      <ThumbsDown className="h-3 w-3" />
-                      {msg.dislikes}
-                    </button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
               <div ref={messagesEndRef} />
             </div>
 
