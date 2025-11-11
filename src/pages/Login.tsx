@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PremiumFeatures } from "@/components/PremiumFeatures";
 import { useState } from "react";
 
 const Login = () => {
@@ -13,8 +14,10 @@ const Login = () => {
     <div className="min-h-screen bg-background">
       <Header />
       
-      <div className="container max-w-md py-16 px-4">
-        <Card className="bg-card border-border">
+      <div className="container max-w-5xl py-16 px-4">
+        <div className="grid lg:grid-cols-2 gap-8">
+          {/* Login Card */}
+          <Card className="bg-card border-border h-fit">
           <CardHeader className="space-y-1">
             <CardTitle className="text-2xl font-bold text-center">Entre para a arquibancada</CardTitle>
             <CardDescription className="text-center">
@@ -95,15 +98,28 @@ const Login = () => {
 
             {/* Benefits */}
             <div className="bg-muted rounded-lg p-4 space-y-2 text-sm">
-              <p className="font-semibold text-foreground">Benefícios do login:</p>
+              <p className="font-semibold text-foreground">Com o login você pode:</p>
               <ul className="space-y-1 text-muted-foreground">
                 <li>✓ Reservar assentos antecipadamente</li>
                 <li>✓ Receber alertas de partidas do seu time</li>
                 <li>✓ Salvar e explorar resumos pós-jogo</li>
+                <li>✓ Participar de até 50 interações por jogo</li>
               </ul>
             </div>
           </CardContent>
         </Card>
+
+        {/* Premium Features */}
+        <div className="space-y-4">
+          <div>
+            <h2 className="text-2xl font-bold mb-2">Quer ir além?</h2>
+            <p className="text-muted-foreground">
+              Desbloqueie a experiência completa com o plano Premium
+            </p>
+          </div>
+          <PremiumFeatures />
+        </div>
+      </div>
       </div>
     </div>
   );
