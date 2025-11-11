@@ -1,9 +1,11 @@
 import { Header } from "@/components/Header";
+import { Footer } from "@/components/Footer";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Search, TrendingUp, Calendar } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useState } from "react";
 
 interface ResumoCard {
   id: string;
@@ -19,6 +21,9 @@ interface ResumoCard {
 
 const Galeria = () => {
   const navigate = useNavigate();
+  const [selectedSport, setSelectedSport] = useState<string>("all");
+  const [selectedTournament, setSelectedTournament] = useState<string>("all");
+  const [selectedClub, setSelectedClub] = useState<string>("all");
 
   const getSentimentEmoji = (sentiment: string) => {
     switch (sentiment) {
@@ -180,6 +185,25 @@ const Galeria = () => {
     { label: "Momento mais tenso", value: "Real x Barcelona" },
   ];
 
+  // Filtros
+  const filteredResumos = resumos.filter((resumo) => {
+    const sportMatch = selectedSport === "all" || 
+      (selectedSport === "futebol" && (resumo.league.includes("Brasileirão") || resumo.league.includes("Libertadores") || resumo.league.includes("Champions"))) ||
+      (selectedSport === "basquete" && resumo.league.includes("NBA")) ||
+      (selectedSport === "volei" && resumo.league.includes("Superliga"));
+    
+    const tournamentMatch = selectedTournament === "all" ||
+      (selectedTournament === "brasileirao" && resumo.league.includes("Brasileirão")) ||
+      (selectedTournament === "libertadores" && resumo.league.includes("Libertadores")) ||
+      (selectedTournament === "champions" && resumo.league.includes("Champions"));
+    
+    const clubMatch = selectedClub === "all" ||
+      resumo.homeTeam.includes(selectedClub) ||
+      resumo.awayTeam.includes(selectedClub);
+    
+    return sportMatch && tournamentMatch && clubMatch;
+  });
+
   return (
     <div className="min-h-screen bg-background">
       <Header />
@@ -205,34 +229,105 @@ const Galeria = () => {
             />
           </div>
           
-          <div className="flex flex-wrap gap-2 mt-4">
-            <Badge variant="outline" className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors">
-              ⚽ Futebol
-            </Badge>
-            <Badge variant="outline" className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors">
-              🏀 Basquete
-            </Badge>
-            <Badge variant="outline" className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors">
-              🏐 Vôlei
-            </Badge>
-            <Badge variant="outline" className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors">
-              🇧🇷 Brasileirão
-            </Badge>
-            <Badge variant="outline" className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors">
-              🏆 Libertadores
-            </Badge>
-            <Badge variant="outline" className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors">
-              🌍 Champions League
-            </Badge>
-            <Badge variant="outline" className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors">
-              Palmeiras
-            </Badge>
-            <Badge variant="outline" className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors">
-              Flamengo
-            </Badge>
-            <Badge variant="outline" className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors">
-              Lakers
-            </Badge>
+          <div className="space-y-3 mt-4">
+            {/* Esportes */}
+            <div className="flex flex-wrap gap-2">
+              <span className="text-xs text-muted-foreground font-semibold mr-2">Esportes:</span>
+              <Badge 
+                variant={selectedSport === "all" ? "default" : "outline"}
+                className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors"
+                onClick={() => setSelectedSport("all")}
+              >
+                Todos
+              </Badge>
+              <Badge 
+                variant={selectedSport === "futebol" ? "default" : "outline"}
+                className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors"
+                onClick={() => setSelectedSport("futebol")}
+              >
+                ⚽ Futebol
+              </Badge>
+              <Badge 
+                variant={selectedSport === "basquete" ? "default" : "outline"}
+                className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors"
+                onClick={() => setSelectedSport("basquete")}
+              >
+                🏀 Basquete
+              </Badge>
+              <Badge 
+                variant={selectedSport === "volei" ? "default" : "outline"}
+                className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors"
+                onClick={() => setSelectedSport("volei")}
+              >
+                🏐 Vôlei
+              </Badge>
+            </div>
+
+            {/* Torneios */}
+            <div className="flex flex-wrap gap-2">
+              <span className="text-xs text-muted-foreground font-semibold mr-2">Torneios:</span>
+              <Badge 
+                variant={selectedTournament === "all" ? "default" : "outline"}
+                className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors"
+                onClick={() => setSelectedTournament("all")}
+              >
+                Todos
+              </Badge>
+              <Badge 
+                variant={selectedTournament === "brasileirao" ? "default" : "outline"}
+                className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors"
+                onClick={() => setSelectedTournament("brasileirao")}
+              >
+                🇧🇷 Brasileirão
+              </Badge>
+              <Badge 
+                variant={selectedTournament === "libertadores" ? "default" : "outline"}
+                className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors"
+                onClick={() => setSelectedTournament("libertadores")}
+              >
+                🏆 Libertadores
+              </Badge>
+              <Badge 
+                variant={selectedTournament === "champions" ? "default" : "outline"}
+                className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors"
+                onClick={() => setSelectedTournament("champions")}
+              >
+                🌍 Champions League
+              </Badge>
+            </div>
+
+            {/* Clubes */}
+            <div className="flex flex-wrap gap-2">
+              <span className="text-xs text-muted-foreground font-semibold mr-2">Clubes:</span>
+              <Badge 
+                variant={selectedClub === "all" ? "default" : "outline"}
+                className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors"
+                onClick={() => setSelectedClub("all")}
+              >
+                Todos
+              </Badge>
+              <Badge 
+                variant={selectedClub === "Palmeiras" ? "default" : "outline"}
+                className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors"
+                onClick={() => setSelectedClub("Palmeiras")}
+              >
+                Palmeiras
+              </Badge>
+              <Badge 
+                variant={selectedClub === "Flamengo" ? "default" : "outline"}
+                className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors"
+                onClick={() => setSelectedClub("Flamengo")}
+              >
+                Flamengo
+              </Badge>
+              <Badge 
+                variant={selectedClub === "Lakers" ? "default" : "outline"}
+                className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors"
+                onClick={() => setSelectedClub("Lakers")}
+              >
+                Lakers
+              </Badge>
+            </div>
           </div>
         </div>
 
@@ -253,8 +348,11 @@ const Galeria = () => {
         </Card>
 
         {/* Resumos Grid */}
+        <div className="mb-4 text-sm text-muted-foreground">
+          Mostrando {filteredResumos.length} de {resumos.length} resumos
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {resumos.map((resumo) => (
+          {filteredResumos.map((resumo) => (
             <Card 
               key={resumo.id} 
               className="bg-card border-border overflow-hidden hover:shadow-[0_8px_32px_hsl(var(--card-foreground)/0.2)] transition-all duration-300 hover:scale-[1.02] cursor-pointer"
@@ -289,6 +387,7 @@ const Galeria = () => {
           ))}
         </div>
       </div>
+      <Footer />
     </div>
   );
 };

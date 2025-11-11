@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams } from "react-router-dom";
 import { Header } from "@/components/Header";
+import { InviteFriends } from "@/components/InviteFriends";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -202,7 +203,7 @@ const Arquibancada = () => {
               </div>
             </div>
             
-          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-4">
             <div className="flex items-center gap-2 text-muted-foreground">
               <Users className="h-4 w-4" />
               <span>{game.viewers.toLocaleString()} / {game.maxSeats.toLocaleString()} torcedores</span>
@@ -211,6 +212,11 @@ const Arquibancada = () => {
               <Shield className="h-4 w-4 text-accent animate-pulse" />
               <span className="text-accent font-medium">🧠 IA moderando</span>
             </div>
+            <InviteFriends 
+              gameId={id || "1"}
+              homeTeam={game.homeTeam}
+              awayTeam={game.awayTeam}
+            />
           </div>
 
             {/* Patrocínio */}
