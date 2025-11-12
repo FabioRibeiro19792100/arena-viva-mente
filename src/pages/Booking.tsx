@@ -5,7 +5,8 @@ import { Footer } from "@/components/Footer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Users, Clock, AlertCircle } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Users, Clock, AlertCircle, CheckCircle2, PartyPopper } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import matchLive from "@/assets/match-live.jpg";
 
@@ -29,6 +30,7 @@ const Booking = () => {
 
   const [countdown, setCountdown] = useState(4320); // 72 minutos em segundos
   const [isBooking, setIsBooking] = useState(false);
+  const [showSuccessDialog, setShowSuccessDialog] = useState(false);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -60,15 +62,13 @@ const Booking = () => {
     // Simula reserva
     setTimeout(() => {
       setIsBooking(false);
-      toast({
-        title: "🎉 Assento reservado!",
-        description: `Seu lugar na arquibancada de ${game.homeTeam} x ${game.awayTeam} está garantido.`,
-      });
-      
-      setTimeout(() => {
-        navigate(`/arquibancada/${id}`);
-      }, 1500);
+      setShowSuccessDialog(true);
     }, 1500);
+  };
+
+  const handleContinueToArquibancada = () => {
+    setShowSuccessDialog(false);
+    navigate(`/arquibancada/${id}`);
   };
 
   return (
@@ -184,6 +184,58 @@ const Booking = () => {
           </div>
         </div>
       </div>
+
+      {/* Success Dialog */}
+      <Dialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <div className="flex justify-center mb-4">
+              <div className="relative">
+                <CheckCircle2 className="h-16 w-16 text-primary" />
+                <PartyPopper className="h-8 w-8 text-accent absolute -top-2 -right-2 animate-bounce" />
+              </div>
+            </div>
+            <DialogTitle className="text-2xl text-center">
+              Assento Reservado!
+            </DialogTitle>
+            <DialogDescription className="text-center pt-2">
+              Seu lugar na arquibancada está garantido
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <Card className="bg-gradient-to-br from-primary/10 to-accent/10 border-primary/20">
+              <CardContent className="p-4 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Jogo</span>
+                  <span className="font-semibold">{game.homeTeam} x {game.awayTeam}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Horário</span>
+                  <span className="font-semibold">{game.date} às {game.startTime}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Competição</span>
+                  <span className="font-semibold">{game.league}</span>
+                </div>
+              </CardContent>
+            </Card>
+
+            <div className="bg-accent/10 border border-accent/20 rounded-lg p-4 text-center">
+              <p className="text-sm font-medium text-foreground mb-1">
+                Próximo passo: Escolher seu time
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Ao entrar, você poderá escolher torcer pelo time da casa, visitante ou ser neutro
+              </p>
+            </div>
+
+            <Button onClick={handleContinueToArquibancada} className="w-full" size="lg">
+              Entrar na Arquibancada
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <Footer />
     </div>
   );
