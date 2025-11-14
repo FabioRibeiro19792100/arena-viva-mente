@@ -17,6 +17,8 @@ interface GameCardProps {
   startTime?: string;
   homeTeamLogo: string;
   awayTeamLogo: string;
+  homeFansPercentage: number;
+  awayFansPercentage: number;
 }
 
 export const GameCard = ({
@@ -32,6 +34,8 @@ export const GameCard = ({
   startTime,
   homeTeamLogo,
   awayTeamLogo,
+  homeFansPercentage,
+  awayFansPercentage,
 }: GameCardProps) => {
   const navigate = useNavigate();
 
@@ -128,6 +132,24 @@ export const GameCard = ({
         </div>
       </div>
       <CardContent className="p-4 space-y-3">
+        <div className="space-y-2">
+          <div className="flex items-center justify-between text-xs font-semibold">
+            <span className="text-primary">{homeFansPercentage}%</span>
+            <span className="text-muted-foreground">Torcidas presentes</span>
+            <span className="text-accent">{awayFansPercentage}%</span>
+          </div>
+          <div className="h-2 w-full bg-muted rounded-full overflow-hidden flex">
+            <div 
+              className="bg-primary h-full transition-all duration-500 ease-out"
+              style={{ width: `${homeFansPercentage}%` }}
+            />
+            <div 
+              className="bg-accent h-full transition-all duration-500 ease-out"
+              style={{ width: `${awayFansPercentage}%` }}
+            />
+          </div>
+        </div>
+        
         <div className="flex items-center justify-between text-sm">
           <div className="flex items-center gap-2 text-muted-foreground">
             <Users className="h-4 w-4" />
