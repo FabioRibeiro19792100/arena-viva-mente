@@ -15,7 +15,8 @@ interface GameCardProps {
   seatsRemaining?: number;
   maxSeats: number;
   startTime?: string;
-  image: string;
+  homeTeamLogo: string;
+  awayTeamLogo: string;
 }
 
 export const GameCard = ({
@@ -29,7 +30,8 @@ export const GameCard = ({
   seatsRemaining,
   maxSeats,
   startTime,
-  image,
+  homeTeamLogo,
+  awayTeamLogo,
 }: GameCardProps) => {
   const navigate = useNavigate();
 
@@ -95,12 +97,24 @@ export const GameCard = ({
 
   return (
     <Card className="overflow-hidden hover:shadow-[0_8px_32px_hsl(var(--card-foreground)/0.2)] transition-all duration-300 hover:scale-[1.02] bg-card border-border">
-      <div className="relative h-48 overflow-hidden">
-        <img
-          src={image}
-          alt={`${homeTeam} vs ${awayTeam}`}
-          className="w-full h-full object-cover"
-        />
+      <div className="relative h-48 overflow-hidden bg-gradient-to-br from-muted/50 to-background">
+        <div className="absolute inset-0 flex items-center justify-center gap-8 p-8">
+          <div className="flex-1 flex justify-end">
+            <img
+              src={homeTeamLogo}
+              alt={homeTeam}
+              className="w-24 h-24 object-contain drop-shadow-lg"
+            />
+          </div>
+          <div className="text-3xl font-bold text-muted-foreground">VS</div>
+          <div className="flex-1 flex justify-start">
+            <img
+              src={awayTeamLogo}
+              alt={awayTeam}
+              className="w-24 h-24 object-contain drop-shadow-lg"
+            />
+          </div>
+        </div>
         <div className="absolute top-3 right-3">
           {getStatusBadge()}
         </div>

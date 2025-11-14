@@ -2,8 +2,6 @@ import { Header } from "@/components/Header";
 import { GameCard } from "@/components/GameCard";
 import { Footer } from "@/components/Footer";
 import heroImage from "@/assets/hero-stadium.jpg";
-import matchLive from "@/assets/match-live.jpg";
-import matchBasketball from "@/assets/match-basketball.jpg";
 
 const Index = () => {
   // Mock data - will be replaced with real API data
@@ -18,7 +16,8 @@ const Index = () => {
       status: "live" as const,
       seatsRemaining: 247,
       maxSeats: 3000,
-      image: matchLive,
+      homeTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/1/15/Palmeiras_logo.svg",
+      awayTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/f/f7/Gremio.svg",
     },
     {
       id: "2",
@@ -30,7 +29,8 @@ const Index = () => {
       status: "almost-full" as const,
       seatsRemaining: 83,
       maxSeats: 3000,
-      image: matchBasketball,
+      homeTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/3/3c/Los_Angeles_Lakers_logo.svg",
+      awayTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/8/8f/Boston_Celtics.svg",
     },
     {
       id: "3",
@@ -42,7 +42,8 @@ const Index = () => {
       status: "live" as const,
       seatsRemaining: 892,
       maxSeats: 3000,
-      image: matchLive,
+      homeTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/9/93/Flamengo-RJ_%28BRA%29.png",
+      awayTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/3/32/Santos_logo.svg",
     },
     {
       id: "4",
@@ -54,7 +55,8 @@ const Index = () => {
       status: "live" as const,
       seatsRemaining: 1234,
       maxSeats: 3000,
-      image: matchLive,
+      homeTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/4/43/Vasco_da_Gama_Logo.svg",
+      awayTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/5/52/Botafogo_de_Futebol_e_Regatas_logo.svg",
     },
     {
       id: "live5",
@@ -66,7 +68,8 @@ const Index = () => {
       status: "live" as const,
       seatsRemaining: 456,
       maxSeats: 3000,
-      image: matchLive,
+      homeTeamLogo: "https://upload.wikimedia.org/wikipedia/en/5/56/Real_Madrid_CF.svg",
+      awayTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/1/1b/FC_Bayern_München_logo_%282017%29.svg",
     },
     {
       id: "live6",
@@ -78,7 +81,8 @@ const Index = () => {
       status: "live" as const,
       seatsRemaining: 1890,
       maxSeats: 3000,
-      image: matchBasketball,
+      homeTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/thumb/4/4d/Sesi_logo.svg/800px-Sesi_logo.svg.png",
+      awayTeamLogo: "https://static.wixstatic.com/media/4c0d33_3d3f3e0b8b8d4c3c8f3f3e0b8b8d4c3c~mv2.png",
     },
     {
       id: "live7",
@@ -90,7 +94,8 @@ const Index = () => {
       status: "almost-full" as const,
       seatsRemaining: 145,
       maxSeats: 3000,
-      image: matchBasketball,
+      homeTeamLogo: "https://upload.wikimedia.org/wikipedia/en/0/01/Golden_State_Warriors_logo.svg",
+      awayTeamLogo: "https://upload.wikimedia.org/wikipedia/en/f/fb/Miami_Heat_logo.svg",
     },
     {
       id: "live8",
@@ -102,7 +107,8 @@ const Index = () => {
       status: "live" as const,
       seatsRemaining: 678,
       maxSeats: 3000,
-      image: matchLive,
+      homeTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/5/5f/Atletico_mineiro_galo.png",
+      awayTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/a/ac/Escudo_del_Club_Atlético_River_Plate.svg",
     },
     {
       id: "live9",
@@ -114,7 +120,8 @@ const Index = () => {
       status: "live" as const,
       seatsRemaining: 2123,
       maxSeats: 3000,
-      image: matchLive,
+      homeTeamLogo: "https://upload.wikimedia.org/wikipedia/en/5/5a/SC_Corinthians_Paulista.svg",
+      awayTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/4/40/FortalezaEsporteClube.svg",
     },
     {
       id: "live10",
@@ -126,7 +133,8 @@ const Index = () => {
       status: "almost-full" as const,
       seatsRemaining: 67,
       maxSeats: 3000,
-      image: matchLive,
+      homeTeamLogo: "https://upload.wikimedia.org/wikipedia/en/a/a7/Paris_Saint-Germain_F.C..svg",
+      awayTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/a/a8/Juventus_FC_-_pictogram_black_%28Italy%2C_2017%29.svg",
     },
   ];
 
@@ -140,7 +148,8 @@ const Index = () => {
       seatsRemaining: 2234,
       maxSeats: 3000,
       startTime: "19:30",
-      image: matchLive,
+      homeTeamLogo: "https://upload.wikimedia.org/wikipedia/en/5/5a/SC_Corinthians_Paulista.svg",
+      awayTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/6/6f/Brasão_do_São_Paulo_Futebol_Clube.svg",
     },
     {
       id: "6",
@@ -151,7 +160,8 @@ const Index = () => {
       seatsRemaining: 1540,
       maxSeats: 3000,
       startTime: "16:00",
-      image: matchLive,
+      homeTeamLogo: "https://upload.wikimedia.org/wikipedia/en/5/56/Real_Madrid_CF.svg",
+      awayTeamLogo: "https://upload.wikimedia.org/wikipedia/en/4/47/FC_Barcelona_%28crest%29.svg",
     },
     {
       id: "7",
@@ -162,7 +172,8 @@ const Index = () => {
       seatsRemaining: 1990,
       maxSeats: 3000,
       startTime: "20:00",
-      image: matchBasketball,
+      homeTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/thumb/4/4d/Sesi_logo.svg/800px-Sesi_logo.svg.png",
+      awayTeamLogo: "https://static.wixstatic.com/media/4c0d33_3d3f3e0b8b8d4c3c8f3f3e0b8b8d4c3c~mv2.png",
     },
     {
       id: "8",
@@ -173,7 +184,8 @@ const Index = () => {
       seatsRemaining: 456,
       maxSeats: 3000,
       startTime: "21:00",
-      image: matchLive,
+      homeTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/5/5f/Atletico_mineiro_galo.png",
+      awayTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/9/90/Cruzeiro_Esporte_Clube_%28logo%29.svg",
     },
     {
       id: "9",
@@ -184,7 +196,8 @@ const Index = () => {
       seatsRemaining: 2801,
       maxSeats: 3000,
       startTime: "22:30",
-      image: matchBasketball,
+      homeTeamLogo: "https://upload.wikimedia.org/wikipedia/en/0/01/Golden_State_Warriors_logo.svg",
+      awayTeamLogo: "https://upload.wikimedia.org/wikipedia/en/4/4a/Milwaukee_Bucks_logo.svg",
     },
     {
       id: "10",
@@ -195,7 +208,8 @@ const Index = () => {
       seatsRemaining: 743,
       maxSeats: 3000,
       startTime: "19:00",
-      image: matchLive,
+      homeTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/f/f1/Escudo_do_Sport_Club_Internacional.svg",
+      awayTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/a/ad/Fluminense_FC_escudo.svg",
     },
     {
       id: "11",
@@ -206,7 +220,8 @@ const Index = () => {
       seatsRemaining: 234,
       maxSeats: 3000,
       startTime: "21:30",
-      image: matchLive,
+      homeTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/f/f3/Boca_Juniors_logo.svg",
+      awayTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/1/15/Palmeiras_logo.svg",
     },
     {
       id: "12",
@@ -217,7 +232,8 @@ const Index = () => {
       seatsRemaining: 1678,
       maxSeats: 3000,
       startTime: "16:45",
-      image: matchLive,
+      homeTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/d/d0/Logo_of_AC_Milan.svg",
+      awayTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/0/05/FC_Internazionale_Milano_2021.svg",
     },
     {
       id: "13",
@@ -228,7 +244,8 @@ const Index = () => {
       seatsRemaining: 2456,
       maxSeats: 3000,
       startTime: "23:00",
-      image: matchBasketball,
+      homeTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/4/44/Brooklyn_Nets_newlogo.svg",
+      awayTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/3/3c/Los_Angeles_Lakers_logo.svg",
     },
     {
       id: "14",
@@ -239,7 +256,8 @@ const Index = () => {
       seatsRemaining: 1834,
       maxSeats: 3000,
       startTime: "20:30",
-      image: matchBasketball,
+      homeTeamLogo: "https://static.wixstatic.com/media/4c0d33_3d3f3e0b8b8d4c3c8f3f3e0b8b8d4c3c~mv2.png",
+      awayTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/thumb/4/4d/Sesi_logo.svg/800px-Sesi_logo.svg.png",
     },
     {
       id: "15",
@@ -250,7 +268,8 @@ const Index = () => {
       seatsRemaining: 2567,
       maxSeats: 3000,
       startTime: "18:00",
-      image: matchLive,
+      homeTeamLogo: "https://upload.wikimedia.org/wikipedia/en/4/43/EC_Bahia_logo.svg",
+      awayTeamLogo: "https://upload.wikimedia.org/wikipedia/en/5/53/Atletico_Paranaense.svg",
     },
     {
       id: "16",
@@ -261,7 +280,8 @@ const Index = () => {
       seatsRemaining: 890,
       maxSeats: 3000,
       startTime: "17:00",
-      image: matchLive,
+      homeTeamLogo: "https://upload.wikimedia.org/wikipedia/en/5/53/Arsenal_FC.svg",
+      awayTeamLogo: "https://upload.wikimedia.org/wikipedia/en/c/cc/Chelsea_FC.svg",
     },
     {
       id: "17",
@@ -272,7 +292,8 @@ const Index = () => {
       seatsRemaining: 2134,
       maxSeats: 3000,
       startTime: "22:00",
-      image: matchBasketball,
+      homeTeamLogo: "https://upload.wikimedia.org/wikipedia/en/0/0e/Philadelphia_76ers_logo.svg",
+      awayTeamLogo: "https://upload.wikimedia.org/wikipedia/en/2/25/New_York_Knicks_logo.svg",
     },
     {
       id: "18",
@@ -283,7 +304,8 @@ const Index = () => {
       seatsRemaining: 1923,
       maxSeats: 3000,
       startTime: "19:00",
-      image: matchLive,
+      homeTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/3/32/Santos_logo.svg",
+      awayTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/9/95/ECVitoria.svg",
     },
     {
       id: "19",
@@ -294,7 +316,8 @@ const Index = () => {
       seatsRemaining: 1456,
       maxSeats: 3000,
       startTime: "20:00",
-      image: matchLive,
+      homeTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/8/88/Escudo_del_Club_Nacional_de_Football.svg",
+      awayTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/e/e4/Escudo_del_Club_Atlético_Peñarol.svg",
     },
     {
       id: "20",
@@ -305,7 +328,8 @@ const Index = () => {
       seatsRemaining: 123,
       maxSeats: 3000,
       startTime: "17:30",
-      image: matchLive,
+      homeTeamLogo: "https://upload.wikimedia.org/wikipedia/en/e/eb/Manchester_City_FC_badge.svg",
+      awayTeamLogo: "https://upload.wikimedia.org/wikipedia/en/0/0c/Liverpool_FC.svg",
     },
     {
       id: "21",
@@ -316,7 +340,8 @@ const Index = () => {
       seatsRemaining: 2678,
       maxSeats: 3000,
       startTime: "23:30",
-      image: matchBasketball,
+      homeTeamLogo: "https://upload.wikimedia.org/wikipedia/en/d/dc/Phoenix_Suns_logo.svg",
+      awayTeamLogo: "https://upload.wikimedia.org/wikipedia/en/9/97/Dallas_Mavericks_logo.svg",
     },
     {
       id: "22",
@@ -327,7 +352,8 @@ const Index = () => {
       seatsRemaining: 2234,
       maxSeats: 3000,
       startTime: "19:30",
-      image: matchBasketball,
+      homeTeamLogo: "https://static.wixstatic.com/media/4c0d33_3d3f3e0b8b8d4c3c8f3f3e0b8b8d4c3c~mv2.png",
+      awayTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/thumb/4/4d/Sesi_logo.svg/800px-Sesi_logo.svg.png",
     },
     {
       id: "23",
@@ -338,7 +364,8 @@ const Index = () => {
       seatsRemaining: 2890,
       maxSeats: 3000,
       startTime: "16:30",
-      image: matchLive,
+      homeTeamLogo: "https://upload.wikimedia.org/wikipedia/en/9/9e/Red_Bull_Bragantino_logo.svg",
+      awayTeamLogo: "https://upload.wikimedia.org/wikipedia/en/b/bf/Cuiabá_Esporte_Clube_logo.svg",
     },
     {
       id: "24",
@@ -349,7 +376,8 @@ const Index = () => {
       seatsRemaining: 1567,
       maxSeats: 3000,
       startTime: "21:00",
-      image: matchLive,
+      homeTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/b/ba/Estudiantes_de_La_Plata_logo.svg",
+      awayTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/8/83/CCP1912.png",
     },
   ];
 
