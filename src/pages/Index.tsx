@@ -18,8 +18,9 @@ const Index = () => {
       maxSeats: 3000,
       homeTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/1/15/Palmeiras_logo.svg",
       awayTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/f/f7/Gremio.svg",
-      homeFansPercentage: 65,
-      awayFansPercentage: 35,
+      homeFansPercentage: 58,
+      neutralFansPercentage: 12,
+      awayFansPercentage: 30,
     },
     {
       id: "2",
@@ -33,8 +34,9 @@ const Index = () => {
       maxSeats: 3000,
       homeTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/3/3c/Los_Angeles_Lakers_logo.svg",
       awayTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/8/8f/Boston_Celtics.svg",
-      homeFansPercentage: 48,
-      awayFansPercentage: 52,
+      homeFansPercentage: 45,
+      neutralFansPercentage: 10,
+      awayFansPercentage: 45,
     },
     {
       id: "3",
@@ -48,8 +50,9 @@ const Index = () => {
       maxSeats: 3000,
       homeTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/9/93/Flamengo-RJ_%28BRA%29.png",
       awayTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/3/32/Santos_logo.svg",
-      homeFansPercentage: 78,
-      awayFansPercentage: 22,
+      homeFansPercentage: 70,
+      neutralFansPercentage: 15,
+      awayFansPercentage: 15,
     },
     {
       id: "4",
@@ -63,8 +66,9 @@ const Index = () => {
       maxSeats: 3000,
       homeTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/4/43/Vasco_da_Gama_Logo.svg",
       awayTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/5/52/Botafogo_de_Futebol_e_Regatas_logo.svg",
-      homeFansPercentage: 51,
-      awayFansPercentage: 49,
+      homeFansPercentage: 48,
+      neutralFansPercentage: 8,
+      awayFansPercentage: 44,
     },
     {
       id: "live5",
@@ -78,8 +82,9 @@ const Index = () => {
       maxSeats: 3000,
       homeTeamLogo: "https://upload.wikimedia.org/wikipedia/en/5/56/Real_Madrid_CF.svg",
       awayTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/1/1b/FC_Bayern_München_logo_%282017%29.svg",
-      homeFansPercentage: 60,
-      awayFansPercentage: 40,
+      homeFansPercentage: 52,
+      neutralFansPercentage: 18,
+      awayFansPercentage: 30,
     },
     {
       id: "live6",
@@ -93,8 +98,9 @@ const Index = () => {
       maxSeats: 3000,
       homeTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/thumb/4/4d/Sesi_logo.svg/800px-Sesi_logo.svg.png",
       awayTeamLogo: "https://static.wixstatic.com/media/4c0d33_3d3f3e0b8b8d4c3c8f3f3e0b8b8d4c3c~mv2.png",
-      homeFansPercentage: 72,
-      awayFansPercentage: 28,
+      homeFansPercentage: 65,
+      neutralFansPercentage: 14,
+      awayFansPercentage: 21,
     },
     {
       id: "live7",
@@ -108,8 +114,9 @@ const Index = () => {
       maxSeats: 3000,
       homeTeamLogo: "https://upload.wikimedia.org/wikipedia/en/0/01/Golden_State_Warriors_logo.svg",
       awayTeamLogo: "https://upload.wikimedia.org/wikipedia/en/f/fb/Miami_Heat_logo.svg",
-      homeFansPercentage: 69,
-      awayFansPercentage: 31,
+      homeFansPercentage: 61,
+      neutralFansPercentage: 16,
+      awayFansPercentage: 23,
     },
     {
       id: "live8",
@@ -123,8 +130,9 @@ const Index = () => {
       maxSeats: 3000,
       homeTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/5/5f/Atletico_mineiro_galo.png",
       awayTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/a/ac/Escudo_del_Club_Atlético_River_Plate.svg",
-      homeFansPercentage: 83,
-      awayFansPercentage: 17,
+      homeFansPercentage: 73,
+      neutralFansPercentage: 13,
+      awayFansPercentage: 14,
     },
     {
       id: "live9",
@@ -138,8 +146,9 @@ const Index = () => {
       maxSeats: 3000,
       homeTeamLogo: "https://upload.wikimedia.org/wikipedia/en/5/5a/SC_Corinthians_Paulista.svg",
       awayTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/4/40/FortalezaEsporteClube.svg",
-      homeFansPercentage: 54,
-      awayFansPercentage: 46,
+      homeFansPercentage: 48,
+      neutralFansPercentage: 11,
+      awayFansPercentage: 41,
     },
     {
       id: "live10",
@@ -153,8 +162,9 @@ const Index = () => {
       maxSeats: 3000,
       homeTeamLogo: "https://upload.wikimedia.org/wikipedia/en/a/a7/Paris_Saint-Germain_F.C..svg",
       awayTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/a/a8/Juventus_FC_-_pictogram_black_%28Italy%2C_2017%29.svg",
-      homeFansPercentage: 71,
-      awayFansPercentage: 29,
+      homeFansPercentage: 62,
+      neutralFansPercentage: 17,
+      awayFansPercentage: 21,
     },
   ];
 
@@ -170,8 +180,9 @@ const Index = () => {
       startTime: "19:30",
       homeTeamLogo: "https://upload.wikimedia.org/wikipedia/en/5/5a/SC_Corinthians_Paulista.svg",
       awayTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/6/6f/Brasão_do_São_Paulo_Futebol_Clube.svg",
-      homeFansPercentage: 58,
-      awayFansPercentage: 42,
+      homeFansPercentage: 51,
+      neutralFansPercentage: 12,
+      awayFansPercentage: 37,
     },
     {
       id: "6",
@@ -184,8 +195,9 @@ const Index = () => {
       startTime: "16:00",
       homeTeamLogo: "https://upload.wikimedia.org/wikipedia/en/5/56/Real_Madrid_CF.svg",
       awayTeamLogo: "https://upload.wikimedia.org/wikipedia/en/4/47/FC_Barcelona_%28crest%29.svg",
-      homeFansPercentage: 52,
-      awayFansPercentage: 48,
+      homeFansPercentage: 47,
+      neutralFansPercentage: 9,
+      awayFansPercentage: 44,
     },
     {
       id: "7",
@@ -198,8 +210,9 @@ const Index = () => {
       startTime: "20:00",
       homeTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/thumb/4/4d/Sesi_logo.svg/800px-Sesi_logo.svg.png",
       awayTeamLogo: "https://static.wixstatic.com/media/4c0d33_3d3f3e0b8b8d4c3c8f3f3e0b8b8d4c3c~mv2.png",
-      homeFansPercentage: 67,
-      awayFansPercentage: 33,
+      homeFansPercentage: 57,
+      neutralFansPercentage: 20,
+      awayFansPercentage: 23,
     },
     {
       id: "8",
@@ -212,8 +225,9 @@ const Index = () => {
       startTime: "21:00",
       homeTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/5/5f/Atletico_mineiro_galo.png",
       awayTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/9/90/Cruzeiro_Esporte_Clube_%28logo%29.svg",
-      homeFansPercentage: 74,
-      awayFansPercentage: 26,
+      homeFansPercentage: 66,
+      neutralFansPercentage: 11,
+      awayFansPercentage: 23,
     },
     {
       id: "9",
@@ -226,8 +240,9 @@ const Index = () => {
       startTime: "22:30",
       homeTeamLogo: "https://upload.wikimedia.org/wikipedia/en/0/01/Golden_State_Warriors_logo.svg",
       awayTeamLogo: "https://upload.wikimedia.org/wikipedia/en/4/4a/Milwaukee_Bucks_logo.svg",
-      homeFansPercentage: 63,
-      awayFansPercentage: 37,
+      homeFansPercentage: 55,
+      neutralFansPercentage: 16,
+      awayFansPercentage: 29,
     },
     {
       id: "10",
@@ -240,8 +255,9 @@ const Index = () => {
       startTime: "19:00",
       homeTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/f/f1/Escudo_do_Sport_Club_Internacional.svg",
       awayTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/a/ad/Fluminense_FC_escudo.svg",
-      homeFansPercentage: 69,
-      awayFansPercentage: 31,
+      homeFansPercentage: 60,
+      neutralFansPercentage: 15,
+      awayFansPercentage: 25,
     },
     {
       id: "11",
@@ -254,8 +270,9 @@ const Index = () => {
       startTime: "21:30",
       homeTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/f/f3/Boca_Juniors_logo.svg",
       awayTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/1/15/Palmeiras_logo.svg",
-      homeFansPercentage: 80,
-      awayFansPercentage: 20,
+      homeFansPercentage: 70,
+      neutralFansPercentage: 9,
+      awayFansPercentage: 21,
     },
     {
       id: "12",
@@ -268,8 +285,9 @@ const Index = () => {
       startTime: "16:45",
       homeTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/d/d0/Logo_of_AC_Milan.svg",
       awayTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/0/05/FC_Internazionale_Milano_2021.svg",
-      homeFansPercentage: 50,
-      awayFansPercentage: 50,
+      homeFansPercentage: 45,
+      neutralFansPercentage: 12,
+      awayFansPercentage: 43,
     },
     {
       id: "13",
@@ -282,8 +300,9 @@ const Index = () => {
       startTime: "23:00",
       homeTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/4/44/Brooklyn_Nets_newlogo.svg",
       awayTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/3/3c/Los_Angeles_Lakers_logo.svg",
-      homeFansPercentage: 44,
-      awayFansPercentage: 56,
+      homeFansPercentage: 40,
+      neutralFansPercentage: 13,
+      awayFansPercentage: 47,
     },
     {
       id: "14",
@@ -296,8 +315,9 @@ const Index = () => {
       startTime: "20:30",
       homeTeamLogo: "https://static.wixstatic.com/media/4c0d33_3d3f3e0b8b8d4c3c8f3f3e0b8b8d4c3c~mv2.png",
       awayTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/thumb/4/4d/Sesi_logo.svg/800px-Sesi_logo.svg.png",
-      homeFansPercentage: 61,
-      awayFansPercentage: 39,
+      homeFansPercentage: 53,
+      neutralFansPercentage: 18,
+      awayFansPercentage: 29,
     },
     {
       id: "15",
@@ -310,8 +330,9 @@ const Index = () => {
       startTime: "18:00",
       homeTeamLogo: "https://upload.wikimedia.org/wikipedia/en/4/43/EC_Bahia_logo.svg",
       awayTeamLogo: "https://upload.wikimedia.org/wikipedia/en/5/53/Atletico_Paranaense.svg",
-      homeFansPercentage: 76,
-      awayFansPercentage: 24,
+      homeFansPercentage: 65,
+      neutralFansPercentage: 17,
+      awayFansPercentage: 18,
     },
     {
       id: "16",
@@ -324,8 +345,9 @@ const Index = () => {
       startTime: "17:00",
       homeTeamLogo: "https://upload.wikimedia.org/wikipedia/en/5/53/Arsenal_FC.svg",
       awayTeamLogo: "https://upload.wikimedia.org/wikipedia/en/c/cc/Chelsea_FC.svg",
-      homeFansPercentage: 55,
-      awayFansPercentage: 45,
+      homeFansPercentage: 48,
+      neutralFansPercentage: 14,
+      awayFansPercentage: 38,
     },
     {
       id: "17",
@@ -338,8 +360,9 @@ const Index = () => {
       startTime: "22:00",
       homeTeamLogo: "https://upload.wikimedia.org/wikipedia/en/0/0e/Philadelphia_76ers_logo.svg",
       awayTeamLogo: "https://upload.wikimedia.org/wikipedia/en/2/25/New_York_Knicks_logo.svg",
-      homeFansPercentage: 47,
-      awayFansPercentage: 53,
+      homeFansPercentage: 42,
+      neutralFansPercentage: 11,
+      awayFansPercentage: 47,
     },
     {
       id: "18",
@@ -352,7 +375,8 @@ const Index = () => {
       startTime: "19:00",
       homeTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/3/32/Santos_logo.svg",
       awayTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/9/95/ECVitoria.svg",
-      homeFansPercentage: 82,
+      homeFansPercentage: 72,
+      neutralFansPercentage: 10,
       awayFansPercentage: 18,
     },
     {
@@ -366,8 +390,9 @@ const Index = () => {
       startTime: "20:00",
       homeTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/8/88/Escudo_del_Club_Nacional_de_Football.svg",
       awayTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/e/e4/Escudo_del_Club_Atlético_Peñarol.svg",
-      homeFansPercentage: 51,
-      awayFansPercentage: 49,
+      homeFansPercentage: 46,
+      neutralFansPercentage: 9,
+      awayFansPercentage: 45,
     },
     {
       id: "20",
@@ -380,8 +405,9 @@ const Index = () => {
       startTime: "17:30",
       homeTeamLogo: "https://upload.wikimedia.org/wikipedia/en/e/eb/Manchester_City_FC_badge.svg",
       awayTeamLogo: "https://upload.wikimedia.org/wikipedia/en/0/0c/Liverpool_FC.svg",
-      homeFansPercentage: 46,
-      awayFansPercentage: 54,
+      homeFansPercentage: 42,
+      neutralFansPercentage: 13,
+      awayFansPercentage: 45,
     },
     {
       id: "21",
@@ -394,8 +420,9 @@ const Index = () => {
       startTime: "23:30",
       homeTeamLogo: "https://upload.wikimedia.org/wikipedia/en/d/dc/Phoenix_Suns_logo.svg",
       awayTeamLogo: "https://upload.wikimedia.org/wikipedia/en/9/97/Dallas_Mavericks_logo.svg",
-      homeFansPercentage: 65,
-      awayFansPercentage: 35,
+      homeFansPercentage: 56,
+      neutralFansPercentage: 19,
+      awayFansPercentage: 25,
     },
     {
       id: "22",
@@ -408,8 +435,9 @@ const Index = () => {
       startTime: "19:30",
       homeTeamLogo: "https://static.wixstatic.com/media/4c0d33_3d3f3e0b8b8d4c3c8f3f3e0b8b8d4c3c~mv2.png",
       awayTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/thumb/4/4d/Sesi_logo.svg/800px-Sesi_logo.svg.png",
-      homeFansPercentage: 70,
-      awayFansPercentage: 30,
+      homeFansPercentage: 61,
+      neutralFansPercentage: 15,
+      awayFansPercentage: 24,
     },
     {
       id: "23",
@@ -422,8 +450,9 @@ const Index = () => {
       startTime: "16:30",
       homeTeamLogo: "https://upload.wikimedia.org/wikipedia/en/9/9e/Red_Bull_Bragantino_logo.svg",
       awayTeamLogo: "https://upload.wikimedia.org/wikipedia/en/b/bf/Cuiabá_Esporte_Clube_logo.svg",
-      homeFansPercentage: 88,
-      awayFansPercentage: 12,
+      homeFansPercentage: 75,
+      neutralFansPercentage: 14,
+      awayFansPercentage: 11,
     },
     {
       id: "24",
@@ -436,8 +465,9 @@ const Index = () => {
       startTime: "21:00",
       homeTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/b/ba/Estudiantes_de_La_Plata_logo.svg",
       awayTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/8/83/CCP1912.png",
-      homeFansPercentage: 62,
-      awayFansPercentage: 38,
+      homeFansPercentage: 54,
+      neutralFansPercentage: 16,
+      awayFansPercentage: 30,
     },
   ];
 
@@ -446,7 +476,7 @@ const Index = () => {
       <Header />
       
       {/* Hero Section */}
-      <section className="relative h-[60vh] overflow-hidden">
+      <section className="relative h-[70vh] min-h-[600px] flex items-center justify-center overflow-hidden">
         <div className="absolute inset-0">
           <img
             src={heroImage}
@@ -456,16 +486,23 @@ const Index = () => {
           <div className="absolute inset-0 bg-gradient-to-t from-background via-background/50 to-transparent" />
         </div>
         <div className="relative container h-full flex flex-col justify-center items-center text-center px-4">
-          <h1 className="text-5xl md:text-7xl font-bold mb-4 text-gradient-stadium">
-            O estádio digital do ao vivo
+          <h1 className="text-5xl md:text-7xl font-bold mb-6 text-gradient-stadium">
+            O estádio que só existe durante o jogo
           </h1>
-          <p className="text-xl md:text-2xl text-foreground/90 max-w-3xl mb-8">
-            Cada jogo cria um espaço temporário onde as torcidas se encontram, vibram e deixam rastros emocionais.
+          <p className="text-xl md:text-2xl text-foreground/90 max-w-4xl mb-4">
+            <span className="font-semibold text-primary">Exclusivo. Temporário. Inesquecível.</span>
+          </p>
+          <p className="text-lg md:text-xl text-foreground/80 max-w-3xl mb-8">
+            Cada partida abre uma sala única onde torcedores se encontram ao vivo. 
+            Quando o árbitro apita o final, a sala se fecha e aquele momento vira história.
+            <span className="block mt-3 text-accent font-semibold">
+              ⚡ Entre antes que lote. Vibre antes que acabe.
+            </span>
           </p>
           <div className="flex flex-col sm:flex-row gap-4">
             <a href="#live-now">
               <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-semibold ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-status-live text-background hover:bg-status-live/90 hover:shadow-[0_0_20px_hsl(var(--status-live)/0.5)] hover:scale-105 h-14 rounded-lg px-10 text-base">
-                Ver jogos ao vivo
+                🔴 Entrar em jogos ao vivo
               </button>
             </a>
           </div>
