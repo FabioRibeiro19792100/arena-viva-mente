@@ -486,11 +486,11 @@ const Index = () => {
           <div className="absolute inset-0 bg-gradient-to-t from-background via-background/50 to-transparent" />
         </div>
         <div className="relative container h-full flex flex-col justify-center items-center text-center px-4">
-          <h1 className="text-5xl md:text-7xl font-bold mb-6 text-gradient-stadium">
+          <h1 className="text-5xl md:text-7xl font-bold mb-6 text-foreground">
             O estádio que só existe durante o jogo
           </h1>
           <p className="text-xl md:text-2xl text-foreground/90 max-w-4xl mb-4">
-            <span className="font-semibold text-primary">Exclusivo. Temporário. Inesquecível.</span>
+            <span className="font-semibold text-foreground">Exclusivo. Temporário. Inesquecível.</span>
           </p>
           <p className="text-lg md:text-xl text-foreground/80 max-w-3xl mb-8">
             Cada partida abre uma sala única onde torcedores se encontram ao vivo. 
