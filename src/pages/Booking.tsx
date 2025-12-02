@@ -8,16 +8,42 @@ import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Users, Clock, AlertCircle, CheckCircle2, PartyPopper } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import matchLive from "@/assets/match-live.jpg";
 
-const Booking = () => {
-  const { id } = useParams();
-  const navigate = useNavigate();
-  const { toast } = useToast();
-  
-  // Mock data - seria substituído por dados reais
-  const game = {
-    id: "3",
+// Games database - shared data
+const gamesDatabase: Record<string, {
+  homeTeam: string;
+  awayTeam: string;
+  league: string;
+  startTime: string;
+  date: string;
+  maxSeats: number;
+  seatsRemaining: number;
+  homeTeamLogo: string;
+  awayTeamLogo: string;
+}> = {
+  "1": {
+    homeTeam: "Palmeiras",
+    awayTeam: "Grêmio",
+    league: "Brasileirão Série A",
+    startTime: "16:00",
+    date: "Ao vivo",
+    maxSeats: 3000,
+    seatsRemaining: 16,
+    homeTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/1/10/Palmeiras_logo.svg",
+    awayTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/5/5f/Gremio_logo.svg",
+  },
+  "2": {
+    homeTeam: "Lakers",
+    awayTeam: "Celtics",
+    league: "NBA",
+    startTime: "22:00",
+    date: "Ao vivo",
+    maxSeats: 2500,
+    seatsRemaining: 977,
+    homeTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/3/3c/Los_Angeles_Lakers_logo.svg",
+    awayTeamLogo: "https://upload.wikimedia.org/wikipedia/en/8/8f/Boston_Celtics.svg",
+  },
+  "3": {
     homeTeam: "Flamengo",
     awayTeam: "Botafogo",
     league: "Brasileirão Série A",
@@ -25,8 +51,51 @@ const Booking = () => {
     date: "Hoje",
     maxSeats: 3000,
     seatsRemaining: 1847,
-    image: matchLive,
-  };
+    homeTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/2/2e/Flamengo_braz_logo.svg",
+    awayTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/c/c3/Botafogo_de_Futebol_e_Regatas_logo.svg",
+  },
+  "4": {
+    homeTeam: "Corinthians",
+    awayTeam: "São Paulo",
+    league: "Brasileirão Série A",
+    startTime: "21:00",
+    date: "Hoje",
+    maxSeats: 3000,
+    seatsRemaining: 844,
+    homeTeamLogo: "https://upload.wikimedia.org/wikipedia/pt/b/b4/Corinthians_simbolo.png",
+    awayTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/6/6f/Brasao_do_Sao_Paulo_Futebol_Clube.svg",
+  },
+  "5": {
+    homeTeam: "Sesi",
+    awayTeam: "Minas",
+    league: "Superliga de Vôlei",
+    startTime: "20:00",
+    date: "Amanhã",
+    maxSeats: 2000,
+    seatsRemaining: 1456,
+    homeTeamLogo: "https://upload.wikimedia.org/wikipedia/pt/8/8f/Sesi-SP_Volleyball.png",
+    awayTeamLogo: "https://upload.wikimedia.org/wikipedia/pt/4/4a/Minas_T%C3%AAnis_Clube_Volleyball.png",
+  },
+  "6": {
+    homeTeam: "Real Madrid",
+    awayTeam: "Barcelona",
+    league: "Champions League",
+    startTime: "16:00",
+    date: "Sábado",
+    maxSeats: 5000,
+    seatsRemaining: 3234,
+    homeTeamLogo: "https://upload.wikimedia.org/wikipedia/en/5/56/Real_Madrid_CF.svg",
+    awayTeamLogo: "https://upload.wikimedia.org/wikipedia/en/4/47/FC_Barcelona_%28crest%29.svg",
+  },
+};
+
+const Booking = () => {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  
+  // Get the correct game based on URL parameter
+  const game = gamesDatabase[id || "3"] || gamesDatabase["3"];
 
   const [countdown, setCountdown] = useState(4320); // 72 minutos em segundos
   const [isBooking, setIsBooking] = useState(false);
@@ -75,7 +144,7 @@ const Booking = () => {
     <div className="min-h-screen bg-background">
       <Header />
       
-      <div className="container py-8 px-4 max-w-4xl">
+      <div className="container py-8 px-4 max-w-5xl">
         <Button 
           variant="ghost" 
           onClick={() => navigate("/")}
@@ -85,22 +154,49 @@ const Booking = () => {
         </Button>
 
         <div className="grid md:grid-cols-2 gap-8">
-          {/* Imagem do jogo */}
-          <div className="relative h-64 md:h-auto rounded-lg overflow-hidden">
-            <img
-              src={game.image}
-              alt={`${game.homeTeam} vs ${game.awayTeam}`}
-              className="w-full h-full object-cover"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-background via-background/50 to-transparent" />
-            <div className="absolute bottom-4 left-4 right-4">
-              <p className="text-xs text-muted-foreground mb-1">{game.league}</p>
-              <h1 className="text-2xl font-bold">
-                {game.homeTeam} <span className="text-muted-foreground">x</span> {game.awayTeam}
-              </h1>
-              <p className="text-sm text-accent mt-1">
-                {game.date} às {game.startTime}
-              </p>
+          {/* Game Info - com logos */}
+          <div className="space-y-6">
+            <Card className="overflow-hidden">
+              <div className="bg-gradient-to-br from-primary/10 via-background to-accent/10 p-8">
+                <p className="text-sm text-muted-foreground text-center mb-6">{game.league}</p>
+                
+                <div className="flex items-center justify-center gap-8">
+                  <div className="flex flex-col items-center gap-3">
+                    <img 
+                      src={game.homeTeamLogo} 
+                      alt={game.homeTeam}
+                      className="w-20 h-20 object-contain"
+                    />
+                    <span className="font-bold">{game.homeTeam}</span>
+                  </div>
+                  
+                  <div className="text-3xl font-bold text-muted-foreground">VS</div>
+                  
+                  <div className="flex flex-col items-center gap-3">
+                    <img 
+                      src={game.awayTeamLogo} 
+                      alt={game.awayTeam}
+                      className="w-20 h-20 object-contain"
+                    />
+                    <span className="font-bold">{game.awayTeam}</span>
+                  </div>
+                </div>
+                
+                <p className="text-center text-lg text-accent font-semibold mt-6">
+                  {game.date} às {game.startTime}
+                </p>
+              </div>
+            </Card>
+
+            {/* Aviso */}
+            <div className="flex gap-3 p-4 rounded-lg bg-accent/10 border border-accent/20">
+              <AlertCircle className="h-5 w-5 text-accent shrink-0 mt-0.5" />
+              <div className="text-sm">
+                <p className="font-semibold text-accent mb-1">Atenção</p>
+                <p className="text-muted-foreground">
+                  Acima de {game.maxSeats.toLocaleString()} pessoas, novos usuários entram apenas como espectadores (sem poder comentar).
+                </p>
+              </div>
             </div>
           </div>
 
@@ -159,17 +255,6 @@ const Booking = () => {
                 </div>
               </CardContent>
             </Card>
-
-            {/* Aviso */}
-            <div className="flex gap-3 p-4 rounded-lg bg-accent/10 border border-accent/20">
-              <AlertCircle className="h-5 w-5 text-accent shrink-0 mt-0.5" />
-              <div className="text-sm">
-                <p className="font-semibold text-accent mb-1">Atenção</p>
-                <p className="text-muted-foreground">
-                  Acima de {game.maxSeats.toLocaleString()} pessoas, novos usuários entram apenas como espectadores (sem poder comentar).
-                </p>
-              </div>
-            </div>
 
             {/* Botão de reserva */}
             <Button

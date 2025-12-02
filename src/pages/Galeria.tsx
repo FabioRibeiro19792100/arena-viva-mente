@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Search, TrendingUp, Calendar } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface ResumoCard {
   id: string;
@@ -21,9 +22,9 @@ interface ResumoCard {
 
 const Galeria = () => {
   const navigate = useNavigate();
+  const [searchQuery, setSearchQuery] = useState("");
   const [selectedSport, setSelectedSport] = useState<string>("all");
-  const [selectedTournament, setSelectedTournament] = useState<string>("all");
-  const [selectedClub, setSelectedClub] = useState<string>("all");
+  const [selectedSentiment, setSelectedSentiment] = useState<string>("all");
 
   const getSentimentEmoji = (sentiment: string) => {
     switch (sentiment) {
@@ -180,28 +181,26 @@ const Galeria = () => {
   ];
 
   const trending = [
-    { label: "Mais comentado", value: "Palmeiras x Grêmio" },
-    { label: "Maior euforia", value: "Lakers x Celtics" },
-    { label: "Momento mais tenso", value: "Real x Barcelona" },
+    { label: "Mais comentado", value: "Palmeiras x Grêmio", emoji: "💬" },
+    { label: "Maior euforia", value: "Lakers x Celtics", emoji: "🔥" },
+    { label: "Momento mais tenso", value: "Real x Barcelona", emoji: "😤" },
   ];
 
-  // Filtros
+  // Filtros simplificados
   const filteredResumos = resumos.filter((resumo) => {
+    const searchMatch = searchQuery === "" ||
+      resumo.homeTeam.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      resumo.awayTeam.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      resumo.league.toLowerCase().includes(searchQuery.toLowerCase());
+
     const sportMatch = selectedSport === "all" || 
       (selectedSport === "futebol" && (resumo.league.includes("Brasileirão") || resumo.league.includes("Libertadores") || resumo.league.includes("Champions"))) ||
       (selectedSport === "basquete" && resumo.league.includes("NBA")) ||
       (selectedSport === "volei" && resumo.league.includes("Superliga"));
     
-    const tournamentMatch = selectedTournament === "all" ||
-      (selectedTournament === "brasileirao" && resumo.league.includes("Brasileirão")) ||
-      (selectedTournament === "libertadores" && resumo.league.includes("Libertadores")) ||
-      (selectedTournament === "champions" && resumo.league.includes("Champions"));
+    const sentimentMatch = selectedSentiment === "all" || resumo.sentiment === selectedSentiment;
     
-    const clubMatch = selectedClub === "all" ||
-      resumo.homeTeam.includes(selectedClub) ||
-      resumo.awayTeam.includes(selectedClub);
-    
-    return sportMatch && tournamentMatch && clubMatch;
+    return searchMatch && sportMatch && sentimentMatch;
   });
 
   return (
@@ -219,150 +218,94 @@ const Galeria = () => {
           </p>
         </div>
 
-        {/* Search and Filters */}
-        <div className="max-w-3xl mx-auto mb-12">
+        {/* Search and Filters - Simplificados */}
+        <div className="max-w-4xl mx-auto mb-12 space-y-4">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
             <Input
-              placeholder="Buscar por esporte, liga, clube ou emoção..."
-              className="pl-10 h-12 text-base"
+              placeholder="Buscar por time, liga ou competição..."
+              className="pl-12 h-14 text-lg rounded-xl"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
           
-          <div className="space-y-3 mt-4">
-            {/* Esportes */}
-            <div className="flex flex-wrap gap-2">
-              <span className="text-xs text-muted-foreground font-semibold mr-2">Esportes:</span>
-              <Badge 
-                variant={selectedSport === "all" ? "default" : "outline"}
-                className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors"
-                onClick={() => setSelectedSport("all")}
-              >
-                Todos
-              </Badge>
-              <Badge 
-                variant={selectedSport === "futebol" ? "default" : "outline"}
-                className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors"
-                onClick={() => setSelectedSport("futebol")}
-              >
-                ⚽ Futebol
-              </Badge>
-              <Badge 
-                variant={selectedSport === "basquete" ? "default" : "outline"}
-                className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors"
-                onClick={() => setSelectedSport("basquete")}
-              >
-                🏀 Basquete
-              </Badge>
-              <Badge 
-                variant={selectedSport === "volei" ? "default" : "outline"}
-                className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors"
-                onClick={() => setSelectedSport("volei")}
-              >
-                🏐 Vôlei
-              </Badge>
-            </div>
+          <div className="flex flex-wrap gap-3">
+            <Select value={selectedSport} onValueChange={setSelectedSport}>
+              <SelectTrigger className="w-[160px] h-11">
+                <SelectValue placeholder="Esporte" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos esportes</SelectItem>
+                <SelectItem value="futebol">⚽ Futebol</SelectItem>
+                <SelectItem value="basquete">🏀 Basquete</SelectItem>
+                <SelectItem value="volei">🏐 Vôlei</SelectItem>
+              </SelectContent>
+            </Select>
 
-            {/* Torneios */}
-            <div className="flex flex-wrap gap-2">
-              <span className="text-xs text-muted-foreground font-semibold mr-2">Torneios:</span>
-              <Badge 
-                variant={selectedTournament === "all" ? "default" : "outline"}
-                className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors"
-                onClick={() => setSelectedTournament("all")}
-              >
-                Todos
-              </Badge>
-              <Badge 
-                variant={selectedTournament === "brasileirao" ? "default" : "outline"}
-                className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors"
-                onClick={() => setSelectedTournament("brasileirao")}
-              >
-                🇧🇷 Brasileirão
-              </Badge>
-              <Badge 
-                variant={selectedTournament === "libertadores" ? "default" : "outline"}
-                className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors"
-                onClick={() => setSelectedTournament("libertadores")}
-              >
-                🏆 Libertadores
-              </Badge>
-              <Badge 
-                variant={selectedTournament === "champions" ? "default" : "outline"}
-                className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors"
-                onClick={() => setSelectedTournament("champions")}
-              >
-                🌍 Champions League
-              </Badge>
-            </div>
+            <Select value={selectedSentiment} onValueChange={setSelectedSentiment}>
+              <SelectTrigger className="w-[160px] h-11">
+                <SelectValue placeholder="Sentimento" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos sentimentos</SelectItem>
+                <SelectItem value="euforia">🔥 Euforia</SelectItem>
+                <SelectItem value="tensao">😤 Tensão</SelectItem>
+                <SelectItem value="frustracao">😓 Frustração</SelectItem>
+                <SelectItem value="neutro">😐 Neutro</SelectItem>
+              </SelectContent>
+            </Select>
 
-            {/* Clubes */}
-            <div className="flex flex-wrap gap-2">
-              <span className="text-xs text-muted-foreground font-semibold mr-2">Clubes:</span>
-              <Badge 
-                variant={selectedClub === "all" ? "default" : "outline"}
-                className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors"
-                onClick={() => setSelectedClub("all")}
+            {(selectedSport !== "all" || selectedSentiment !== "all" || searchQuery) && (
+              <button 
+                onClick={() => {
+                  setSelectedSport("all");
+                  setSelectedSentiment("all");
+                  setSearchQuery("");
+                }}
+                className="text-sm text-muted-foreground hover:text-foreground transition-colors px-3"
               >
-                Todos
-              </Badge>
-              <Badge 
-                variant={selectedClub === "Palmeiras" ? "default" : "outline"}
-                className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors"
-                onClick={() => setSelectedClub("Palmeiras")}
-              >
-                Palmeiras
-              </Badge>
-              <Badge 
-                variant={selectedClub === "Flamengo" ? "default" : "outline"}
-                className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors"
-                onClick={() => setSelectedClub("Flamengo")}
-              >
-                Flamengo
-              </Badge>
-              <Badge 
-                variant={selectedClub === "Lakers" ? "default" : "outline"}
-                className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors"
-                onClick={() => setSelectedClub("Lakers")}
-              >
-                Lakers
-              </Badge>
-            </div>
+                Limpar filtros
+              </button>
+            )}
           </div>
         </div>
 
         {/* Trending */}
-        <Card className="bg-card border-border p-6 mb-12 max-w-3xl mx-auto">
-          <div className="flex items-center gap-2 mb-4">
-            <TrendingUp className="h-5 w-5 text-primary" />
-            <h2 className="text-xl font-bold">Tendências desta semana</h2>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {trending.map((item, idx) => (
-              <div key={idx} className="bg-muted rounded-lg p-3">
-                <p className="text-xs text-muted-foreground mb-1">{item.label}</p>
-                <p className="font-semibold text-sm">{item.value}</p>
-              </div>
-            ))}
-          </div>
-        </Card>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-12 max-w-4xl mx-auto">
+          {trending.map((item, idx) => (
+            <Card key={idx} className="bg-card/50 border-border hover:border-primary/30 transition-colors cursor-pointer">
+              <CardContent className="p-4 flex items-center gap-3">
+                <span className="text-2xl">{item.emoji}</span>
+                <div>
+                  <p className="text-xs text-muted-foreground">{item.label}</p>
+                  <p className="font-semibold">{item.value}</p>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
 
         {/* Resumos Grid */}
-        <div className="mb-4 text-sm text-muted-foreground">
-          Mostrando {filteredResumos.length} de {resumos.length} resumos
+        <div className="mb-4 text-sm text-muted-foreground max-w-4xl mx-auto">
+          {filteredResumos.length === 0 ? (
+            <p>Nenhum resumo encontrado</p>
+          ) : (
+            <p>Mostrando {filteredResumos.length} resumo{filteredResumos.length !== 1 ? "s" : ""}</p>
+          )}
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
           {filteredResumos.map((resumo) => (
             <Card 
               key={resumo.id} 
-              className="bg-card border-border overflow-hidden hover:shadow-[0_8px_32px_hsl(var(--card-foreground)/0.2)] transition-all duration-300 hover:scale-[1.02] cursor-pointer"
+              className="bg-card border-border overflow-hidden hover:shadow-[0_8px_32px_hsl(var(--card-foreground)/0.2)] transition-all duration-300 hover:scale-[1.02] cursor-pointer group"
               onClick={() => navigate(`/resumo/${resumo.id}`)}
             >
-              <div className={`${getSentimentColor(resumo.sentiment)} p-4 text-center`}>
-                <span className="text-4xl">{getSentimentEmoji(resumo.sentiment)}</span>
-                <p className="text-sm font-semibold mt-2 capitalize">{resumo.sentiment}</p>
+              <div className={`${getSentimentColor(resumo.sentiment)} p-6 text-center transition-transform group-hover:scale-105`}>
+                <span className="text-5xl">{getSentimentEmoji(resumo.sentiment)}</span>
+                <p className="text-sm font-semibold mt-3 capitalize">{resumo.sentiment}</p>
               </div>
-              <CardContent className="p-4 space-y-3">
+              <CardContent className="p-5 space-y-4">
                 <div>
                   <p className="text-xs text-muted-foreground mb-1">{resumo.league}</p>
                   <h3 className="font-bold text-lg">
@@ -370,12 +313,12 @@ const Galeria = () => {
                   </h3>
                 </div>
                 
-                <div className="bg-muted rounded-lg p-3">
+                <div className="bg-muted/50 rounded-lg p-3">
                   <p className="text-xs text-muted-foreground mb-1">Frase emblemática</p>
                   <p className="font-semibold text-sm">{resumo.topPhrase}</p>
                 </div>
 
-                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <div className="flex items-center justify-between text-xs text-muted-foreground pt-2 border-t border-border">
                   <span>{resumo.messagesCount.toLocaleString()} mensagens</span>
                   <div className="flex items-center gap-1">
                     <Calendar className="h-3 w-3" />
