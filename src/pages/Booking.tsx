@@ -141,24 +141,24 @@ const Booking = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-black">
       <Header />
       
-      <div className="container py-8 px-4 max-w-5xl">
+      <div className="container max-w-7xl mx-auto py-32 px-6">
         <Button 
           variant="ghost" 
           onClick={() => navigate("/")}
-          className="mb-6"
+          className="mb-6 text-white/60 hover:text-white"
         >
-          ← Voltar para jogos
+          ← Back to games
         </Button>
 
         <div className="grid md:grid-cols-2 gap-8">
           {/* Game Info - com logos */}
           <div className="space-y-6">
-            <Card className="overflow-hidden">
-              <div className="bg-gradient-to-br from-primary/10 via-background to-accent/10 p-8">
-                <p className="text-sm text-muted-foreground text-center mb-6">{game.league}</p>
+            <Card className="overflow-hidden bg-white/5 border border-white/10 backdrop-blur-sm">
+              <div className="bg-gradient-to-br from-white/5 via-black/50 to-white/5 p-8">
+                <p className="text-sm text-white/60 text-center mb-6">{game.league}</p>
                 
                 <div className="flex items-center justify-center gap-8">
                   <div className="flex flex-col items-center gap-3">
@@ -167,10 +167,10 @@ const Booking = () => {
                       alt={game.homeTeam}
                       className="w-20 h-20 object-contain"
                     />
-                    <span className="font-bold">{game.homeTeam}</span>
+                    <span className="font-bold text-white">{game.homeTeam}</span>
                   </div>
                   
-                  <div className="text-3xl font-bold text-muted-foreground">VS</div>
+                  <div className="text-3xl font-bold text-white/40">VS</div>
                   
                   <div className="flex flex-col items-center gap-3">
                     <img 
@@ -178,23 +178,23 @@ const Booking = () => {
                       alt={game.awayTeam}
                       className="w-20 h-20 object-contain"
                     />
-                    <span className="font-bold">{game.awayTeam}</span>
+                    <span className="font-bold text-white">{game.awayTeam}</span>
                   </div>
                 </div>
                 
-                <p className="text-center text-lg text-accent font-semibold mt-6">
-                  {game.date} às {game.startTime}
+                <p className="text-center text-lg text-white font-semibold mt-6">
+                  {game.date} at {game.startTime}
                 </p>
               </div>
             </Card>
 
             {/* Aviso */}
-            <div className="flex gap-3 p-4 rounded-lg bg-accent/10 border border-accent/20">
-              <AlertCircle className="h-5 w-5 text-accent shrink-0 mt-0.5" />
+            <div className="flex gap-3 p-4 bg-white/5 border border-white/10">
+              <AlertCircle className="h-5 w-5 text-white shrink-0 mt-0.5" />
               <div className="text-sm">
-                <p className="font-semibold text-accent mb-1">Atenção</p>
-                <p className="text-muted-foreground">
-                  Acima de {game.maxSeats.toLocaleString()} pessoas, novos usuários entram apenas como espectadores (sem poder comentar).
+                <p className="font-semibold text-white mb-1">Attention</p>
+                <p className="text-white/60">
+                  Above {game.maxSeats.toLocaleString()} people, new users can only join as viewers (no commenting).
                 </p>
               </div>
             </div>
@@ -203,53 +203,53 @@ const Booking = () => {
           {/* Informações de booking */}
           <div className="space-y-6">
             {/* Countdown */}
-            <Card className="bg-gradient-to-br from-primary/10 to-accent/10 border-primary/20">
+            <Card className="bg-white/5 border border-white/10 backdrop-blur-sm">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <Clock className="h-5 w-5 text-primary" />
-                  Booking encerra em
+                <CardTitle className="flex items-center gap-2 text-lg text-white">
+                  <Clock className="h-5 w-5 text-white" />
+                  Booking closes in
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-4xl font-bold text-primary text-center font-mono">
+                <div className="text-4xl font-bold text-white text-center font-mono">
                   {formatTime(countdown)}
                 </div>
-                <p className="text-sm text-muted-foreground text-center mt-2">
-                  Como no estádio, quem chega cedo vibra mais alto.
+                <p className="text-sm text-white/60 text-center mt-2">
+                  Like in the stadium, early arrivals cheer louder.
                 </p>
               </CardContent>
             </Card>
 
             {/* Disponibilidade */}
-            <Card>
+            <Card className="bg-white/5 border border-white/10 backdrop-blur-sm">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <Users className="h-5 w-5" />
-                  Disponibilidade
+                <CardTitle className="flex items-center gap-2 text-lg text-white">
+                  <Users className="h-5 w-5 text-white" />
+                  Availability
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
                   <div className="flex justify-between text-sm mb-2">
-                    <span className="text-muted-foreground">Ocupação</span>
-                    <span className="font-semibold">{occupancyPercentage.toFixed(0)}%</span>
+                    <span className="text-white/60">Occupancy</span>
+                    <span className="font-semibold text-white">{occupancyPercentage.toFixed(0)}%</span>
                   </div>
-                  <Progress value={occupancyPercentage} className="h-3" />
+                  <Progress value={occupancyPercentage} className="h-3 bg-white/10" />
                   <div className="flex items-center gap-2 mt-2">
-                    <div className={`w-2 h-2 rounded-full ${status.color} animate-pulse-glow`} />
-                    <span className="text-sm font-medium">{status.text}</span>
+                    <div className={`w-2 h-2 ${status.color} animate-pulse-glow`} />
+                    <span className="text-sm font-medium text-white">{status.text}</span>
                   </div>
                 </div>
 
-                <div className="pt-4 border-t border-border">
+                <div className="pt-4 border-t border-white/10">
                   <div className="grid grid-cols-2 gap-4 text-center">
                     <div>
-                      <p className="text-2xl font-bold text-primary">{game.seatsRemaining.toLocaleString()}</p>
-                      <p className="text-xs text-muted-foreground">lugares restantes</p>
+                      <p className="text-2xl font-bold text-white">{game.seatsRemaining.toLocaleString()}</p>
+                      <p className="text-xs text-white/60">seats remaining</p>
                     </div>
                     <div>
-                      <p className="text-2xl font-bold text-muted-foreground">{game.maxSeats.toLocaleString()}</p>
-                      <p className="text-xs text-muted-foreground">capacidade total</p>
+                      <p className="text-2xl font-bold text-white/60">{game.maxSeats.toLocaleString()}</p>
+                      <p className="text-xs text-white/60">total capacity</p>
                     </div>
                   </div>
                 </div>
@@ -258,13 +258,12 @@ const Booking = () => {
 
             {/* Botão de reserva */}
             <Button
-              variant="stadium"
               size="xl"
-              className="w-full"
+              className="w-full bg-white text-black hover:bg-white/90 font-semibold"
               onClick={handleBooking}
               disabled={isBooking}
             >
-              {isBooking ? "Reservando..." : "Reservar meu assento"}
+              {isBooking ? "Booking..." : "Reserve my seat"}
             </Button>
           </div>
         </div>
@@ -280,42 +279,42 @@ const Booking = () => {
                 <PartyPopper className="h-8 w-8 text-accent absolute -top-2 -right-2 animate-bounce" />
               </div>
             </div>
-            <DialogTitle className="text-2xl text-center">
-              Assento Reservado!
+            <DialogTitle className="text-2xl text-center text-white">
+              Seat Reserved!
             </DialogTitle>
-            <DialogDescription className="text-center pt-2">
-              Seu lugar na arquibancada está garantido
+            <DialogDescription className="text-center pt-2 text-white/60">
+              Your stadium seat is guaranteed
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            <Card className="bg-gradient-to-br from-primary/10 to-accent/10 border-primary/20">
+            <Card className="bg-white/5 border border-white/10">
               <CardContent className="p-4 space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Jogo</span>
-                  <span className="font-semibold">{game.homeTeam} x {game.awayTeam}</span>
+                  <span className="text-sm text-white/60">Game</span>
+                  <span className="font-semibold text-white">{game.homeTeam} x {game.awayTeam}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Horário</span>
-                  <span className="font-semibold">{game.date} às {game.startTime}</span>
+                  <span className="text-sm text-white/60">Time</span>
+                  <span className="font-semibold text-white">{game.date} at {game.startTime}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Competição</span>
-                  <span className="font-semibold">{game.league}</span>
+                  <span className="text-sm text-white/60">Competition</span>
+                  <span className="font-semibold text-white">{game.league}</span>
                 </div>
               </CardContent>
             </Card>
 
-            <div className="bg-accent/10 border border-accent/20 rounded-lg p-4 text-center">
-              <p className="text-sm font-medium text-foreground mb-1">
-                Próximo passo: Escolher seu time
+            <div className="bg-white/5 border border-white/10 p-4 text-center">
+              <p className="text-sm font-medium text-white mb-1">
+                Next step: Choose your team
               </p>
-              <p className="text-xs text-muted-foreground">
-                Ao entrar, você poderá escolher torcer pelo time da casa, visitante ou ser neutro
+              <p className="text-xs text-white/60">
+                When entering, you can choose to support home, away, or be neutral
               </p>
             </div>
 
-            <Button onClick={handleContinueToArquibancada} className="w-full" size="lg">
-              Entrar na Arquibancada
+            <Button onClick={handleContinueToArquibancada} className="w-full bg-white text-black hover:bg-white/90" size="lg">
+              Enter Stadium
             </Button>
           </div>
         </DialogContent>

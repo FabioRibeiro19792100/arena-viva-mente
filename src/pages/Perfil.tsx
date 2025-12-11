@@ -51,28 +51,28 @@ const Perfil = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-black">
       <Header />
       
-      <div className="container py-8 px-4 max-w-5xl">
+      <div className="container max-w-7xl mx-auto py-32 px-6">
         <div className="grid md:grid-cols-3 gap-6">
           {/* Sidebar - Perfil */}
-          <Card className="md:col-span-1">
+          <Card className="md:col-span-1 bg-white/5 border border-white/10 backdrop-blur-sm">
             <CardHeader className="text-center">
-              <Avatar className="w-24 h-24 mx-auto mb-4 ring-4 ring-primary/20">
+              <Avatar className="w-24 h-24 mx-auto mb-4 ring-4 ring-white/20">
                 <AvatarImage src={user.avatar} />
-                <AvatarFallback className="text-2xl font-bold bg-gradient-to-br from-primary to-accent text-primary-foreground">
+                <AvatarFallback className="text-2xl font-bold bg-white/10 text-white">
                   {user.name.split(" ").map(n => n[0]).join("")}
                 </AvatarFallback>
               </Avatar>
-              <CardTitle className="text-xl">{user.name}</CardTitle>
-              <p className="text-sm text-muted-foreground">{user.username}</p>
+              <CardTitle className="text-xl text-white">{user.name}</CardTitle>
+              <p className="text-sm text-white/60">{user.username}</p>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Star className="h-4 w-4 text-primary" />
-                  <span>Time do coração</span>
+                <div className="flex items-center gap-2 text-sm text-white/60">
+                  <Star className="h-4 w-4 text-white" />
+                  <span>Favorite team</span>
                 </div>
                 <Select value={favoriteTeam} onValueChange={setFavoriteTeam}>
                   <SelectTrigger>
@@ -86,21 +86,21 @@ const Perfil = () => {
                     <SelectItem value="Neutral">⚪ Neutro (sem time)</SelectItem>
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-muted-foreground">
-                  Sua escolha aparece como badge nos seus comentários
+                <p className="text-xs text-white/60">
+                  Your choice appears as a badge in your comments
                 </p>
               </div>
               
               <div className="flex items-center gap-2 text-sm">
-                <Calendar className="h-4 w-4 text-muted-foreground" />
-                <span className="text-muted-foreground">Membro desde {user.joinDate}</span>
+                <Calendar className="h-4 w-4 text-white/60" />
+                <span className="text-white/60">Member since {user.joinDate}</span>
               </div>
               
-              <Separator />
+              <Separator className="bg-white/10" />
               
-              <Button variant="outline" className="w-full">
+              <Button variant="outline" className="w-full bg-white/5 border-white/10 text-white hover:bg-white/10">
                 <Bell className="mr-2 h-4 w-4" />
-                Preferências de notificação
+                Notification preferences
               </Button>
             </CardContent>
           </Card>
@@ -108,42 +108,42 @@ const Perfil = () => {
           {/* Main Content */}
           <div className="md:col-span-2 space-y-6">
             {/* Estatísticas */}
-            <Card>
+            <Card className="bg-white/5 border border-white/10 backdrop-blur-sm">
               <CardHeader>
-                <CardTitle>Minhas Estatísticas</CardTitle>
+                <CardTitle className="text-white">My Statistics</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="text-center p-4 rounded-lg bg-gradient-to-br from-primary/10 to-accent/10 border border-primary/20">
-                    <Trophy className="h-8 w-8 mx-auto mb-2 text-primary" />
-                    <p className="text-3xl font-bold">{user.stats.gamesWatched}</p>
-                    <p className="text-sm text-muted-foreground">Jogos assistidos</p>
+                  <div className="text-center p-4 bg-white/5 border border-white/10">
+                    <Trophy className="h-8 w-8 mx-auto mb-2 text-white" />
+                    <p className="text-3xl font-bold text-white">{user.stats.gamesWatched}</p>
+                    <p className="text-sm text-white/60">Games watched</p>
                   </div>
-                  <div className="text-center p-4 rounded-lg bg-gradient-to-br from-secondary/10 to-accent/10 border border-secondary/20">
-                    <MessageSquare className="h-8 w-8 mx-auto mb-2 text-secondary" />
-                    <p className="text-3xl font-bold">{user.stats.messagesSent}</p>
-                    <p className="text-sm text-muted-foreground">Mensagens enviadas</p>
+                  <div className="text-center p-4 bg-white/5 border border-white/10">
+                    <MessageSquare className="h-8 w-8 mx-auto mb-2 text-white" />
+                    <p className="text-3xl font-bold text-white">{user.stats.messagesSent}</p>
+                    <p className="text-sm text-white/60">Messages sent</p>
                   </div>
-                  <div className="text-center p-4 rounded-lg bg-gradient-to-br from-accent/10 to-primary/10 border border-accent/20">
-                    <ThumbsUp className="h-8 w-8 mx-auto mb-2 text-accent" />
-                    <p className="text-3xl font-bold">{user.stats.likesReceived}</p>
-                    <p className="text-sm text-muted-foreground">Curtidas recebidas</p>
+                  <div className="text-center p-4 bg-white/5 border border-white/10">
+                    <ThumbsUp className="h-8 w-8 mx-auto mb-2 text-white" />
+                    <p className="text-3xl font-bold text-white">{user.stats.likesReceived}</p>
+                    <p className="text-sm text-white/60">Likes received</p>
                   </div>
-                  <div className="text-center p-4 rounded-lg bg-gradient-to-br from-primary/10 to-secondary/10 border border-primary/20">
-                    <Flame className="h-8 w-8 mx-auto mb-2 text-primary" />
-                    <p className="text-2xl font-bold">{user.stats.topMood}</p>
-                    <p className="text-sm text-muted-foreground">Humor predominante</p>
+                  <div className="text-center p-4 bg-white/5 border border-white/10">
+                    <Flame className="h-8 w-8 mx-auto mb-2 text-white" />
+                    <p className="text-2xl font-bold text-white">{user.stats.topMood}</p>
+                    <p className="text-sm text-white/60">Top mood</p>
                   </div>
                 </div>
               </CardContent>
             </Card>
 
             {/* Badges */}
-            <Card>
+            <Card className="bg-white/5 border border-white/10 backdrop-blur-sm">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Award className="h-5 w-5" />
-                  Minhas Conquistas
+                <CardTitle className="flex items-center gap-2 text-white">
+                  <Award className="h-5 w-5 text-white" />
+                  My Achievements
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -151,12 +151,12 @@ const Perfil = () => {
                   {user.badges.map((badge) => (
                     <div 
                       key={badge.id}
-                      className="flex gap-3 p-4 rounded-lg bg-card-hover border border-border hover:border-primary/50 transition-all hover:scale-[1.02]"
+                      className="flex gap-3 p-4 bg-white/5 border border-white/10 hover:border-white/30 transition-all hover:scale-[1.02]"
                     >
-                      <badge.icon className={`h-8 w-8 ${badge.color} shrink-0`} />
+                      <badge.icon className="h-8 w-8 text-white shrink-0" />
                       <div>
-                        <p className="font-semibold">{badge.name}</p>
-                        <p className="text-sm text-muted-foreground">{badge.description}</p>
+                        <p className="font-semibold text-white">{badge.name}</p>
+                        <p className="text-sm text-white/60">{badge.description}</p>
                       </div>
                     </div>
                   ))}
@@ -165,31 +165,31 @@ const Perfil = () => {
             </Card>
 
             {/* Histórico */}
-            <Card>
+            <Card className="bg-white/5 border border-white/10 backdrop-blur-sm">
               <CardHeader>
-                <CardTitle>Jogos Recentes</CardTitle>
+                <CardTitle className="text-white">Recent Games</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
                 {user.recentGames.map((game) => (
                   <div 
                     key={game.id}
-                    className="flex items-center justify-between p-4 rounded-lg bg-card-hover border border-border hover:border-primary/50 transition-colors cursor-pointer"
+                    className="flex items-center justify-between p-4 bg-white/5 border border-white/10 hover:border-white/30 transition-colors cursor-pointer"
                     onClick={() => navigate(`/resumo/${game.id}`)}
                   >
                     <div>
-                      <p className="font-semibold">{game.teams}</p>
-                      <p className="text-sm text-muted-foreground">{game.date}</p>
+                      <p className="font-semibold text-white">{game.teams}</p>
+                      <p className="text-sm text-white/60">{game.date}</p>
                     </div>
-                    <Badge variant="secondary">{game.mood}</Badge>
+                    <Badge variant="secondary" className="bg-white/10 text-white border-white/20">{game.mood}</Badge>
                   </div>
                 ))}
                 
                 <Button 
                   variant="outline" 
-                  className="w-full mt-4"
+                  className="w-full mt-4 bg-white/5 border-white/10 text-white hover:bg-white/10"
                   onClick={() => navigate("/galeria")}
                 >
-                  Ver histórico completo
+                  View full history
                 </Button>
               </CardContent>
             </Card>

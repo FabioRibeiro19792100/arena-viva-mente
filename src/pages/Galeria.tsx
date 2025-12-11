@@ -37,10 +37,10 @@ const Galeria = () => {
 
   const getSentimentColor = (sentiment: string) => {
     switch (sentiment) {
-      case "euforia": return "bg-primary text-primary-foreground";
-      case "tensao": return "bg-accent text-accent-foreground";
-      case "frustracao": return "bg-destructive text-destructive-foreground";
-      default: return "bg-muted text-muted-foreground";
+      case "euforia": return "bg-white/10 text-white";
+      case "tensao": return "bg-white/10 text-white";
+      case "frustracao": return "bg-white/10 text-white";
+      default: return "bg-white/10 text-white";
     }
   };
 
@@ -204,27 +204,27 @@ const Galeria = () => {
   });
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-black">
       <Header />
       
-      <div className="container py-12 px-4">
+      <div className="container max-w-7xl mx-auto py-32 px-6">
         {/* Hero */}
-        <div className="text-center mb-12">
-          <h1 className="text-4xl md:text-5xl font-bold mb-4 text-gradient-stadium">
-            Galeria de Resumos
+        <div className="mb-16">
+          <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold mb-4 text-white">
+            Game Gallery
           </h1>
-          <p className="text-xl text-foreground/80 max-w-2xl mx-auto">
-            A emoção de cada jogo, contada pela torcida
+          <p className="text-xl text-white/60 max-w-2xl">
+            The emotion of each game, told by the fans
           </p>
         </div>
 
         {/* Search and Filters - Simplificados */}
         <div className="max-w-4xl mx-auto mb-12 space-y-4">
           <div className="relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-white/60" />
             <Input
-              placeholder="Buscar por time, liga ou competição..."
-              className="pl-12 h-14 text-lg rounded-xl"
+              placeholder="Search by team, league or competition..."
+              className="pl-12 h-14 text-lg bg-white/5 border-white/10 text-white placeholder:text-white/40"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
@@ -263,9 +263,9 @@ const Galeria = () => {
                   setSelectedSentiment("all");
                   setSearchQuery("");
                 }}
-                className="text-sm text-muted-foreground hover:text-foreground transition-colors px-3"
+                className="text-sm text-white/60 hover:text-white transition-colors px-3"
               >
-                Limpar filtros
+                Clear filters
               </button>
             )}
           </div>
@@ -274,12 +274,12 @@ const Galeria = () => {
         {/* Trending */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-12 max-w-4xl mx-auto">
           {trending.map((item, idx) => (
-            <Card key={idx} className="bg-card/50 border-border hover:border-primary/30 transition-colors cursor-pointer">
+            <Card key={idx} className="bg-white/5 border border-white/10 hover:border-white/30 transition-colors cursor-pointer backdrop-blur-sm">
               <CardContent className="p-4 flex items-center gap-3">
                 <span className="text-2xl">{item.emoji}</span>
                 <div>
-                  <p className="text-xs text-muted-foreground">{item.label}</p>
-                  <p className="font-semibold">{item.value}</p>
+                  <p className="text-xs text-white/60">{item.label}</p>
+                  <p className="font-semibold text-white">{item.value}</p>
                 </div>
               </CardContent>
             </Card>
@@ -287,39 +287,39 @@ const Galeria = () => {
         </div>
 
         {/* Resumos Grid */}
-        <div className="mb-4 text-sm text-muted-foreground max-w-4xl mx-auto">
+        <div className="mb-4 text-sm text-white/60 max-w-4xl mx-auto">
           {filteredResumos.length === 0 ? (
-            <p>Nenhum resumo encontrado</p>
+            <p>No summaries found</p>
           ) : (
-            <p>Mostrando {filteredResumos.length} resumo{filteredResumos.length !== 1 ? "s" : ""}</p>
+            <p>Showing {filteredResumos.length} summar{filteredResumos.length !== 1 ? "ies" : "y"}</p>
           )}
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-6xl mx-auto">
           {filteredResumos.map((resumo) => (
             <Card 
               key={resumo.id} 
-              className="bg-card border-border overflow-hidden hover:shadow-[0_8px_32px_hsl(var(--card-foreground)/0.2)] transition-all duration-300 hover:scale-[1.02] cursor-pointer group"
+              className="bg-white/5 border border-white/10 overflow-hidden hover:shadow-[0_8px_32px_rgba(255,255,255,0.1)] transition-all duration-300 hover:scale-[1.02] cursor-pointer group backdrop-blur-sm"
               onClick={() => navigate(`/resumo/${resumo.id}`)}
             >
-              <div className={`${getSentimentColor(resumo.sentiment)} p-6 text-center transition-transform group-hover:scale-105`}>
+              <div className={`${getSentimentColor(resumo.sentiment)} p-6 text-center transition-transform group-hover:scale-105 bg-white/10`}>
                 <span className="text-5xl">{getSentimentEmoji(resumo.sentiment)}</span>
-                <p className="text-sm font-semibold mt-3 capitalize">{resumo.sentiment}</p>
+                <p className="text-sm font-semibold mt-3 capitalize text-white">{resumo.sentiment}</p>
               </div>
-              <CardContent className="p-5 space-y-4">
+              <CardContent className="p-5 space-y-4 bg-black/30">
                 <div>
-                  <p className="text-xs text-muted-foreground mb-1">{resumo.league}</p>
-                  <h3 className="font-bold text-lg">
-                    {resumo.homeTeam} <span className="text-primary">{resumo.score}</span> {resumo.awayTeam}
+                  <p className="text-xs text-white/60 mb-1">{resumo.league}</p>
+                  <h3 className="font-bold text-lg text-white">
+                    {resumo.homeTeam} <span className="text-white">{resumo.score}</span> {resumo.awayTeam}
                   </h3>
                 </div>
                 
-                <div className="bg-muted/50 rounded-lg p-3">
-                  <p className="text-xs text-muted-foreground mb-1">Frase emblemática</p>
-                  <p className="font-semibold text-sm">{resumo.topPhrase}</p>
+                <div className="bg-white/5 p-3 border border-white/10">
+                  <p className="text-xs text-white/60 mb-1">Emblematic phrase</p>
+                  <p className="font-semibold text-sm text-white">{resumo.topPhrase}</p>
                 </div>
 
-                <div className="flex items-center justify-between text-xs text-muted-foreground pt-2 border-t border-border">
-                  <span>{resumo.messagesCount.toLocaleString()} mensagens</span>
+                <div className="flex items-center justify-between text-xs text-white/60 pt-2 border-t border-white/10">
+                  <span>{resumo.messagesCount.toLocaleString()} messages</span>
                   <div className="flex items-center gap-1">
                     <Calendar className="h-3 w-3" />
                     <span>{resumo.date}</span>

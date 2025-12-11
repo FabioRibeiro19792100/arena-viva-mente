@@ -19,7 +19,7 @@ All colors MUST be HSL.
 
     /* Verde vibrante do campo */
     --primary: 142 76% 45%;
-    --primary-foreground: 222 47% 11%;
+    --primary-foreground: 220 13% 18%;
     --primary-glow: 142 76% 60%;
 
     /* Vermelho energia/alerta */
@@ -40,7 +40,7 @@ All colors MUST be HSL.
     --input: 222 30% 25%;
     --ring: 142 76% 45%;
 
-    --radius: 0.75rem;
+    --radius: 0;
 
     /* Estados da arquibancada */
     --status-live: 142 76% 45%;

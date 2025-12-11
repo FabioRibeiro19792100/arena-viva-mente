@@ -472,63 +472,73 @@ const Index = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-black">
       <Header />
       
       {/* Hero Section */}
-      <section className="relative h-[70vh] min-h-[600px] flex items-center justify-center overflow-hidden">
+      <section className="relative min-h-[90vh] flex items-center justify-center overflow-hidden">
         <div className="absolute inset-0">
           <img
             src={heroImage}
             alt="Stadium atmosphere"
-            className="w-full h-full object-cover opacity-40"
+            className="w-full h-full object-cover opacity-20"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/50 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-b from-black via-black/80 to-black" />
         </div>
-        <div className="relative container h-full flex flex-col justify-center items-center text-center px-4">
-          <h1 className="text-5xl md:text-7xl font-bold mb-6 text-foreground">
-            O estádio que só existe durante o jogo
-          </h1>
-          <p className="text-xl md:text-2xl text-foreground/90 max-w-4xl mb-4">
-            <span className="font-semibold text-foreground">Exclusivo. Temporário. Inesquecível.</span>
-          </p>
-          <p className="text-lg md:text-xl text-foreground/80 max-w-3xl mb-8">
-            Cada partida abre uma sala única onde torcedores se encontram ao vivo. 
-            Quando o árbitro apita o final, a sala se fecha e aquele momento vira história.
-            <span className="block mt-3 text-accent font-semibold">
-              ⚡ Entre antes que lote. Vibre antes que acabe.
-            </span>
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4">
-            <a href="#live-now">
-              <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-semibold ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-status-live text-background hover:bg-status-live/90 hover:shadow-[0_0_20px_hsl(var(--status-live)/0.5)] hover:scale-105 h-14 rounded-lg px-10 text-base">
-                🔴 Entrar em jogos ao vivo
-              </button>
-            </a>
+        <div className="relative container max-w-7xl mx-auto px-6 py-32">
+          <div className="max-w-4xl">
+            <h1 className="text-6xl md:text-8xl lg:text-9xl font-bold mb-8 text-white leading-tight tracking-tight">
+              Join the new era of sports
+            </h1>
+            <h2 className="text-2xl md:text-3xl lg:text-4xl font-medium mb-12 text-white/80 max-w-3xl">
+              Defining the next generation of live sports experience
+            </h2>
+            <div className="flex flex-col sm:flex-row gap-4">
+              <a href="#live-now">
+                <button className="inline-flex items-center justify-center gap-3 whitespace-nowrap text-base font-semibold transition-all bg-white text-black hover:bg-white/90 hover:scale-105 h-14 px-8">
+                  Explore
+                </button>
+              </a>
+            </div>
           </div>
         </div>
       </section>
 
       {/* Live Games Section */}
-      <section id="live-now" className="container py-16 px-4">
-        <div className="flex items-center gap-3 mb-8">
-          <div className="w-3 h-3 rounded-full bg-status-live animate-pulse-glow" />
-          <h2 className="text-3xl font-bold">Ao vivo agora</h2>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {liveGames.map((game) => (
-            <GameCard key={game.id} {...game} />
-          ))}
+      <section id="live-now" className="relative bg-black py-32">
+        <div className="container max-w-7xl mx-auto px-6">
+          <div className="mb-16">
+            <h2 className="text-5xl md:text-6xl lg:text-7xl font-bold text-white mb-4">
+              Live Games
+            </h2>
+            <p className="text-xl text-white/60 max-w-2xl">
+              Join thousands of fans in real-time stadium experiences
+            </p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {liveGames.map((game) => (
+              <GameCard key={game.id} {...game} />
+            ))}
+          </div>
         </div>
       </section>
 
       {/* Upcoming Games Section */}
-      <section className="container py-16 px-4">
-        <h2 className="text-3xl font-bold mb-8">Próximos jogos</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {upcomingGames.map((game) => (
-            <GameCard key={game.id} {...game} />
-          ))}
+      <section className="relative bg-black py-32">
+        <div className="container max-w-7xl mx-auto px-6">
+          <div className="mb-16">
+            <h2 className="text-5xl md:text-6xl lg:text-7xl font-bold text-white mb-4">
+              Upcoming Games
+            </h2>
+            <p className="text-xl text-white/60 max-w-2xl">
+              Reserve your spot before the game starts
+            </p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {upcomingGames.map((game) => (
+              <GameCard key={game.id} {...game} />
+            ))}
+          </div>
         </div>
       </section>
 

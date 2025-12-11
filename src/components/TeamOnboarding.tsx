@@ -43,10 +43,10 @@ export const TeamOnboarding = ({ open, onComplete, homeTeam, awayTeam }: TeamOnb
             <div className="space-y-3 py-6">
               <button
                 onClick={() => handleTeamSelect("home")}
-                className="w-full p-6 rounded-lg border-2 border-border hover:border-primary hover:bg-primary/5 transition-all group"
+                className="w-full p-6 border-2 border-border hover:border-primary hover:bg-primary/5 transition-all group"
               >
                 <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+                  <div className="w-12 h-12 bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
                     <Shield className="w-6 h-6 text-primary" />
                   </div>
                   <div className="flex-1 text-left">
@@ -58,10 +58,10 @@ export const TeamOnboarding = ({ open, onComplete, homeTeam, awayTeam }: TeamOnb
 
               <button
                 onClick={() => handleTeamSelect("away")}
-                className="w-full p-6 rounded-lg border-2 border-border hover:border-accent hover:bg-accent/5 transition-all group"
+                className="w-full p-6 border-2 border-border hover:border-accent hover:bg-accent/5 transition-all group"
               >
                 <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-full bg-accent/10 flex items-center justify-center group-hover:bg-accent/20 transition-colors">
+                  <div className="w-12 h-12 bg-accent/10 flex items-center justify-center group-hover:bg-accent/20 transition-colors">
                     <Shield className="w-6 h-6 text-accent" />
                   </div>
                   <div className="flex-1 text-left">
@@ -73,10 +73,10 @@ export const TeamOnboarding = ({ open, onComplete, homeTeam, awayTeam }: TeamOnb
 
               <button
                 onClick={() => handleTeamSelect("neutral")}
-                className="w-full p-6 rounded-lg border-2 border-border hover:border-muted-foreground hover:bg-muted transition-all group"
+                className="w-full p-6 border-2 border-border hover:border-muted-foreground hover:bg-muted transition-all group"
               >
                 <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center group-hover:bg-muted-foreground/20 transition-colors">
+                  <div className="w-12 h-12 bg-muted flex items-center justify-center group-hover:bg-muted-foreground/20 transition-colors">
                     <Heart className="w-6 h-6 text-muted-foreground" />
                   </div>
                   <div className="flex-1 text-left">
@@ -108,7 +108,7 @@ export const TeamOnboarding = ({ open, onComplete, homeTeam, awayTeam }: TeamOnb
 
               <div className="space-y-4">
                 <div className="flex gap-4 items-start">
-                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                  <div className="w-10 h-10 bg-primary/10 flex items-center justify-center flex-shrink-0">
                     <MessageSquare className="w-5 h-5 text-primary" />
                   </div>
                   <div>
@@ -120,7 +120,7 @@ export const TeamOnboarding = ({ open, onComplete, homeTeam, awayTeam }: TeamOnb
                 </div>
 
                 <div className="flex gap-4 items-start">
-                  <div className="w-10 h-10 rounded-full bg-accent/10 flex items-center justify-center flex-shrink-0">
+                  <div className="w-10 h-10 bg-accent/10 flex items-center justify-center flex-shrink-0">
                     <Shield className="w-5 h-5 text-accent" />
                   </div>
                   <div>
@@ -132,7 +132,7 @@ export const TeamOnboarding = ({ open, onComplete, homeTeam, awayTeam }: TeamOnb
                 </div>
 
                 <div className="flex gap-4 items-start">
-                  <div className="w-10 h-10 rounded-full bg-secondary/10 flex items-center justify-center flex-shrink-0">
+                  <div className="w-10 h-10 bg-secondary/10 flex items-center justify-center flex-shrink-0">
                     <CheckCircle2 className="w-5 h-5 text-secondary" />
                   </div>
                   <div>
@@ -156,8 +156,8 @@ export const TeamOnboarding = ({ open, onComplete, homeTeam, awayTeam }: TeamOnb
         )}
 
         <div className="flex justify-center gap-2 pb-2">
-          <div className={`w-2 h-2 rounded-full transition-colors ${step === 1 ? "bg-primary" : "bg-muted"}`} />
-          <div className={`w-2 h-2 rounded-full transition-colors ${step === 2 ? "bg-primary" : "bg-muted"}`} />
+          <div className={`w-2 h-2 transition-colors ${step === 1 ? "bg-primary" : "bg-muted"}`} />
+          <div className={`w-2 h-2 transition-colors ${step === 2 ? "bg-primary" : "bg-muted"}`} />
         </div>
       </DialogContent>
     </Dialog>

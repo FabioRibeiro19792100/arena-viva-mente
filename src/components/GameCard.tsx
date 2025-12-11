@@ -58,32 +58,29 @@ export const GameCard = ({
     if (status === "live") {
       return (
         <Button 
-          variant="live" 
-          className="w-full"
+          className="w-full bg-white text-black hover:bg-white/90 font-semibold"
           onClick={() => navigate(`/arquibancada/${id}`)}
         >
-          Entrar na arquibancada
+          Join Now
         </Button>
       );
     }
     if (status === "full") {
       return (
         <Button 
-          variant="secondary" 
-          className="w-full"
+          className="w-full bg-white/10 text-white hover:bg-white/20 font-semibold border border-white/20"
           onClick={() => navigate(`/arquibancada/${id}`)}
         >
-          Entrar como espectador
+          Watch Only
         </Button>
       );
     }
     return (
       <Button 
-        variant={status === "almost-full" ? "energy" : "stadium"}
-        className="w-full"
+        className="w-full bg-white text-black hover:bg-white/90 font-semibold"
         onClick={() => navigate(`/booking/${id}`)}
       >
-        {status === "almost-full" ? "Reservar agora" : "Reservar assento"}
+        {status === "almost-full" ? "Reserve Now" : "Reserve"}
       </Button>
     );
   };
@@ -102,67 +99,67 @@ export const GameCard = ({
   };
 
   return (
-    <Card className="overflow-hidden hover:shadow-[0_8px_32px_hsl(var(--card-foreground)/0.2)] transition-all duration-300 hover:scale-[1.02] bg-card border-border">
-      <div className="relative h-48 overflow-hidden bg-gradient-to-br from-muted/50 to-background">
+    <Card className="overflow-hidden hover:shadow-[0_8px_32px_rgba(255,255,255,0.1)] transition-all duration-300 hover:scale-[1.02] bg-white/5 border border-white/10 backdrop-blur-sm">
+      <div className="relative h-48 overflow-hidden bg-gradient-to-br from-white/5 to-black/50">
         <div className="absolute inset-0 flex items-center justify-center gap-8 p-8">
           <div className="flex-1 flex justify-end">
             <img
               src={homeTeamLogo}
               alt={homeTeam}
-              className="w-24 h-24 object-contain drop-shadow-lg"
+              className="w-20 h-20 object-contain drop-shadow-lg"
             />
           </div>
-          <div className="text-3xl font-bold text-muted-foreground">VS</div>
+          <div className="text-2xl font-bold text-white/40">VS</div>
           <div className="flex-1 flex justify-start">
             <img
               src={awayTeamLogo}
               alt={awayTeam}
-              className="w-24 h-24 object-contain drop-shadow-lg"
+              className="w-20 h-20 object-contain drop-shadow-lg"
             />
           </div>
         </div>
         <div className="absolute top-3 right-3">
           {getStatusBadge()}
         </div>
-        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-card via-card/90 to-transparent p-4">
-          <p className="text-xs text-muted-foreground mb-1">{league}</p>
-          <h3 className="text-lg font-bold">
-            {homeTeam} {homeScore !== undefined && <span className="text-primary">{homeScore}</span>}
-            <span className="text-muted-foreground mx-2">x</span>
-            {awayScore !== undefined && <span className="text-primary">{awayScore}</span>} {awayTeam}
+        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black/90 to-transparent p-4">
+          <p className="text-xs text-white/60 mb-1">{league}</p>
+          <h3 className="text-lg font-bold text-white">
+            {homeTeam} {homeScore !== undefined && <span className="text-white">{homeScore}</span>}
+            <span className="text-white/40 mx-2">x</span>
+            {awayScore !== undefined && <span className="text-white">{awayScore}</span>} {awayTeam}
           </h3>
         </div>
       </div>
-      <CardContent className="p-4 space-y-3">
+      <CardContent className="p-6 space-y-4 bg-black/30">
         <div className="space-y-2">
-          <div className="flex items-center justify-between text-xs font-semibold">
-            <span className="text-primary">{homeFansPercentage}%</span>
-            <span className="text-muted-foreground">{neutralFansPercentage}% neutros</span>
-            <span className="text-accent">{awayFansPercentage}%</span>
+          <div className="flex items-center justify-between text-xs font-semibold text-white/80">
+            <span className="text-white">{homeFansPercentage}%</span>
+            <span className="text-white/60">{neutralFansPercentage}% neutros</span>
+            <span className="text-white">{awayFansPercentage}%</span>
           </div>
-          <div className="h-2 w-full bg-muted rounded-full overflow-hidden flex">
+          <div className="h-2 w-full bg-white/10 overflow-hidden flex">
             <div 
-              className="bg-primary h-full transition-all duration-500 ease-out"
+              className="bg-white h-full transition-all duration-500 ease-out"
               style={{ width: `${homeFansPercentage}%` }}
             />
             <div 
-              className="bg-muted-foreground/30 h-full transition-all duration-500 ease-out"
+              className="bg-white/30 h-full transition-all duration-500 ease-out"
               style={{ width: `${neutralFansPercentage}%` }}
             />
             <div 
-              className="bg-accent h-full transition-all duration-500 ease-out"
+              className="bg-white/60 h-full transition-all duration-500 ease-out"
               style={{ width: `${awayFansPercentage}%` }}
             />
           </div>
         </div>
         
         <div className="flex items-center justify-between text-sm">
-          <div className="flex items-center gap-2 text-muted-foreground">
+          <div className="flex items-center gap-2 text-white/60">
             <Users className="h-4 w-4" />
             <span>{getSeatsMessage()}</span>
           </div>
           {startTime && status === "scheduled" && (
-            <span className="text-accent font-semibold">{startTime}</span>
+            <span className="text-white font-semibold">{startTime}</span>
           )}
         </div>
         {getActionButton()}

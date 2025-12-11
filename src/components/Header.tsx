@@ -6,54 +6,49 @@ export const Header = () => {
   const navigate = useNavigate();
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container flex h-16 items-center justify-between">
+    <header className="sticky top-0 z-50 w-full border-b border-white/10 bg-black/80 backdrop-blur-xl supports-[backdrop-filter]:bg-black/60">
+      <div className="container flex h-20 items-center justify-between px-6">
         <div 
-          className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity"
+          className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
           onClick={() => navigate("/")}
         >
-          <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-primary-glow">
-            <span className="text-2xl">🏟️</span>
-          </div>
-          <div>
-            <h1 className="text-xl font-bold text-gradient-stadium">Arquibancada.Live</h1>
-            <p className="text-xs text-muted-foreground">O jogo começa. A arquibancada abre.</p>
-          </div>
+          <h1 className="text-2xl font-bold text-white tracking-tight">Arena Viva Mente</h1>
         </div>
         
-        <nav className="hidden md:flex items-center gap-6">
+        <nav className="hidden md:flex items-center gap-8">
           <button 
             onClick={() => navigate("/")}
-            className="text-sm font-medium text-foreground hover:text-primary transition-colors"
+            className="text-sm font-medium text-white/80 hover:text-white transition-colors"
           >
-            Jogos
+            Games
           </button>
           <button 
             onClick={() => navigate("/galeria")}
-            className="text-sm font-medium text-foreground hover:text-primary transition-colors"
+            className="text-sm font-medium text-white/80 hover:text-white transition-colors"
           >
             Galeria
           </button>
           <button 
             onClick={() => navigate("/perfil")}
-            className="text-sm font-medium text-foreground hover:text-primary transition-colors flex items-center gap-1"
+            className="text-sm font-medium text-white/80 hover:text-white transition-colors flex items-center gap-2"
           >
             <User className="h-4 w-4" />
             Perfil
           </button>
           <Button 
-            variant="stadium" 
+            variant="default" 
             size="sm"
             onClick={() => navigate("/login")}
+            className="bg-white text-black hover:bg-white/90 font-semibold"
           >
-            Entrar
+            Login
           </Button>
         </nav>
 
         <Button 
           variant="ghost" 
           size="icon" 
-          className="md:hidden"
+          className="md:hidden text-white"
         >
           <Menu className="h-5 w-5" />
         </Button>
