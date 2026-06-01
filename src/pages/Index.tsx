@@ -103,39 +103,39 @@ const Index = () => {
     searchQuery !== "";
 
   return (
-    <div className="min-h-screen bg-black">
+    <div className="min-h-screen bg-background text-foreground">
       <Header />
 
-      <section className="relative bg-black py-12 md:py-16">
+      <section className="relative py-12 md:py-16">
         <div className="container max-w-7xl mx-auto px-6">
           <div className="mb-8 md:mb-10">
             <div className="flex items-center gap-3 mb-4">
-              <Ticket className="h-5 w-5 text-white/70" />
-              <span className="text-sm uppercase tracking-[0.2em] text-white/60">
+              <Ticket className="h-5 w-5 text-primary" />
+              <span className="text-sm uppercase tracking-[0.2em] text-muted-foreground">
                 Catálogo de eventos
               </span>
             </div>
-            <h1 className="text-3xl md:text-5xl font-bold text-white mb-3">
+            <h1 className="mb-3 text-3xl font-bold text-foreground md:text-5xl">
               Copa do Mundo 2026
             </h1>
-            <p className="text-base md:text-lg text-white/60 max-w-3xl">
-              Explore a agenda oficial por esporte, fase, seleção e data.
+            <p className="max-w-3xl text-base text-muted-foreground md:text-lg">
+              Navegue pelos jogos, filtre o que importa e entre na sala de cada partida.
             </p>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-[1.3fr_repeat(4,0.8fr)] gap-3 mb-8">
             <div className="relative">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-white/40" />
+              <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Buscar por seleção, sede ou fase"
-                className="pl-11 h-12 bg-white/5 border-white/10 text-white placeholder:text-white/40"
+                className="h-12 border-border bg-card pl-11 placeholder:text-muted-foreground"
               />
             </div>
 
             <Select value={selectedSport} onValueChange={setSelectedSport}>
-              <SelectTrigger className="h-12 bg-white/5 border-white/10 text-white">
+              <SelectTrigger className="h-12 border-border bg-card">
                 <SelectValue placeholder="Esporte" />
               </SelectTrigger>
               <SelectContent>
@@ -145,7 +145,7 @@ const Index = () => {
             </Select>
 
             <Select value={selectedEvent} onValueChange={setSelectedEvent}>
-              <SelectTrigger className="h-12 bg-white/5 border-white/10 text-white">
+              <SelectTrigger className="h-12 border-border bg-card">
                 <SelectValue placeholder="Evento" />
               </SelectTrigger>
               <SelectContent>
@@ -159,7 +159,7 @@ const Index = () => {
             </Select>
 
             <Select value={selectedTeam} onValueChange={setSelectedTeam}>
-              <SelectTrigger className="h-12 bg-white/5 border-white/10 text-white">
+              <SelectTrigger className="h-12 border-border bg-card">
                 <SelectValue placeholder="Time" />
               </SelectTrigger>
               <SelectContent>
@@ -173,7 +173,7 @@ const Index = () => {
             </Select>
 
             <Select value={selectedDate} onValueChange={setSelectedDate}>
-              <SelectTrigger className="h-12 bg-white/5 border-white/10 text-white">
+              <SelectTrigger className="h-12 border-border bg-card">
                 <SelectValue placeholder="Data" />
               </SelectTrigger>
               <SelectContent>
@@ -188,7 +188,7 @@ const Index = () => {
           </div>
 
           <div className="flex flex-wrap items-center justify-between gap-4 mb-10">
-            <div className="flex items-center gap-2 text-sm text-white/60">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <CalendarDays className="h-4 w-4" />
               <span>
                 {filteredMatches.length} {filteredMatches.length === 1 ? "evento encontrado" : "eventos encontrados"}
@@ -204,7 +204,7 @@ const Index = () => {
                   setSelectedDate("all");
                   setSearchQuery("");
                 }}
-                className="text-sm text-white/60 hover:text-white transition-colors"
+                className="text-sm text-muted-foreground transition-colors hover:text-foreground"
               >
                 Limpar filtros
               </button>
@@ -212,7 +212,7 @@ const Index = () => {
           </div>
 
           {filteredMatches.length === 0 ? (
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-10 text-center text-white/70">
+            <div className="rounded-2xl border border-border bg-card p-10 text-center text-muted-foreground shadow-[var(--shadow-card)]">
               Nenhum evento encontrado com os filtros atuais.
             </div>
           ) : (

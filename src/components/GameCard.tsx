@@ -57,8 +57,8 @@ export const GameCard = ({
   const getActionButton = () => {
     if (status === "live") {
       return (
-        <Button 
-          className="w-full bg-white text-black hover:bg-white/90 font-semibold"
+        <Button
+          className="w-full font-semibold"
           onClick={() => navigate(`/arquibancada/${id}`)}
         >
           Entrar na sala
@@ -67,8 +67,9 @@ export const GameCard = ({
     }
     if (status === "full") {
       return (
-        <Button 
-          className="w-full bg-white/10 text-white hover:bg-white/20 font-semibold border border-white/20"
+        <Button
+          variant="outline"
+          className="w-full font-semibold"
           onClick={() => navigate(`/arquibancada/${id}`)}
         >
           Ver modo espera
@@ -76,8 +77,8 @@ export const GameCard = ({
       );
     }
     return (
-      <Button 
-        className="w-full bg-white text-black hover:bg-white/90 font-semibold"
+      <Button
+        className="w-full font-semibold"
         onClick={() => navigate(`/booking/${id}`)}
       >
         {status === "almost-full" ? "Reservar acesso" : "Ver detalhes"}
@@ -86,8 +87,8 @@ export const GameCard = ({
   };
 
   return (
-    <Card className="overflow-hidden hover:shadow-[0_8px_32px_rgba(255,255,255,0.1)] transition-all duration-300 hover:scale-[1.02] bg-white/5 border border-white/10 backdrop-blur-sm">
-      <div className="relative h-40 overflow-hidden bg-gradient-to-br from-white/5 to-black/50">
+    <Card className="overflow-hidden border-border/80 transition-all duration-300 hover:scale-[1.01] hover:shadow-[var(--shadow-card)]">
+      <div className="relative h-40 overflow-hidden bg-gradient-to-br from-primary/5 via-background to-muted/80">
         <div className="absolute inset-0 flex items-center justify-center gap-6 p-6">
           <div className="flex flex-1 justify-end">
             <img
@@ -96,7 +97,7 @@ export const GameCard = ({
               className="h-16 w-16 object-contain drop-shadow-lg"
             />
           </div>
-          <div className="text-lg font-bold text-white/30">VS</div>
+          <div className="text-lg font-bold text-muted-foreground/60">VS</div>
           <div className="flex flex-1 justify-start">
             <img
               src={awayTeamLogo}
@@ -114,43 +115,43 @@ export const GameCard = ({
             event.stopPropagation();
             onToggleFavorite?.(id);
           }}
-          className="absolute top-3 left-3 rounded-full border border-white/20 bg-black/40 p-2 text-white/80 transition-colors hover:text-white"
+          className="absolute top-3 left-3 rounded-full border border-border/80 bg-background/85 p-2 text-muted-foreground transition-colors hover:text-foreground"
         >
-          <Heart className={`h-4 w-4 ${isFavorite ? "fill-white text-white" : ""}`} />
+          <Heart className={`h-4 w-4 ${isFavorite ? "fill-primary text-primary" : ""}`} />
         </button>
-        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black/90 to-transparent p-4">
-          <p className="text-xs text-white/60 mb-1">{league}</p>
-          <h3 className="text-lg font-bold text-white">
-            {homeTeam} {homeScore !== undefined && <span className="text-white">{homeScore}</span>}
-            <span className="text-white/40 mx-2">x</span>
-            {awayScore !== undefined && <span className="text-white">{awayScore}</span>} {awayTeam}
+        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-background via-background/90 to-transparent p-4">
+          <p className="mb-1 text-xs text-muted-foreground">{league}</p>
+          <h3 className="text-lg font-bold text-foreground">
+            {homeTeam} {homeScore !== undefined && <span className="text-foreground">{homeScore}</span>}
+            <span className="mx-2 text-muted-foreground">x</span>
+            {awayScore !== undefined && <span className="text-foreground">{awayScore}</span>} {awayTeam}
           </h3>
         </div>
       </div>
-      <CardContent className="p-6 space-y-4 bg-black/30">
+      <CardContent className="space-y-4 p-6">
         <div className="flex flex-wrap gap-2">
           {isFavorite && (
-            <Badge variant="secondary" className="bg-white/10 text-white border-white/20">
-              <Heart className="h-3 w-3 mr-1 fill-white" />
+            <Badge variant="secondary" className="bg-primary/10 text-primary">
+              <Heart className="mr-1 h-3 w-3 fill-primary" />
               Favoritado
             </Badge>
           )}
           {isReserved && (
-            <Badge variant="secondary" className="bg-white/10 text-white border-white/20">
-              <CheckCheck className="h-3 w-3 mr-1" />
+            <Badge variant="secondary" className="bg-accent/15 text-foreground">
+              <CheckCheck className="mr-1 h-3 w-3" />
               Reservado
             </Badge>
           )}
         </div>
         <div className="space-y-3">
-          <div className="flex items-start gap-2 text-sm text-white/70">
+          <div className="flex items-start gap-2 text-sm text-muted-foreground">
             <CalendarDays className="h-4 w-4 mt-0.5 shrink-0" />
             <div>
-              <p className="font-medium text-white">{stage}</p>
+              <p className="font-medium text-foreground">{stage}</p>
               {startTime && <p>{startTime}</p>}
             </div>
           </div>
-          <div className="flex items-start gap-2 text-sm text-white/70">
+          <div className="flex items-start gap-2 text-sm text-muted-foreground">
             <MapPin className="h-4 w-4 mt-0.5 shrink-0" />
             <span>{venue}</span>
           </div>

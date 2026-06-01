@@ -65,16 +65,16 @@ const Perfil = () => {
   const profile = {
     ...user,
     stats: {
-      accessModel: "Sessão mock persistida",
+      accessModel: "Sessão persistida",
       provider: user.provider,
-      plan: user.plan === "premium" ? "Premium" : "Free",
+      plan: user.plan === "premium" ? "Premium" : "Gratuito",
       favoriteMode: user.favoriteTeam === "Neutro" ? "Observador" : "Torcida ativa",
     },
     badges: [
       { id: 1, name: "Cadeira Cativa", icon: Trophy, description: "Participou de 20+ jogos", color: "text-yellow-500" },
       { id: 2, name: "Voz da Torcida", icon: MessageSquare, description: "500+ mensagens enviadas", color: "text-blue-500" },
-      { id: 3, name: "Sessão Mock Verificada", icon: Shield, description: `Login social simulado via ${user.provider}`, color: "text-green-500" },
-      { id: 4, name: user.plan === "premium" ? "PRO 2026" : "Teste Produto", icon: Flame, description: user.plan === "premium" ? "Conta mock premium ativa" : "Conta mock gratuita ativa", color: "text-orange-500" },
+      { id: 3, name: "Conta verificada", icon: Shield, description: `Login social ativo via ${user.provider}`, color: "text-green-500" },
+      { id: 4, name: user.plan === "premium" ? "PRO 2026" : "Conta ativa", icon: Flame, description: user.plan === "premium" ? "Experiência premium habilitada" : "Experiência principal liberada", color: "text-orange-500" },
     ],
     favoriteMatches: productState.favorites
       .map((matchId) => worldCupMatchMap[matchId])
@@ -97,28 +97,27 @@ const Perfil = () => {
   };
 
   return (
-    <div className="min-h-screen bg-black">
+    <div className="min-h-screen bg-background text-foreground">
       <Header />
       
       <div className="container max-w-7xl mx-auto py-32 px-6">
         <div className="grid md:grid-cols-3 gap-6">
-          {/* Sidebar - Perfil */}
-          <Card className="md:col-span-1 bg-white/5 border border-white/10 backdrop-blur-sm">
+          <Card className="md:col-span-1 border-border/80 shadow-[var(--shadow-card)]">
             <CardHeader className="text-center">
               <Avatar className="w-24 h-24 mx-auto mb-4 ring-4 ring-white/20">
                 <AvatarImage src={profile.avatar} />
-                <AvatarFallback className="text-2xl font-bold bg-white/10 text-white">
+                <AvatarFallback className="bg-primary/10 text-2xl font-bold text-primary">
                   {profile.name.split(" ").map(n => n[0]).join("")}
                 </AvatarFallback>
               </Avatar>
-              <CardTitle className="text-xl text-white">{profile.name}</CardTitle>
-              <p className="text-sm text-white/60">{profile.username}</p>
+              <CardTitle className="text-xl text-foreground">{profile.name}</CardTitle>
+              <p className="text-sm text-muted-foreground">{profile.username}</p>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <div className="flex items-center gap-2 text-sm text-white/60">
-                  <Star className="h-4 w-4 text-white" />
-                  <span>Favorite team</span>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Star className="h-4 w-4 text-primary" />
+                  <span>Time favorito</span>
                 </div>
                 <Select value={favoriteTeam} onValueChange={setFavoriteTeam}>
                   <SelectTrigger>
@@ -134,79 +133,76 @@ const Perfil = () => {
                 </Select>
                 <Button
                   variant="outline"
-                  className="w-full bg-white/5 border-white/10 text-white hover:bg-white/10"
+                  className="w-full"
                   onClick={() => updateUser({ favoriteTeam })}
                 >
                   Salvar time favorito
                 </Button>
-                <p className="text-xs text-white/60">
-                  Your choice appears as a badge in your comments
+                <p className="text-xs text-muted-foreground">
+                  Sua escolha aparece vinculada ao seu perfil nos comentários.
                 </p>
               </div>
               
               <div className="flex items-center gap-2 text-sm">
-                <Calendar className="h-4 w-4 text-white/60" />
-                <span className="text-white/60">Member since {profile.joinDate}</span>
+                <Calendar className="h-4 w-4 text-muted-foreground" />
+                <span className="text-muted-foreground">Desde {profile.joinDate}</span>
               </div>
               
-              <Separator className="bg-white/10" />
+              <Separator className="bg-border" />
               
-              <Button variant="outline" className="w-full bg-white/5 border-white/10 text-white hover:bg-white/10">
+              <Button variant="outline" className="w-full">
                 <Bell className="mr-2 h-4 w-4" />
-                Notification preferences
+                Preferências de notificação
               </Button>
               <Button
                 variant="outline"
-                className="w-full bg-white/5 border-white/10 text-white hover:bg-white/10"
+                className="w-full"
                 onClick={() => {
                   logout();
                   navigate("/");
                 }}
               >
-                Sair da sessão mock
+                Sair da conta
               </Button>
             </CardContent>
           </Card>
 
-          {/* Main Content */}
           <div className="md:col-span-2 space-y-6">
-            {/* Estatísticas */}
-            <Card className="bg-white/5 border border-white/10 backdrop-blur-sm">
+            <Card className="border-border/80 shadow-[var(--shadow-card)]">
               <CardHeader>
-                <CardTitle className="text-white">My Statistics</CardTitle>
+                <CardTitle>Minhas estatísticas</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="text-center p-4 bg-white/5 border border-white/10">
-                    <Trophy className="h-8 w-8 mx-auto mb-2 text-white" />
-                    <p className="text-xl font-bold text-white">{profile.stats.accessModel}</p>
-                    <p className="text-sm text-white/60">Modelo de acesso</p>
+                  <div className="border border-border bg-muted/45 p-4 text-center">
+                    <Trophy className="mx-auto mb-2 h-8 w-8 text-primary" />
+                    <p className="text-xl font-bold text-foreground">{profile.stats.accessModel}</p>
+                    <p className="text-sm text-muted-foreground">Modelo de acesso</p>
                   </div>
-                  <div className="text-center p-4 bg-white/5 border border-white/10">
-                    <MessageSquare className="h-8 w-8 mx-auto mb-2 text-white" />
-                    <p className="text-3xl font-bold text-white">{profile.stats.provider}</p>
-                    <p className="text-sm text-white/60">Provider</p>
+                  <div className="border border-border bg-muted/45 p-4 text-center">
+                    <MessageSquare className="mx-auto mb-2 h-8 w-8 text-primary" />
+                    <p className="text-3xl font-bold text-foreground">{profile.stats.provider}</p>
+                    <p className="text-sm text-muted-foreground">Login</p>
                   </div>
-                  <div className="text-center p-4 bg-white/5 border border-white/10">
-                    <ThumbsUp className="h-8 w-8 mx-auto mb-2 text-white" />
-                    <p className="text-3xl font-bold text-white">{profile.stats.plan}</p>
-                    <p className="text-sm text-white/60">Plano atual</p>
+                  <div className="border border-border bg-muted/45 p-4 text-center">
+                    <ThumbsUp className="mx-auto mb-2 h-8 w-8 text-primary" />
+                    <p className="text-3xl font-bold text-foreground">{profile.stats.plan}</p>
+                    <p className="text-sm text-muted-foreground">Plano atual</p>
                   </div>
-                  <div className="text-center p-4 bg-white/5 border border-white/10">
-                    <Flame className="h-8 w-8 mx-auto mb-2 text-white" />
-                    <p className="text-2xl font-bold text-white">{profile.stats.favoriteMode}</p>
-                    <p className="text-sm text-white/60">Modo de presença</p>
+                  <div className="border border-border bg-muted/45 p-4 text-center">
+                    <Flame className="mx-auto mb-2 h-8 w-8 text-primary" />
+                    <p className="text-2xl font-bold text-foreground">{profile.stats.favoriteMode}</p>
+                    <p className="text-sm text-muted-foreground">Modo de presença</p>
                   </div>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Badges */}
-            <Card className="bg-white/5 border border-white/10 backdrop-blur-sm">
+            <Card className="border-border/80 shadow-[var(--shadow-card)]">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-white">
-                  <Award className="h-5 w-5 text-white" />
-                  My Achievements
+                <CardTitle className="flex items-center gap-2">
+                  <Award className="h-5 w-5 text-primary" />
+                  Conquistas
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -214,12 +210,12 @@ const Perfil = () => {
                   {profile.badges.map((badge) => (
                     <div 
                       key={badge.id}
-                      className="flex gap-3 p-4 bg-white/5 border border-white/10 hover:border-white/30 transition-all hover:scale-[1.02]"
+                      className="flex gap-3 border border-border bg-muted/45 p-4 transition-all hover:scale-[1.02] hover:border-primary/30"
                     >
-                      <badge.icon className="h-8 w-8 text-white shrink-0" />
+                      <badge.icon className="h-8 w-8 shrink-0 text-primary" />
                       <div>
-                        <p className="font-semibold text-white">{badge.name}</p>
-                        <p className="text-sm text-white/60">{badge.description}</p>
+                        <p className="font-semibold text-foreground">{badge.name}</p>
+                        <p className="text-sm text-muted-foreground">{badge.description}</p>
                       </div>
                     </div>
                   ))}
@@ -227,39 +223,38 @@ const Perfil = () => {
               </CardContent>
             </Card>
 
-            {/* Histórico */}
-            <Card className="bg-white/5 border border-white/10 backdrop-blur-sm">
+            <Card className="border-border/80 shadow-[var(--shadow-card)]">
               <CardHeader>
-                <CardTitle className="text-white">Reservas e favoritos</CardTitle>
+                <CardTitle>Reservas e favoritos</CardTitle>
               </CardHeader>
               <CardContent className="grid md:grid-cols-2 gap-4">
                 <div className="space-y-3">
-                  <p className="text-sm font-semibold text-white">Reservas salvas</p>
+                  <p className="text-sm font-semibold text-foreground">Reservas salvas</p>
                   {profile.reservations.length === 0 ? (
-                    <p className="text-sm text-white/60">Nenhuma reserva persistida ainda.</p>
+                    <p className="text-sm text-muted-foreground">Nenhuma reserva persistida ainda.</p>
                   ) : (
                     profile.reservations.map((reservation) => (
                       <div
                         key={reservation.matchId}
-                        className="p-3 bg-white/5 border border-white/10 hover:border-white/30 transition-colors"
+                        className="border border-border bg-muted/45 p-3 transition-colors hover:border-primary/30"
                       >
                         <div className="flex items-start justify-between gap-3">
                           <button
                             className="flex-1 text-left"
                             onClick={() => navigate(`/booking/${reservation.matchId}`)}
                           >
-                            <p className="font-semibold text-white flex items-center gap-2">
+                            <p className="flex items-center gap-2 font-semibold text-foreground">
                               <CheckCheck className="h-4 w-4" />
                               {reservation.match.homeTeam} x {reservation.match.awayTeam}
                             </p>
-                            <p className="text-xs text-white/60 mt-1">
+                            <p className="mt-1 text-xs text-muted-foreground">
                               {reservation.match.date} • {reservation.match.venue}
                             </p>
                           </button>
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-8 w-8 text-white/60 hover:text-white"
+                            className="h-8 w-8 text-muted-foreground hover:text-foreground"
                             onClick={() => {
                               void (async () => {
                                 await removeReservation(user.id, reservation.matchId);
@@ -276,32 +271,32 @@ const Perfil = () => {
                 </div>
 
                 <div className="space-y-3">
-                  <p className="text-sm font-semibold text-white">Favoritos</p>
+                  <p className="text-sm font-semibold text-foreground">Favoritos</p>
                   {profile.favoriteMatches.length === 0 ? (
-                    <p className="text-sm text-white/60">Nenhum evento favoritado ainda.</p>
+                    <p className="text-sm text-muted-foreground">Nenhum evento favoritado ainda.</p>
                   ) : (
                     profile.favoriteMatches.map((match) => (
                       <div
                         key={match.id}
-                        className="p-3 bg-white/5 border border-white/10 hover:border-white/30 transition-colors"
+                        className="border border-border bg-muted/45 p-3 transition-colors hover:border-primary/30"
                       >
                         <div className="flex items-start justify-between gap-3">
                           <button
                             className="flex-1 text-left"
                             onClick={() => navigate(`/booking/${match.id}`)}
                           >
-                            <p className="font-semibold text-white flex items-center gap-2">
-                              <Heart className="h-4 w-4 fill-white" />
+                            <p className="flex items-center gap-2 font-semibold text-foreground">
+                              <Heart className="h-4 w-4 fill-primary text-primary" />
                               {match.homeTeam} x {match.awayTeam}
                             </p>
-                            <p className="text-xs text-white/60 mt-1">
+                            <p className="mt-1 text-xs text-muted-foreground">
                               {match.stage} • {match.date}
                             </p>
                           </button>
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-8 w-8 text-white/60 hover:text-white"
+                            className="h-8 w-8 text-muted-foreground hover:text-foreground"
                             onClick={() => {
                               void (async () => {
                                 await toggleFavoriteMatch(user.id, match.id);
@@ -319,37 +314,37 @@ const Perfil = () => {
               </CardContent>
             </Card>
 
-            <Card className="bg-white/5 border border-white/10 backdrop-blur-sm">
+            <Card className="border-border/80 shadow-[var(--shadow-card)]">
               <CardHeader>
-                <CardTitle className="text-white">Recent Games</CardTitle>
+                <CardTitle>Jogos recentes</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
                 {profile.recentGames.map((game) => (
                   <div 
                     key={`${game.matchId}-${game.context}`}
-                    className="flex items-center justify-between p-4 bg-white/5 border border-white/10 hover:border-white/30 transition-colors cursor-pointer"
+                    className="flex cursor-pointer items-center justify-between border border-border bg-muted/45 p-4 transition-colors hover:border-primary/30"
                     onClick={() => navigate(getHistoryPath(game.context, game.matchId))}
                   >
                     <div>
-                      <p className="font-semibold text-white">
+                      <p className="font-semibold text-foreground">
                         {game.match.homeTeam} x {game.match.awayTeam}
                       </p>
-                      <p className="text-sm text-white/60">
+                      <p className="text-sm text-muted-foreground">
                         {game.match.date} • {game.context}
                       </p>
                     </div>
-                    <Badge variant="secondary" className="bg-white/10 text-white border-white/20">
+                    <Badge variant="secondary" className="bg-primary/10 text-primary">
                       {game.context}
                     </Badge>
                   </div>
                 ))}
                 {profile.recentGames.length === 0 && (
-                  <p className="text-sm text-white/60">Nenhum histórico salvo ainda.</p>
+                  <p className="text-sm text-muted-foreground">Nenhum histórico salvo ainda.</p>
                 )}
                 
-                <Button 
+                  <Button 
                   variant="outline" 
-                  className="w-full mt-4 bg-white/5 border-white/10 text-white hover:bg-white/10"
+                  className="mt-4 w-full"
                   onClick={() => navigate("/")}
                 >
                   Explorar jogos

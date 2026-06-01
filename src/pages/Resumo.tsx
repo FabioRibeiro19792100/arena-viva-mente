@@ -103,29 +103,28 @@ const Resumo = () => {
 
   if (!isSummaryAvailable) {
     return (
-      <div className="min-h-screen bg-black">
+      <div className="min-h-screen bg-background text-foreground">
         <Header />
 
         <div className="container max-w-4xl mx-auto py-32 px-6">
           <Button
             variant="ghost"
             onClick={() => navigate(`/booking/${selectedMatch.id}`)}
-            className="mb-6 text-white/60 hover:text-white"
+            className="mb-6 text-muted-foreground hover:text-foreground"
           >
             ← Voltar para o jogo
           </Button>
 
-          <Card className="bg-white/5 border border-white/10 backdrop-blur-sm">
+          <Card className="border-border/80 shadow-[var(--shadow-card)]">
             <CardContent className="p-8 md:p-10 space-y-4">
-              <Badge variant="outline" className="border-white/15 bg-transparent text-white/60">
-                Highlights AI
+              <Badge variant="outline" className="border-border bg-muted/45 text-muted-foreground">
+                Highlights com IA
               </Badge>
-              <h1 className="text-3xl md:text-4xl font-bold text-white">
+              <h1 className="text-3xl md:text-4xl font-bold text-foreground">
                 Esse resumo so entra depois do fim do jogo
               </h1>
-              <p className="text-base md:text-lg text-white/65 max-w-2xl">
-                Aqui o conteudo funciona como highlight empacotado por IA dentro da timeline do
-                evento. Antes do apito final, ele nao fica disponivel.
+              <p className="max-w-2xl text-base text-muted-foreground md:text-lg">
+                Os highlights aparecem só depois do apito final e entram no fluxo da própria partida.
               </p>
             </CardContent>
           </Card>
@@ -137,14 +136,14 @@ const Resumo = () => {
   }
 
   return (
-    <div className="min-h-screen bg-black">
+    <div className="min-h-screen bg-background text-foreground">
       <Header />
       
       <div className="container max-w-7xl mx-auto py-32 px-6">
         <Button 
           variant="ghost" 
           onClick={() => navigate(`/booking/${selectedMatch.id}`)}
-          className="mb-6 text-white/60 hover:text-white"
+          className="mb-6 text-muted-foreground hover:text-foreground"
         >
           ← Voltar para o jogo
         </Button>
@@ -156,35 +155,34 @@ const Resumo = () => {
             alt="Game"
             className="w-full h-full object-cover opacity-20"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/65 to-transparent" />
           <div className="absolute inset-0 flex flex-col justify-end p-6">
-            <p className="text-sm text-white/60 mb-2">{resumo.game.league} • {resumo.game.date}</p>
-            <h1 className="text-4xl font-bold mb-2 text-white">
-              {resumo.game.homeTeam} <span className="text-white/40">vs</span> {resumo.game.awayTeam}
+            <p className="mb-2 text-sm text-muted-foreground">{resumo.game.league} • {resumo.game.date}</p>
+            <h1 className="mb-2 text-4xl font-bold text-foreground">
+              {resumo.game.homeTeam} <span className="text-muted-foreground">vs</span> {resumo.game.awayTeam}
             </h1>
-            <p className="text-lg text-white/60">
-              {resumo.stats.mode} • {resumo.stats.duration}
+            <p className="text-lg text-muted-foreground">
+              Leitura da conversa, clima da sala e momentos que marcaram o jogo.
             </p>
           </div>
         </div>
 
         <div className="flex gap-4 mb-8">
-          <Button onClick={handleShare} className="flex-1 sm:flex-none bg-white text-black hover:bg-white/90">
+          <Button onClick={handleShare} className="flex-1 sm:flex-none">
             <Share2 className="mr-2 h-4 w-4" />
-            Share summary
+            Compartilhar resumo
           </Button>
-          <Badge variant="secondary" className="text-sm px-4 bg-white/10 text-white border-white/20">
+          <Badge variant="secondary" className="px-4 text-sm bg-primary/10 text-primary">
             <Clock className="mr-2 h-4 w-4" />
-            Available for 24h
+            Disponível por 24h
           </Badge>
         </div>
 
-        {/* Sinopse Narrativa */}
-        <Card className="mb-6 bg-white/5 border border-white/10 backdrop-blur-sm">
+        <Card className="mb-6 border-border/80 shadow-[var(--shadow-card)]">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-white">
-              <MessageSquare className="h-5 w-5 text-white" />
-              Stadium Synopsis
+            <CardTitle className="flex items-center gap-2">
+              <MessageSquare className="h-5 w-5 text-primary" />
+              Síntese da arquibancada
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -195,11 +193,11 @@ const Resumo = () => {
                 // Processa o parágrafo para destacar "Heart, passion and stadium on fire"
                 const parts = paragraph.split('Heart, passion and stadium on fire');
                 return (
-                  <p key={index} className="text-base leading-relaxed text-white/80">
+                  <p key={index} className="text-base leading-relaxed text-muted-foreground">
                     {parts.length > 1 ? (
                       <>
                         {parts[0]}
-                        <strong className="text-white">Heart, passion and stadium on fire</strong>
+                        <strong className="text-foreground">Heart, passion and stadium on fire</strong>
                         {parts[1]}
                       </>
                     ) : (
@@ -213,51 +211,48 @@ const Resumo = () => {
         </Card>
 
         <div className="grid md:grid-cols-2 gap-6">
-          {/* Humor Dominante */}
-          <Card className="bg-white/5 border border-white/10 backdrop-blur-sm">
+          <Card className="border-border/80 shadow-[var(--shadow-card)]">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-white">
+              <CardTitle className="flex items-center gap-2">
                 <span className="text-4xl">{resumo.mood.emoji}</span>
-                Dominant Mood
+                Humor dominante
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-3xl font-bold mb-2 text-white">{resumo.mood.dominant}</p>
-              <p className="text-white/60">
+              <p className="mb-2 text-3xl font-bold text-foreground">{resumo.mood.dominant}</p>
+              <p className="text-muted-foreground">
                 Leitura qualitativa do clima que ficou do evento
               </p>
             </CardContent>
           </Card>
 
-          {/* Estatísticas */}
-          <Card className="bg-white/5 border border-white/10 backdrop-blur-sm">
+          <Card className="border-border/80 shadow-[var(--shadow-card)]">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-white">
-                <TrendingUp className="h-5 w-5 text-white" />
-                Statistics
+              <CardTitle className="flex items-center gap-2">
+                <TrendingUp className="h-5 w-5 text-primary" />
+                Estatísticas
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="flex justify-between">
-                <span className="text-white/60">Fonte</span>
-                <span className="font-bold text-white">{resumo.stats.source}</span>
+                <span className="text-muted-foreground">Fonte</span>
+                <span className="font-bold text-foreground">{resumo.stats.source}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-white/60">Modo</span>
-                <span className="font-bold text-white">{resumo.stats.mode}</span>
+                <span className="text-muted-foreground">Modo</span>
+                <span className="font-bold text-foreground">{resumo.stats.mode}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-white/60">Validação</span>
-                <span className="font-bold text-white">{resumo.stats.validation}</span>
+                <span className="text-muted-foreground">Validação</span>
+                <span className="font-bold text-foreground">{resumo.stats.validation}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-white/60">Duration</span>
-                <span className="font-bold text-white">{resumo.stats.duration}</span>
+                <span className="text-muted-foreground">Duração</span>
+                <span className="font-bold text-foreground">{resumo.stats.duration}</span>
               </div>
             </CardContent>
           </Card>
 
-          {/* Lances Mais Citados */}
           <Card className="md:col-span-2 bg-white/5 border border-white/10 backdrop-blur-sm">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-white">

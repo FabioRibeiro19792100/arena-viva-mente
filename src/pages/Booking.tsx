@@ -85,123 +85,121 @@ const Booking = () => {
   };
 
   return (
-    <div className="min-h-screen bg-black">
+    <div className="min-h-screen bg-background text-foreground">
       <Header />
 
       <div className="container max-w-7xl mx-auto py-32 px-6">
         <Button
           variant="ghost"
           onClick={() => navigate("/")}
-          className="mb-6 text-white/60 hover:text-white"
+          className="mb-6 text-muted-foreground hover:text-foreground"
         >
           ← Voltar para os jogos
         </Button>
 
         <div className="grid md:grid-cols-2 gap-8">
           <div className="space-y-6">
-            <Card className="overflow-hidden bg-white/5 border border-white/10 backdrop-blur-sm">
-              <div className="bg-gradient-to-br from-white/5 via-black/50 to-white/5 p-8">
-                <p className="text-sm text-white/60 text-center mb-2">{game.league}</p>
-                <p className="text-sm text-white/50 text-center mb-6">
+            <Card className="overflow-hidden border-border/80 shadow-[var(--shadow-card)]">
+              <div className="bg-gradient-to-br from-primary/5 via-background to-muted/80 p-8">
+                <p className="mb-2 text-center text-sm text-muted-foreground">{game.league}</p>
+                <p className="mb-6 text-center text-sm text-muted-foreground">
                   {game.stage} • {game.venue}
                 </p>
 
                 <div className="flex items-center justify-center gap-8">
                   <div className="flex flex-col items-center gap-3">
                     <img src={game.homeTeamLogo} alt={game.homeTeam} className="w-20 h-20 object-contain" />
-                    <span className="font-bold text-white">{game.homeTeam}</span>
+                    <span className="font-bold text-foreground">{game.homeTeam}</span>
                   </div>
 
-                  <div className="text-3xl font-bold text-white/40">VS</div>
+                  <div className="text-3xl font-bold text-muted-foreground">VS</div>
 
                   <div className="flex flex-col items-center gap-3">
                     <img src={game.awayTeamLogo} alt={game.awayTeam} className="w-20 h-20 object-contain" />
-                    <span className="font-bold text-white">{game.awayTeam}</span>
+                    <span className="font-bold text-foreground">{game.awayTeam}</span>
                   </div>
                 </div>
 
-                <p className="text-center text-lg text-white font-semibold mt-6">
+                <p className="mt-6 text-center text-lg font-semibold text-foreground">
                   {game.date} às {game.startTime}
                 </p>
               </div>
             </Card>
 
-            <div className="flex gap-3 p-4 bg-white/5 border border-white/10">
-              <AlertCircle className="h-5 w-5 text-white shrink-0 mt-0.5" />
+            <div className="flex gap-3 rounded-2xl border border-border bg-card p-4 shadow-[var(--shadow-card)]">
+              <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
               <div className="text-sm">
-                <p className="font-semibold text-white mb-1">Teste da Copa 2026</p>
-                <p className="text-white/60">
-                  Esta tela agora usa a tabela oficial da FIFA 2026. O placar ainda está simulado
-                  como pré-jogo para validar a experiência do produto.
+                <p className="mb-1 font-semibold text-foreground">Entrada da partida</p>
+                <p className="text-muted-foreground">
+                  Garanta seu lugar antes do jogo e volte direto para a arquibancada quando quiser.
                 </p>
               </div>
             </div>
           </div>
 
           <div className="space-y-6">
-            <Card className="bg-white/5 border border-white/10 backdrop-blur-sm">
+            <Card className="border-border/80 shadow-[var(--shadow-card)]">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-lg text-white">
-                  <Clock className="h-5 w-5 text-white" />
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <Clock className="h-5 w-5 text-primary" />
                   Reserva fecha em
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-4xl font-bold text-white text-center font-mono">
+                <div className="text-center font-mono text-4xl font-bold text-foreground">
                   {formatTime(countdown)}
                 </div>
-                <p className="text-sm text-white/60 text-center mt-2">
+                <p className="mt-2 text-center text-sm text-muted-foreground">
                   Entre cedo para garantir sua vaga na arquibancada digital.
                 </p>
               </CardContent>
             </Card>
 
-            <Card className="bg-white/5 border border-white/10 backdrop-blur-sm">
+            <Card className="border-border/80 shadow-[var(--shadow-card)]">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-lg text-white">
-                  <ShieldCheck className="h-5 w-5 text-white" />
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <ShieldCheck className="h-5 w-5 text-primary" />
                   Modelo de acesso
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex justify-between text-sm">
-                  <span className="text-white/60">Status do evento</span>
-                  <span className="text-white font-semibold">{game.statusLabel}</span>
+                  <span className="text-muted-foreground">Status do evento</span>
+                  <span className="font-semibold text-foreground">{game.statusLabel}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-white/60">Tipo de entrada</span>
-                  <span className="text-white font-semibold">Reserva digital</span>
+                  <span className="text-muted-foreground">Tipo de entrada</span>
+                  <span className="font-semibold text-foreground">Reserva digital</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-white/60">Validação atual</span>
-                  <span className="text-white font-semibold">Sessão mock autenticada</span>
+                  <span className="text-muted-foreground">Validação atual</span>
+                  <span className="font-semibold text-foreground">Sessão autenticada</span>
                 </div>
-                <div className="rounded-md border border-white/10 bg-white/5 p-3 text-sm text-white/60">
-                  Ainda não exibimos números de audiência nem disponibilidade estimada. Esta etapa
-                  foca na jornada de descoberta, reserva e entrada.
+                <div className="rounded-md border border-border bg-muted/45 p-3 text-sm text-muted-foreground">
+                  Você acompanha status, sede e agenda da partida em um único lugar.
                 </div>
               </CardContent>
             </Card>
 
-            <Card className="bg-white/5 border border-white/10 backdrop-blur-sm">
+            <Card className="border-border/80 shadow-[var(--shadow-card)]">
               <CardContent className="p-6 space-y-4">
                 <div className="flex justify-between text-sm">
-                  <span className="text-white/60">Partida</span>
-                  <span className="text-white font-semibold">{game.stage}</span>
+                  <span className="text-muted-foreground">Partida</span>
+                  <span className="font-semibold text-foreground">{game.stage}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-white/60">Sede</span>
-                  <span className="text-white font-semibold">{game.venue}</span>
+                  <span className="text-muted-foreground">Sede</span>
+                  <span className="font-semibold text-foreground">{game.venue}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-white/60">Data oficial FIFA</span>
-                  <span className="text-white font-semibold">{game.date}</span>
+                  <span className="text-muted-foreground">Data oficial FIFA</span>
+                  <span className="font-semibold text-foreground">{game.date}</span>
                 </div>
 
                 {hasPostGameSummary && (
                   <Button
                     variant="outline"
-                    className="w-full border-white/20 bg-white/5 text-white hover:bg-white/10"
+                    className="w-full"
                     onClick={() => navigate(`/resumo/${game.id}`)}
                   >
                     Ver highlights do jogo
@@ -209,7 +207,7 @@ const Booking = () => {
                 )}
 
                 <Button
-                  className="w-full bg-white text-black hover:bg-white/90 font-semibold h-12"
+                  className="h-12 w-full font-semibold"
                   disabled={isBooking || isReserved}
                   onClick={handleBooking}
                 >
@@ -218,7 +216,7 @@ const Booking = () => {
                 {isReserved && (
                   <Button
                     variant="outline"
-                    className="w-full border-white/20 bg-white/5 text-white hover:bg-white/10"
+                    className="w-full"
                     onClick={handleCancelReservation}
                   >
                     Cancelar reserva
@@ -231,22 +229,22 @@ const Booking = () => {
       </div>
 
       <Dialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
-        <DialogContent className="bg-black border border-white/10 text-white">
+        <DialogContent className="border-border bg-card text-card-foreground">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <PartyPopper className="h-5 w-5" />
               Reserva confirmada
             </DialogTitle>
-            <DialogDescription className="text-white/60">
+            <DialogDescription>
               Sua vaga para {game.homeTeam} x {game.awayTeam} foi liberada.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="flex items-center gap-3 text-sm text-white/80">
+            <div className="flex items-center gap-3 text-sm text-muted-foreground">
               <CheckCircle2 className="h-4 w-4" />
               Você já pode entrar na arquibancada.
             </div>
-            <Button onClick={handleContinueToArquibancada} className="w-full bg-white text-black hover:bg-white/90">
+            <Button onClick={handleContinueToArquibancada} className="w-full">
               Continuar para a arquibancada
             </Button>
           </div>

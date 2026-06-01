@@ -336,15 +336,19 @@ const Arquibancada = () => {
   const togglePinUser = () => {
     toast({
       title: "Comentário fixado",
-      description: "Esse destaque ainda é local nesta fase de teste do produto.",
+      description: "Esse destaque fica salvo na sua experiência atual da sala.",
       variant: "default",
     });
   };
 
-  const getTeamBadge = (team: string) => {
-    if (team === "homeTeam" || team === "home") return { text: game.homeTeam };
-    if (team === "awayTeam" || team === "away") return { text: game.awayTeam };
-    return { text: "Neutro" };
+  const getTeamIdentity = (team: string) => {
+    if (team === "homeTeam" || team === "home") {
+      return { label: game.homeTeam, logo: game.homeTeamLogo, tone: "home" as const };
+    }
+    if (team === "awayTeam" || team === "away") {
+      return { label: game.awayTeam, logo: game.awayTeamLogo, tone: "away" as const };
+    }
+    return { label: "Neutro", logo: null, tone: "neutral" as const };
   };
 
   const filteredMessages = messages.filter((msg) => {
@@ -357,15 +361,15 @@ const Arquibancada = () => {
 
   const sidePanel = (
     <div className="space-y-4">
-      <Card className="border-white/10 bg-white/[0.04] backdrop-blur-sm">
+      <Card className="border-border/80 bg-card/90 shadow-[var(--shadow-card)] backdrop-blur-sm">
         <CardContent className="p-4 space-y-3">
           <div>
-            <p className="text-base font-semibold text-white">
+            <p className="text-base font-semibold text-foreground">
               {game.homeTeam} x {game.awayTeam}
             </p>
-            <p className="text-sm text-white/55 mt-1">{game.stage}</p>
+            <p className="mt-1 text-sm text-muted-foreground">{game.stage}</p>
           </div>
-          <div className="space-y-2 text-sm text-white/65">
+          <div className="space-y-2 text-sm text-muted-foreground">
             <div className="flex items-start gap-2">
               <CalendarDays className="h-4 w-4 mt-0.5 shrink-0" />
               <span>{game.date} • {game.startTime}</span>
@@ -382,19 +386,19 @@ const Arquibancada = () => {
         </CardContent>
       </Card>
 
-      <Card className="border-white/10 bg-white/[0.03] backdrop-blur-sm">
+      <Card className="border-border/80 bg-card/90 shadow-[var(--shadow-card)] backdrop-blur-sm">
         <CardContent className="p-4 space-y-2">
-          <p className="text-xs uppercase tracking-[0.2em] text-white/40">Debug</p>
-          <div className="space-y-1 text-xs text-white/65">
-            <p>Modo: <span className="text-white">{mode}</span></p>
-            <p>Supabase configurado: <span className="text-white">{isSupabaseConfigured ? "sim" : "nao"}</span></p>
-            <p>match_id: <span className="text-white">{game.id}</span></p>
-            <p>user.id: <span className="text-white break-all">{user?.id || "sem usuario"}</span></p>
-            <p>session.user.id: <span className="text-white break-all">{debugSessionUserId || "sem sessao"}</span></p>
-            <p>mensagens carregadas: <span className="text-white">{messages.length}</span></p>
-            <p>ultimo envio: <span className="text-white">{debugLastWriteAt || "nenhum"}</span></p>
+          <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Debug</p>
+          <div className="space-y-1 text-xs text-muted-foreground">
+            <p>Modo: <span className="text-foreground">{mode}</span></p>
+            <p>Supabase configurado: <span className="text-foreground">{isSupabaseConfigured ? "sim" : "nao"}</span></p>
+            <p>match_id: <span className="text-foreground">{game.id}</span></p>
+            <p>user.id: <span className="break-all text-foreground">{user?.id || "sem usuario"}</span></p>
+            <p>session.user.id: <span className="break-all text-foreground">{debugSessionUserId || "sem sessao"}</span></p>
+            <p>mensagens carregadas: <span className="text-foreground">{messages.length}</span></p>
+            <p>ultimo envio: <span className="text-foreground">{debugLastWriteAt || "nenhum"}</span></p>
             {debugLastError && (
-              <p className="text-red-300 break-words">erro: {debugLastError}</p>
+              <p className="break-words text-destructive">erro: {debugLastError}</p>
             )}
           </div>
         </CardContent>
@@ -403,7 +407,7 @@ const Arquibancada = () => {
   );
 
   return (
-    <div className="min-h-screen bg-black">
+    <div className="min-h-screen bg-background text-foreground">
       <Header />
 
       <TeamOnboarding
@@ -414,27 +418,27 @@ const Arquibancada = () => {
       />
 
       <div className="container max-w-6xl mx-auto px-4 md:px-6 pt-4 pb-52">
-        <div className="mb-4 rounded-2xl border border-white/10 bg-white/[0.035] backdrop-blur-sm">
+        <div className="mb-4 rounded-2xl border border-border/80 bg-card/70 shadow-[var(--shadow-card)] backdrop-blur-sm">
           <button
             type="button"
             className="flex w-full items-center justify-between gap-4 px-4 py-3 text-left lg:hidden"
             onClick={() => setShowMobilePanel((current) => !current)}
           >
             <div className="min-w-0">
-              <p className="truncate text-sm font-medium text-white">
+              <p className="truncate text-sm font-medium text-foreground">
                 {game.homeTeam} x {game.awayTeam} • {game.stage}
               </p>
             </div>
             <ChevronDown
-              className={`h-4 w-4 text-white/55 transition-transform ${showMobilePanel ? "rotate-180" : ""}`}
+              className={`h-4 w-4 text-muted-foreground transition-transform ${showMobilePanel ? "rotate-180" : ""}`}
             />
           </button>
 
           {showMobilePanel && <div className="px-4 pb-4 lg:hidden">{sidePanel}</div>}
 
           <div className="hidden lg:block px-4 py-3">
-            <div className="flex flex-wrap items-center gap-3 text-xs text-white/45">
-              <Badge variant="outline" className="border-white/15 bg-transparent text-white/60">
+            <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+              <Badge variant="outline" className="border-border bg-background/70 text-muted-foreground">
                 {game.statusLabel}
               </Badge>
               <span>{game.homeTeam} x {game.awayTeam}</span>
@@ -446,8 +450,8 @@ const Arquibancada = () => {
           <div className="min-w-0">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
               <Select value={filterTeam} onValueChange={setFilterTeam}>
-                <SelectTrigger className="h-10 w-[180px] border-white/10 bg-white/[0.04] text-white">
-                  <Filter className="h-4 w-4 mr-2 text-white/45" />
+                <SelectTrigger className="h-10 w-[180px] border-border bg-card">
+                  <Filter className="mr-2 h-4 w-4 text-muted-foreground" />
                   <SelectValue placeholder="Filtrar torcida" />
                 </SelectTrigger>
                 <SelectContent>
@@ -459,31 +463,31 @@ const Arquibancada = () => {
               </Select>
             </div>
 
-            <div className="space-y-0 rounded-[24px] border border-white/8 bg-white/[0.025] overflow-hidden">
+            <div className="overflow-hidden rounded-[24px] border border-border/70 bg-card/80 shadow-[var(--shadow-card)]">
               {isMessagesLoading ? (
-                <div className="px-4 py-10 text-center text-sm text-white/55">
+                <div className="px-4 py-10 text-center text-sm text-muted-foreground">
                   Carregando conversa...
                 </div>
               ) : filteredMessages.length === 0 ? (
-                <div className="px-4 py-10 text-center text-sm text-white/55">
+                <div className="px-4 py-10 text-center text-sm text-muted-foreground">
                   Ainda nao ha mensagens nesta partida. Puxe a primeira leitura da sala.
                 </div>
               ) : filteredMessages.map((msg, index) => {
-                const teamBadge = getTeamBadge(msg.teamSide);
+                const teamIdentity = getTeamIdentity(msg.teamSide);
                 const isPinned = pinnedUsers.includes(msg.userName);
 
                 return (
                   <div
                     key={msg.id}
                     className={`animate-fade-in px-4 py-4 md:px-5 transition-colors ${
-                      index !== filteredMessages.length - 1 ? "border-b border-white/6" : ""
-                    } ${isPinned ? "bg-white/[0.045]" : "bg-transparent"}`}
+                      index !== filteredMessages.length - 1 ? "border-b border-border/60" : ""
+                    } ${isPinned ? "bg-primary/[0.045]" : "bg-transparent"}`}
                     style={{ animationDelay: `${index * 0.03}s` }}
                   >
                     <div className="flex items-start gap-3">
-                      <Avatar className="h-10 w-10 border border-white/10">
+                      <Avatar className="h-10 w-10 border border-border">
                         <AvatarImage src={msg.userAvatarUrl || undefined} alt={msg.userName} />
-                        <AvatarFallback className="bg-white/10 text-xs font-semibold text-white">
+                        <AvatarFallback className="bg-primary/10 text-xs font-semibold text-primary">
                           {getInitials(msg.userName)}
                         </AvatarFallback>
                       </Avatar>
@@ -492,29 +496,37 @@ const Arquibancada = () => {
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0 flex-1">
                             <div className="mb-1 flex flex-wrap items-center gap-2">
-                              <span className="text-sm font-semibold text-white">{msg.userName}</span>
-                              <span className="text-[11px] text-white/35">{formatMessageTime(msg.createdAt)}</span>
-                              <Badge className="h-5 border-white/10 bg-white/[0.06] px-2 text-[10px] font-normal text-white/65">
-                                {teamBadge.text}
-                              </Badge>
+                              <div className="flex min-w-0 items-center gap-2">
+                                <span className="text-sm font-semibold text-foreground">{msg.userName}</span>
+                                {teamIdentity.logo ? (
+                                  <img
+                                    src={teamIdentity.logo}
+                                    alt={teamIdentity.label}
+                                    className="h-4 w-4 rounded-full object-contain ring-1 ring-border/80"
+                                  />
+                                ) : (
+                                  <span className="inline-block h-2.5 w-2.5 rounded-full bg-muted-foreground/60" aria-hidden="true" />
+                                )}
+                              </div>
+                              <span className="text-[11px] text-muted-foreground">{formatMessageTime(msg.createdAt)}</span>
                             </div>
 
-                            <p className="text-[15px] md:text-base leading-7 text-white/92">{msg.text}</p>
+                            <p className="text-[15px] leading-7 text-foreground/90 md:text-base">{msg.text}</p>
 
-                            <div className="mt-3 flex items-center gap-5 text-sm text-white/38">
-                              <button className="flex items-center gap-2 hover:text-white transition-colors">
+                            <div className="mt-3 flex items-center gap-5 text-sm text-muted-foreground">
+                              <button className="flex items-center gap-2 transition-colors hover:text-foreground">
                                 <ThumbsUp className="h-4 w-4" />
                                 {msg.likes}
                               </button>
-                              <button className="flex items-center gap-2 hover:text-white transition-colors">
+                              <button className="flex items-center gap-2 transition-colors hover:text-foreground">
                                 <ThumbsDown className="h-4 w-4" />
                                 {msg.dislikes}
                               </button>
                             </div>
                           </div>
 
-                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0 shrink-0" onClick={togglePinUser}>
-                            <Pin className="h-4 w-4 text-white/28" />
+                          <Button variant="ghost" size="sm" className="h-8 w-8 shrink-0 p-0" onClick={togglePinUser}>
+                            <Pin className="h-4 w-4 text-muted-foreground" />
                           </Button>
                         </div>
                       </div>
@@ -530,24 +542,24 @@ const Arquibancada = () => {
         </div>
       </div>
 
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-black/80 backdrop-blur-2xl">
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/92 backdrop-blur-2xl">
         <div className="container max-w-6xl mx-auto px-4 md:px-6 py-4">
           {isBlocked && (
-            <div className="mb-3 flex items-center gap-3 rounded-2xl border border-white/15 bg-white/[0.08] px-4 py-3 text-white">
-              <AlertTriangle className="h-5 w-5 shrink-0" />
+            <div className="mb-3 flex items-center gap-3 rounded-2xl border border-destructive/25 bg-destructive/10 px-4 py-3 text-foreground">
+              <AlertTriangle className="h-5 w-5 shrink-0 text-destructive" />
               <p className="text-sm">Você foi pausado por 10 minutos. Volte com espírito esportivo.</p>
             </div>
           )}
 
-          <div className="rounded-[26px] border border-white/12 bg-white/[0.05] px-3 py-3 shadow-[0_-10px_40px_rgba(0,0,0,0.35)]">
+          <div className="rounded-[26px] border border-border bg-card px-3 py-3 shadow-[var(--shadow-card)]">
             <div className="mb-2 flex items-center justify-between gap-3 px-1">
               <div className="flex items-center gap-2">
-                <Badge className="border-white/10 bg-white/[0.08] text-white/68">
-                  {getTeamBadge(
+                <Badge variant="outline" className="border-border bg-muted/45 text-foreground">
+                  {getTeamIdentity(
                     currentUserTeam === "home" ? "homeTeam" : currentUserTeam === "away" ? "awayTeam" : "neutral",
-                  ).text}
+                  ).label}
                 </Badge>
-                <span className="text-xs text-white/35">{message.length}/180</span>
+                <span className="text-xs text-muted-foreground">{message.length}/180</span>
               </div>
             </div>
 
@@ -562,21 +574,21 @@ const Arquibancada = () => {
                   }
                 }}
                 maxLength={180}
-                className="h-14 border-0 bg-transparent text-white placeholder:text-white/30 shadow-none focus-visible:ring-0"
+                className="h-14 border-0 bg-transparent text-foreground placeholder:text-muted-foreground shadow-none focus-visible:ring-0"
                 disabled={isBlocked || cooldown > 0}
               />
 
               <Button
                 onClick={() => void handleSendMessage()}
                 size="lg"
-                className="h-11 min-w-11 rounded-2xl bg-white text-black hover:bg-white/90"
+                className="h-11 min-w-11 rounded-2xl"
                 disabled={isBlocked || cooldown > 0}
               >
                 {cooldown > 0 ? <span className="font-bold">{cooldown}s</span> : <Send className="h-4 w-4" />}
               </Button>
             </div>
 
-            <div className="mt-2 flex items-center justify-between px-1 text-xs text-white/32">
+            <div className="mt-2 flex items-center justify-between px-1 text-xs text-muted-foreground">
               <span>Mensagens respeitosas aparecem para toda a sala.</span>
               {cooldown > 0 && <span>Aguarde {cooldown}s</span>}
             </div>

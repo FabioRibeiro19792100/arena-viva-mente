@@ -138,7 +138,7 @@ export const TeamOnboarding = ({ open, onComplete, homeTeam, awayTeam }: TeamOnb
                   <div>
                     <p className="font-semibold">Recursos da sala</p>
                     <p className="text-sm text-muted-foreground">
-                      Fixe comentarios e filtre por torcida durante o teste aberto
+                      Fixe comentários e filtre por torcida dentro da sala
                     </p>
                   </div>
                 </div>

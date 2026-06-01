@@ -12,31 +12,34 @@ import Resumo from "./pages/Resumo";
 import Perfil from "./pages/Perfil";
 import NotFound from "./pages/NotFound";
 import { ProtectedRoute } from "./components/ProtectedRoute";
+import { ThemeProvider } from "./components/theme-provider";
 
 const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <MockAuthProvider>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/galeria" element={<Navigate to="/" replace />} />
-            <Route path="/resumo/:id" element={<Resumo />} />
-            <Route element={<ProtectedRoute />}>
-              <Route path="/arquibancada/:id" element={<Arquibancada />} />
-              <Route path="/booking/:id" element={<Booking />} />
-              <Route path="/perfil" element={<Perfil />} />
-            </Route>
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </TooltipProvider>
-    </MockAuthProvider>
+    <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false} disableTransitionOnChange>
+      <MockAuthProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <Routes>
+              <Route path="/" element={<Index />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/galeria" element={<Navigate to="/" replace />} />
+              <Route path="/resumo/:id" element={<Resumo />} />
+              <Route element={<ProtectedRoute />}>
+                <Route path="/arquibancada/:id" element={<Arquibancada />} />
+                <Route path="/booking/:id" element={<Booking />} />
+                <Route path="/perfil" element={<Perfil />} />
+              </Route>
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </TooltipProvider>
+      </MockAuthProvider>
+    </ThemeProvider>
   </QueryClientProvider>
 );
 

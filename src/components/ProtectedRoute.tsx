@@ -7,7 +7,7 @@ export const ProtectedRoute = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-black text-white flex items-center justify-center">
+      <div className="flex min-h-screen items-center justify-center bg-background text-foreground">
         Carregando sessão...
       </div>
     );

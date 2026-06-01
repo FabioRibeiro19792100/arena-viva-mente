@@ -8,6 +8,58 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
+    --background: 42 38% 97%;
+    --foreground: 222 36% 16%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222 36% 16%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 36% 16%;
+
+    --primary: 147 54% 33%;
+    --primary-foreground: 44 50% 97%;
+    --primary-glow: 147 48% 45%;
+
+    --secondary: 14 82% 55%;
+    --secondary-foreground: 44 50% 97%;
+
+    --muted: 42 24% 92%;
+    --muted-foreground: 222 16% 42%;
+
+    --accent: 44 94% 56%;
+    --accent-foreground: 222 36% 16%;
+
+    --destructive: 0 78% 55%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 36 22% 84%;
+    --input: 36 22% 84%;
+    --ring: 147 54% 33%;
+
+    --radius: 0;
+
+    /* Estados da arquibancada */
+    --status-live: 142 76% 45%;
+    --status-scheduled: 213 86% 54%;
+    --status-almost-full: 31 90% 55%;
+    --status-full: 0 78% 55%;
+
+    --gradient-stadium: linear-gradient(135deg, hsl(147 54% 33%) 0%, hsl(162 44% 44%) 100%);
+    --gradient-energy: linear-gradient(135deg, hsl(14 82% 55%) 0%, hsl(44 94% 56%) 100%);
+    --gradient-hero: linear-gradient(135deg, hsl(42 38% 97%) 0%, hsl(46 30% 92%) 100%);
+    
+    /* Shadows */
+    --shadow-glow: 0 0 40px hsl(147 54% 33% / 0.18);
+    --shadow-live: 0 8px 24px hsl(147 54% 33% / 0.18);
+    --shadow-card: 0 20px 40px hsl(222 30% 16% / 0.08);
+
+    /* Transitions */
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-bounce: all 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  }
+
+  .dark {
     --background: 222 47% 11%;
     --foreground: 210 40% 98%;
 
@@ -17,50 +69,38 @@ All colors MUST be HSL.
     --popover: 222 45% 13%;
     --popover-foreground: 210 40% 98%;
 
-    /* Verde vibrante do campo */
-    --primary: 142 76% 45%;
-    --primary-foreground: 220 13% 18%;
-    --primary-glow: 142 76% 60%;
+    --primary: 147 54% 43%;
+    --primary-foreground: 222 47% 11%;
+    --primary-glow: 147 48% 56%;
 
-    /* Vermelho energia/alerta */
-    --secondary: 0 84% 60%;
+    --secondary: 14 82% 55%;
     --secondary-foreground: 210 40% 98%;
 
     --muted: 222 35% 20%;
     --muted-foreground: 215 20% 65%;
 
-    /* Amarelo destaque */
-    --accent: 45 93% 58%;
+    --accent: 44 94% 56%;
     --accent-foreground: 222 47% 11%;
 
-    --destructive: 0 84% 60%;
+    --destructive: 0 78% 55%;
     --destructive-foreground: 210 40% 98%;
 
     --border: 222 30% 25%;
     --input: 222 30% 25%;
-    --ring: 142 76% 45%;
+    --ring: 147 54% 43%;
 
-    --radius: 0;
+    --status-live: 147 54% 43%;
+    --status-scheduled: 213 86% 60%;
+    --status-almost-full: 31 90% 55%;
+    --status-full: 0 78% 55%;
 
-    /* Estados da arquibancada */
-    --status-live: 142 76% 45%;
-    --status-scheduled: 210 100% 56%;
-    --status-almost-full: 33 100% 50%;
-    --status-full: 0 84% 60%;
-
-    /* Gradientes */
-    --gradient-stadium: linear-gradient(135deg, hsl(142 76% 45%) 0%, hsl(170 76% 45%) 100%);
-    --gradient-energy: linear-gradient(135deg, hsl(0 84% 60%) 0%, hsl(33 100% 50%) 100%);
+    --gradient-stadium: linear-gradient(135deg, hsl(147 54% 43%) 0%, hsl(162 44% 44%) 100%);
+    --gradient-energy: linear-gradient(135deg, hsl(14 82% 55%) 0%, hsl(44 94% 56%) 100%);
     --gradient-hero: linear-gradient(135deg, hsl(222 47% 11%) 0%, hsl(222 40% 20%) 100%);
-    
-    /* Shadows */
-    --shadow-glow: 0 0 40px hsl(142 76% 45% / 0.4);
-    --shadow-live: 0 4px 24px hsl(142 76% 45% / 0.3);
-    --shadow-card: 0 8px 32px hsl(222 47% 5% / 0.6);
 
-    /* Transitions */
-    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    --transition-bounce: all 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    --shadow-glow: 0 0 40px hsl(147 54% 43% / 0.35);
+    --shadow-live: 0 8px 24px hsl(147 54% 43% / 0.24);
+    --shadow-card: 0 20px 40px hsl(222 47% 5% / 0.45);
   }
 }
 
@@ -72,6 +112,10 @@ All colors MUST be HSL.
   body {
     @apply bg-background text-foreground;
     font-feature-settings: "rlig" 1, "calt" 1;
+    min-height: 100vh;
+    background-image:
+      radial-gradient(circle at top left, hsl(var(--accent) / 0.12), transparent 28%),
+      radial-gradient(circle at top right, hsl(var(--primary) / 0.09), transparent 24%);
   }
 
   h1, h2, h3, h4, h5, h6 {
