@@ -42,6 +42,18 @@ const formatMessageTime = (createdAt: string) =>
     minute: "2-digit",
   }).format(new Date(createdAt));
 
+const mergeMessages = (current: MatchMessage[], incoming: MatchMessage[]) => {
+  const map = new Map(current.map((message) => [message.id, message]));
+
+  incoming.forEach((message) => {
+    map.set(message.id, message);
+  });
+
+  return Array.from(map.values()).sort(
+    (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+  );
+};
+
 const Arquibancada = () => {
   const { id } = useParams();
   const { toast } = useToast();
@@ -94,17 +106,27 @@ const Arquibancada = () => {
 
     setIsMessagesLoading(true);
 
-    void (async () => {
+    const refreshMessages = async (showLoader = false) => {
+      if (showLoader && isActive) {
+        setIsMessagesLoading(true);
+      }
       const nextMessages = await getMatchMessages(game.id);
       if (!isActive) return;
-      setMessages(nextMessages);
+      setMessages((current) => mergeMessages(current, nextMessages));
       setIsMessagesLoading(false);
       setDebugLastError(null);
-    })();
+    };
+
+    void refreshMessages(true);
 
     if (!isSupabaseConfigured || !supabase) {
+      const fallbackInterval = window.setInterval(() => {
+        void refreshMessages();
+      }, 4000);
+
       return () => {
         isActive = false;
+        window.clearInterval(fallbackInterval);
       };
     }
 
@@ -157,8 +179,24 @@ const Arquibancada = () => {
       )
       .subscribe();
 
+    const fallbackInterval = window.setInterval(() => {
+      void refreshMessages();
+    }, 4000);
+
+    const handleVisibilityOrFocus = () => {
+      if (document.visibilityState === "visible") {
+        void refreshMessages();
+      }
+    };
+
+    window.addEventListener("focus", handleVisibilityOrFocus);
+    document.addEventListener("visibilitychange", handleVisibilityOrFocus);
+
     return () => {
       isActive = false;
+      window.clearInterval(fallbackInterval);
+      window.removeEventListener("focus", handleVisibilityOrFocus);
+      document.removeEventListener("visibilitychange", handleVisibilityOrFocus);
       void supabase.removeChannel(channel);
     };
   }, [game.id]);
@@ -264,19 +302,12 @@ const Arquibancada = () => {
       });
       setDebugLastError(null);
       setDebugLastWriteAt(new Date().toISOString());
-      setMessages((current) => {
-        if (current.some((existingMessage) => existingMessage.id === sentMessage.id)) {
-          return current;
-        }
-
-        return [...current, sentMessage].sort(
-          (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
-        );
-      });
+      setMessages((current) => mergeMessages(current, [sentMessage]));
       setMessage("");
       setCooldown(3);
       if (!isSupabaseConfigured) {
-        setMessages(await getMatchMessages(game.id));
+        const refreshedMessages = await getMatchMessages(game.id);
+        setMessages((current) => mergeMessages(current, refreshedMessages));
       }
     } catch (error) {
       setDebugLastError(error instanceof Error ? error.message : "Erro desconhecido ao enviar mensagem");
