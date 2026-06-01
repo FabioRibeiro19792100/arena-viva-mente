@@ -45,7 +45,7 @@ const formatMessageTime = (createdAt: string) =>
 const Arquibancada = () => {
   const { id } = useParams();
   const { toast } = useToast();
-  const { user } = useMockAuth();
+  const { user, mode } = useMockAuth();
   const [message, setMessage] = useState("");
   const [cooldown, setCooldown] = useState(0);
   const [isBlocked, setIsBlocked] = useState(false);
@@ -56,6 +56,9 @@ const Arquibancada = () => {
   const [pinnedUsers] = useState<string[]>([]);
   const [messages, setMessages] = useState<MatchMessage[]>([]);
   const [isMessagesLoading, setIsMessagesLoading] = useState(true);
+  const [debugSessionUserId, setDebugSessionUserId] = useState<string | null>(null);
+  const [debugLastError, setDebugLastError] = useState<string | null>(null);
+  const [debugLastWriteAt, setDebugLastWriteAt] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const game = (id && worldCupMatchMap[id]) || fallbackGame;
 
@@ -96,6 +99,7 @@ const Arquibancada = () => {
       if (!isActive) return;
       setMessages(nextMessages);
       setIsMessagesLoading(false);
+      setDebugLastError(null);
     })();
 
     if (!isSupabaseConfigured || !supabase) {
@@ -170,6 +174,22 @@ const Arquibancada = () => {
     }
   }, [cooldown]);
 
+  useEffect(() => {
+    if (!isSupabaseConfigured || !supabase) {
+      setDebugSessionUserId(null);
+      return;
+    }
+
+    void supabase.auth.getSession().then(({ data, error }) => {
+      if (error) {
+        setDebugLastError(error.message);
+        return;
+      }
+
+      setDebugSessionUserId(data.session?.user?.id || null);
+    });
+  }, [user?.id]);
+
   const getInitials = (name: string) =>
     name
       .split(" ")
@@ -242,6 +262,8 @@ const Arquibancada = () => {
         text: trimmedMessage,
         teamSide: currentUserTeam,
       });
+      setDebugLastError(null);
+      setDebugLastWriteAt(new Date().toISOString());
       setMessages((current) => {
         if (current.some((existingMessage) => existingMessage.id === sentMessage.id)) {
           return current;
@@ -256,7 +278,8 @@ const Arquibancada = () => {
       if (!isSupabaseConfigured) {
         setMessages(await getMatchMessages(game.id));
       }
-    } catch {
+    } catch (error) {
+      setDebugLastError(error instanceof Error ? error.message : "Erro desconhecido ao enviar mensagem");
       toast({
         title: "Nao foi possivel enviar",
         description: "Tente novamente em alguns instantes.",
@@ -324,6 +347,24 @@ const Arquibancada = () => {
               <Shield className="h-4 w-4 mt-0.5 shrink-0" />
               <span>Moderação ativa da sala</span>
             </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="border-white/10 bg-white/[0.03] backdrop-blur-sm">
+        <CardContent className="p-4 space-y-2">
+          <p className="text-xs uppercase tracking-[0.2em] text-white/40">Debug</p>
+          <div className="space-y-1 text-xs text-white/65">
+            <p>Modo: <span className="text-white">{mode}</span></p>
+            <p>Supabase configurado: <span className="text-white">{isSupabaseConfigured ? "sim" : "nao"}</span></p>
+            <p>match_id: <span className="text-white">{game.id}</span></p>
+            <p>user.id: <span className="text-white break-all">{user?.id || "sem usuario"}</span></p>
+            <p>session.user.id: <span className="text-white break-all">{debugSessionUserId || "sem sessao"}</span></p>
+            <p>mensagens carregadas: <span className="text-white">{messages.length}</span></p>
+            <p>ultimo envio: <span className="text-white">{debugLastWriteAt || "nenhum"}</span></p>
+            {debugLastError && (
+              <p className="text-red-300 break-words">erro: {debugLastError}</p>
+            )}
           </div>
         </CardContent>
       </Card>
