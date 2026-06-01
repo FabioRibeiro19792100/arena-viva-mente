@@ -236,11 +236,20 @@ const Arquibancada = () => {
 
     try {
       const trimmedMessage = message.trim();
-      await sendMatchMessage({
+      const sentMessage = await sendMatchMessage({
         matchId: game.id,
         user,
         text: trimmedMessage,
         teamSide: currentUserTeam,
+      });
+      setMessages((current) => {
+        if (current.some((existingMessage) => existingMessage.id === sentMessage.id)) {
+          return current;
+        }
+
+        return [...current, sentMessage].sort(
+          (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+        );
       });
       setMessage("");
       setCooldown(3);
