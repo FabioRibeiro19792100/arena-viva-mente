@@ -1,4 +1,4 @@
-import { Heart, Mail, Twitter, Github, Instagram } from "lucide-react";
+import { Twitter, Github, Instagram } from "lucide-react";
 
 export const Footer = () => {
   return (
@@ -17,7 +17,6 @@ export const Footer = () => {
             <h4 className="font-semibold mb-4 text-white">Games</h4>
             <ul className="space-y-3 text-sm">
               <li><a href="/" className="text-white/60 hover:text-white transition-colors">Live Games</a></li>
-              <li><a href="/galeria" className="text-white/60 hover:text-white transition-colors">Gallery</a></li>
             </ul>
           </div>
 

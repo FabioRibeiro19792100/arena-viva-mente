@@ -136,9 +136,9 @@ export const TeamOnboarding = ({ open, onComplete, homeTeam, awayTeam }: TeamOnb
                     <CheckCircle2 className="w-5 h-5 text-secondary" />
                   </div>
                   <div>
-                    <p className="font-semibold">Recursos PRO</p>
+                    <p className="font-semibold">Recursos da sala</p>
                     <p className="text-sm text-muted-foreground">
-                      Fixe comentários e filtre por torcida com plano PRO
+                      Fixe comentarios e filtre por torcida durante o teste aberto
                     </p>
                   </div>
                 </div>

@@ -1,544 +1,234 @@
+import { useEffect, useMemo, useState } from "react";
 import { Header } from "@/components/Header";
 import { GameCard } from "@/components/GameCard";
 import { Footer } from "@/components/Footer";
-import heroImage from "@/assets/hero-stadium.jpg";
+import { worldCup2026Matches } from "@/data/worldCup2026";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { CalendarDays, Search, Ticket } from "lucide-react";
+import { useMockAuth } from "@/contexts/MockAuthContext";
+import { getProductState, toggleFavoriteMatch } from "@/lib/productState";
+import { useNavigate } from "react-router-dom";
 
 const Index = () => {
-  // Mock data - will be replaced with real API data
-  const liveGames = [
-    {
-      id: "1",
-      homeTeam: "Palmeiras",
-      awayTeam: "Grêmio",
-      homeScore: 2,
-      awayScore: 1,
-      league: "Brasileirão Série A",
-      status: "live" as const,
-      seatsRemaining: 247,
-      maxSeats: 3000,
-      homeTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/1/15/Palmeiras_logo.svg",
-      awayTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/f/f7/Gremio.svg",
-      homeFansPercentage: 58,
-      neutralFansPercentage: 12,
-      awayFansPercentage: 30,
-    },
-    {
-      id: "2",
-      homeTeam: "Lakers",
-      awayTeam: "Celtics",
-      homeScore: 89,
-      awayScore: 92,
-      league: "NBA",
-      status: "almost-full" as const,
-      seatsRemaining: 83,
-      maxSeats: 3000,
-      homeTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/3/3c/Los_Angeles_Lakers_logo.svg",
-      awayTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/8/8f/Boston_Celtics.svg",
-      homeFansPercentage: 45,
-      neutralFansPercentage: 10,
-      awayFansPercentage: 45,
-    },
-    {
-      id: "3",
-      homeTeam: "Flamengo",
-      awayTeam: "Santos",
-      homeScore: 1,
-      awayScore: 0,
-      league: "Copa Libertadores",
-      status: "live" as const,
-      seatsRemaining: 892,
-      maxSeats: 3000,
-      homeTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/9/93/Flamengo-RJ_%28BRA%29.png",
-      awayTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/3/32/Santos_logo.svg",
-      homeFansPercentage: 70,
-      neutralFansPercentage: 15,
-      awayFansPercentage: 15,
-    },
-    {
-      id: "4",
-      homeTeam: "Vasco",
-      awayTeam: "Botafogo",
-      homeScore: 3,
-      awayScore: 3,
-      league: "Brasileirão Série A",
-      status: "live" as const,
-      seatsRemaining: 1234,
-      maxSeats: 3000,
-      homeTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/4/43/Vasco_da_Gama_Logo.svg",
-      awayTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/5/52/Botafogo_de_Futebol_e_Regatas_logo.svg",
-      homeFansPercentage: 48,
-      neutralFansPercentage: 8,
-      awayFansPercentage: 44,
-    },
-    {
-      id: "live5",
-      homeTeam: "Real Madrid",
-      awayTeam: "Bayern",
-      homeScore: 2,
-      awayScore: 2,
-      league: "Champions League",
-      status: "live" as const,
-      seatsRemaining: 456,
-      maxSeats: 3000,
-      homeTeamLogo: "https://upload.wikimedia.org/wikipedia/en/5/56/Real_Madrid_CF.svg",
-      awayTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/1/1b/FC_Bayern_München_logo_%282017%29.svg",
-      homeFansPercentage: 52,
-      neutralFansPercentage: 18,
-      awayFansPercentage: 30,
-    },
-    {
-      id: "live6",
-      homeTeam: "Sesi",
-      awayTeam: "Praia Clube",
-      homeScore: 2,
-      awayScore: 1,
-      league: "Superliga de Vôlei",
-      status: "live" as const,
-      seatsRemaining: 1890,
-      maxSeats: 3000,
-      homeTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/thumb/4/4d/Sesi_logo.svg/800px-Sesi_logo.svg.png",
-      awayTeamLogo: "https://static.wixstatic.com/media/4c0d33_3d3f3e0b8b8d4c3c8f3f3e0b8b8d4c3c~mv2.png",
-      homeFansPercentage: 65,
-      neutralFansPercentage: 14,
-      awayFansPercentage: 21,
-    },
-    {
-      id: "live7",
-      homeTeam: "Warriors",
-      awayTeam: "Heat",
-      homeScore: 104,
-      awayScore: 98,
-      league: "NBA",
-      status: "almost-full" as const,
-      seatsRemaining: 145,
-      maxSeats: 3000,
-      homeTeamLogo: "https://upload.wikimedia.org/wikipedia/en/0/01/Golden_State_Warriors_logo.svg",
-      awayTeamLogo: "https://upload.wikimedia.org/wikipedia/en/f/fb/Miami_Heat_logo.svg",
-      homeFansPercentage: 61,
-      neutralFansPercentage: 16,
-      awayFansPercentage: 23,
-    },
-    {
-      id: "live8",
-      homeTeam: "Atlético-MG",
-      awayTeam: "River Plate",
-      homeScore: 1,
-      awayScore: 0,
-      league: "Copa Libertadores",
-      status: "live" as const,
-      seatsRemaining: 678,
-      maxSeats: 3000,
-      homeTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/5/5f/Atletico_mineiro_galo.png",
-      awayTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/a/ac/Escudo_del_Club_Atlético_River_Plate.svg",
-      homeFansPercentage: 73,
-      neutralFansPercentage: 13,
-      awayFansPercentage: 14,
-    },
-    {
-      id: "live9",
-      homeTeam: "Corinthians",
-      awayTeam: "Fortaleza",
-      homeScore: 0,
-      awayScore: 1,
-      league: "Brasileirão Série A",
-      status: "live" as const,
-      seatsRemaining: 2123,
-      maxSeats: 3000,
-      homeTeamLogo: "https://upload.wikimedia.org/wikipedia/en/5/5a/SC_Corinthians_Paulista.svg",
-      awayTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/4/40/FortalezaEsporteClube.svg",
-      homeFansPercentage: 48,
-      neutralFansPercentage: 11,
-      awayFansPercentage: 41,
-    },
-    {
-      id: "live10",
-      homeTeam: "PSG",
-      awayTeam: "Juventus",
-      homeScore: 3,
-      awayScore: 1,
-      league: "Champions League",
-      status: "almost-full" as const,
-      seatsRemaining: 67,
-      maxSeats: 3000,
-      homeTeamLogo: "https://upload.wikimedia.org/wikipedia/en/a/a7/Paris_Saint-Germain_F.C..svg",
-      awayTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/a/a8/Juventus_FC_-_pictogram_black_%28Italy%2C_2017%29.svg",
-      homeFansPercentage: 62,
-      neutralFansPercentage: 17,
-      awayFansPercentage: 21,
-    },
-  ];
+  const navigate = useNavigate();
+  const { user } = useMockAuth();
+  const [selectedSport, setSelectedSport] = useState("all");
+  const [selectedEvent, setSelectedEvent] = useState("all");
+  const [selectedTeam, setSelectedTeam] = useState("all");
+  const [selectedDate, setSelectedDate] = useState("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
+  const [reservedIds, setReservedIds] = useState<string[]>([]);
 
-  const upcomingGames = [
-    {
-      id: "5",
-      homeTeam: "Corinthians",
-      awayTeam: "São Paulo",
-      league: "Brasileirão Série A",
-      status: "scheduled" as const,
-      seatsRemaining: 2234,
-      maxSeats: 3000,
-      startTime: "19:30",
-      homeTeamLogo: "https://upload.wikimedia.org/wikipedia/en/5/5a/SC_Corinthians_Paulista.svg",
-      awayTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/6/6f/Brasão_do_São_Paulo_Futebol_Clube.svg",
-      homeFansPercentage: 51,
-      neutralFansPercentage: 12,
-      awayFansPercentage: 37,
-    },
-    {
-      id: "6",
-      homeTeam: "Real Madrid",
-      awayTeam: "Barcelona",
-      league: "Champions League",
-      status: "scheduled" as const,
-      seatsRemaining: 1540,
-      maxSeats: 3000,
-      startTime: "16:00",
-      homeTeamLogo: "https://upload.wikimedia.org/wikipedia/en/5/56/Real_Madrid_CF.svg",
-      awayTeamLogo: "https://upload.wikimedia.org/wikipedia/en/4/47/FC_Barcelona_%28crest%29.svg",
-      homeFansPercentage: 47,
-      neutralFansPercentage: 9,
-      awayFansPercentage: 44,
-    },
-    {
-      id: "7",
-      homeTeam: "Sesi",
-      awayTeam: "Minas",
-      league: "Superliga de Vôlei",
-      status: "scheduled" as const,
-      seatsRemaining: 1990,
-      maxSeats: 3000,
-      startTime: "20:00",
-      homeTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/thumb/4/4d/Sesi_logo.svg/800px-Sesi_logo.svg.png",
-      awayTeamLogo: "https://static.wixstatic.com/media/4c0d33_3d3f3e0b8b8d4c3c8f3f3e0b8b8d4c3c~mv2.png",
-      homeFansPercentage: 57,
-      neutralFansPercentage: 20,
-      awayFansPercentage: 23,
-    },
-    {
-      id: "8",
-      homeTeam: "Atlético-MG",
-      awayTeam: "Cruzeiro",
-      league: "Brasileirão Série A",
-      status: "scheduled" as const,
-      seatsRemaining: 456,
-      maxSeats: 3000,
-      startTime: "21:00",
-      homeTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/5/5f/Atletico_mineiro_galo.png",
-      awayTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/9/90/Cruzeiro_Esporte_Clube_%28logo%29.svg",
-      homeFansPercentage: 66,
-      neutralFansPercentage: 11,
-      awayFansPercentage: 23,
-    },
-    {
-      id: "9",
-      homeTeam: "Warriors",
-      awayTeam: "Bucks",
-      league: "NBA",
-      status: "scheduled" as const,
-      seatsRemaining: 2801,
-      maxSeats: 3000,
-      startTime: "22:30",
-      homeTeamLogo: "https://upload.wikimedia.org/wikipedia/en/0/01/Golden_State_Warriors_logo.svg",
-      awayTeamLogo: "https://upload.wikimedia.org/wikipedia/en/4/4a/Milwaukee_Bucks_logo.svg",
-      homeFansPercentage: 55,
-      neutralFansPercentage: 16,
-      awayFansPercentage: 29,
-    },
-    {
-      id: "10",
-      homeTeam: "Internacional",
-      awayTeam: "Fluminense",
-      league: "Copa Libertadores",
-      status: "scheduled" as const,
-      seatsRemaining: 743,
-      maxSeats: 3000,
-      startTime: "19:00",
-      homeTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/f/f1/Escudo_do_Sport_Club_Internacional.svg",
-      awayTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/a/ad/Fluminense_FC_escudo.svg",
-      homeFansPercentage: 60,
-      neutralFansPercentage: 15,
-      awayFansPercentage: 25,
-    },
-    {
-      id: "11",
-      homeTeam: "Boca Juniors",
-      awayTeam: "Palmeiras",
-      league: "Copa Libertadores",
-      status: "scheduled" as const,
-      seatsRemaining: 234,
-      maxSeats: 3000,
-      startTime: "21:30",
-      homeTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/f/f3/Boca_Juniors_logo.svg",
-      awayTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/1/15/Palmeiras_logo.svg",
-      homeFansPercentage: 70,
-      neutralFansPercentage: 9,
-      awayFansPercentage: 21,
-    },
-    {
-      id: "12",
-      homeTeam: "Milan",
-      awayTeam: "Inter",
-      league: "Champions League",
-      status: "scheduled" as const,
-      seatsRemaining: 1678,
-      maxSeats: 3000,
-      startTime: "16:45",
-      homeTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/d/d0/Logo_of_AC_Milan.svg",
-      awayTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/0/05/FC_Internazionale_Milano_2021.svg",
-      homeFansPercentage: 45,
-      neutralFansPercentage: 12,
-      awayFansPercentage: 43,
-    },
-    {
-      id: "13",
-      homeTeam: "Nets",
-      awayTeam: "Lakers",
-      league: "NBA",
-      status: "scheduled" as const,
-      seatsRemaining: 2456,
-      maxSeats: 3000,
-      startTime: "23:00",
-      homeTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/4/44/Brooklyn_Nets_newlogo.svg",
-      awayTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/3/3c/Los_Angeles_Lakers_logo.svg",
-      homeFansPercentage: 40,
-      neutralFansPercentage: 13,
-      awayFansPercentage: 47,
-    },
-    {
-      id: "14",
-      homeTeam: "Minas",
-      awayTeam: "Osasco",
-      league: "Superliga de Vôlei",
-      status: "scheduled" as const,
-      seatsRemaining: 1834,
-      maxSeats: 3000,
-      startTime: "20:30",
-      homeTeamLogo: "https://static.wixstatic.com/media/4c0d33_3d3f3e0b8b8d4c3c8f3f3e0b8b8d4c3c~mv2.png",
-      awayTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/thumb/4/4d/Sesi_logo.svg/800px-Sesi_logo.svg.png",
-      homeFansPercentage: 53,
-      neutralFansPercentage: 18,
-      awayFansPercentage: 29,
-    },
-    {
-      id: "15",
-      homeTeam: "Bahia",
-      awayTeam: "Athletico-PR",
-      league: "Brasileirão Série A",
-      status: "scheduled" as const,
-      seatsRemaining: 2567,
-      maxSeats: 3000,
-      startTime: "18:00",
-      homeTeamLogo: "https://upload.wikimedia.org/wikipedia/en/4/43/EC_Bahia_logo.svg",
-      awayTeamLogo: "https://upload.wikimedia.org/wikipedia/en/5/53/Atletico_Paranaense.svg",
-      homeFansPercentage: 65,
-      neutralFansPercentage: 17,
-      awayFansPercentage: 18,
-    },
-    {
-      id: "16",
-      homeTeam: "Arsenal",
-      awayTeam: "Chelsea",
-      league: "Champions League",
-      status: "scheduled" as const,
-      seatsRemaining: 890,
-      maxSeats: 3000,
-      startTime: "17:00",
-      homeTeamLogo: "https://upload.wikimedia.org/wikipedia/en/5/53/Arsenal_FC.svg",
-      awayTeamLogo: "https://upload.wikimedia.org/wikipedia/en/c/cc/Chelsea_FC.svg",
-      homeFansPercentage: 48,
-      neutralFansPercentage: 14,
-      awayFansPercentage: 38,
-    },
-    {
-      id: "17",
-      homeTeam: "76ers",
-      awayTeam: "Knicks",
-      league: "NBA",
-      status: "scheduled" as const,
-      seatsRemaining: 2134,
-      maxSeats: 3000,
-      startTime: "22:00",
-      homeTeamLogo: "https://upload.wikimedia.org/wikipedia/en/0/0e/Philadelphia_76ers_logo.svg",
-      awayTeamLogo: "https://upload.wikimedia.org/wikipedia/en/2/25/New_York_Knicks_logo.svg",
-      homeFansPercentage: 42,
-      neutralFansPercentage: 11,
-      awayFansPercentage: 47,
-    },
-    {
-      id: "18",
-      homeTeam: "Santos",
-      awayTeam: "Vitória",
-      league: "Brasileirão Série A",
-      status: "scheduled" as const,
-      seatsRemaining: 1923,
-      maxSeats: 3000,
-      startTime: "19:00",
-      homeTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/3/32/Santos_logo.svg",
-      awayTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/9/95/ECVitoria.svg",
-      homeFansPercentage: 72,
-      neutralFansPercentage: 10,
-      awayFansPercentage: 18,
-    },
-    {
-      id: "19",
-      homeTeam: "Nacional",
-      awayTeam: "Peñarol",
-      league: "Copa Libertadores",
-      status: "scheduled" as const,
-      seatsRemaining: 1456,
-      maxSeats: 3000,
-      startTime: "20:00",
-      homeTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/8/88/Escudo_del_Club_Nacional_de_Football.svg",
-      awayTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/e/e4/Escudo_del_Club_Atlético_Peñarol.svg",
-      homeFansPercentage: 46,
-      neutralFansPercentage: 9,
-      awayFansPercentage: 45,
-    },
-    {
-      id: "20",
-      homeTeam: "Manchester City",
-      awayTeam: "Liverpool",
-      league: "Champions League",
-      status: "almost-full" as const,
-      seatsRemaining: 123,
-      maxSeats: 3000,
-      startTime: "17:30",
-      homeTeamLogo: "https://upload.wikimedia.org/wikipedia/en/e/eb/Manchester_City_FC_badge.svg",
-      awayTeamLogo: "https://upload.wikimedia.org/wikipedia/en/0/0c/Liverpool_FC.svg",
-      homeFansPercentage: 42,
-      neutralFansPercentage: 13,
-      awayFansPercentage: 45,
-    },
-    {
-      id: "21",
-      homeTeam: "Suns",
-      awayTeam: "Mavericks",
-      league: "NBA",
-      status: "scheduled" as const,
-      seatsRemaining: 2678,
-      maxSeats: 3000,
-      startTime: "23:30",
-      homeTeamLogo: "https://upload.wikimedia.org/wikipedia/en/d/dc/Phoenix_Suns_logo.svg",
-      awayTeamLogo: "https://upload.wikimedia.org/wikipedia/en/9/97/Dallas_Mavericks_logo.svg",
-      homeFansPercentage: 56,
-      neutralFansPercentage: 19,
-      awayFansPercentage: 25,
-    },
-    {
-      id: "22",
-      homeTeam: "Praia Clube",
-      awayTeam: "Dentil",
-      league: "Superliga de Vôlei",
-      status: "scheduled" as const,
-      seatsRemaining: 2234,
-      maxSeats: 3000,
-      startTime: "19:30",
-      homeTeamLogo: "https://static.wixstatic.com/media/4c0d33_3d3f3e0b8b8d4c3c8f3f3e0b8b8d4c3c~mv2.png",
-      awayTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/thumb/4/4d/Sesi_logo.svg/800px-Sesi_logo.svg.png",
-      homeFansPercentage: 61,
-      neutralFansPercentage: 15,
-      awayFansPercentage: 24,
-    },
-    {
-      id: "23",
-      homeTeam: "Red Bull Bragantino",
-      awayTeam: "Cuiabá",
-      league: "Brasileirão Série A",
-      status: "scheduled" as const,
-      seatsRemaining: 2890,
-      maxSeats: 3000,
-      startTime: "16:30",
-      homeTeamLogo: "https://upload.wikimedia.org/wikipedia/en/9/9e/Red_Bull_Bragantino_logo.svg",
-      awayTeamLogo: "https://upload.wikimedia.org/wikipedia/en/b/bf/Cuiabá_Esporte_Clube_logo.svg",
-      homeFansPercentage: 75,
-      neutralFansPercentage: 14,
-      awayFansPercentage: 11,
-    },
-    {
-      id: "24",
-      homeTeam: "Estudiantes",
-      awayTeam: "Cerro Porteño",
-      league: "Copa Libertadores",
-      status: "scheduled" as const,
-      seatsRemaining: 1567,
-      maxSeats: 3000,
-      startTime: "21:00",
-      homeTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/b/ba/Estudiantes_de_La_Plata_logo.svg",
-      awayTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/8/83/CCP1912.png",
-      homeFansPercentage: 54,
-      neutralFansPercentage: 16,
-      awayFansPercentage: 30,
-    },
-  ];
+  useEffect(() => {
+    if (!user) {
+      setFavoriteIds([]);
+      setReservedIds([]);
+      return;
+    }
+    void (async () => {
+      const state = await getProductState(user.id);
+      setFavoriteIds(state.favorites);
+      setReservedIds(state.reservations.map((reservation) => reservation.matchId));
+    })();
+  }, [user]);
+
+  const handleToggleFavorite = (matchId: string) => {
+    if (!user) {
+      navigate("/login");
+      return;
+    }
+    void (async () => {
+      await toggleFavoriteMatch(user.id, matchId);
+      const state = await getProductState(user.id);
+      setFavoriteIds(state.favorites);
+      setReservedIds(state.reservations.map((reservation) => reservation.matchId));
+    })();
+  };
+
+  const eventOptions = useMemo(
+    () => Array.from(new Set(worldCup2026Matches.map((match) => match.stage))),
+    [],
+  );
+
+  const teamOptions = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          worldCup2026Matches.flatMap((match) => [match.homeTeam, match.awayTeam]),
+        ),
+      ).sort((a, b) => a.localeCompare(b)),
+    [],
+  );
+
+  const dateOptions = useMemo(
+    () => Array.from(new Set(worldCup2026Matches.map((match) => match.date))),
+    [],
+  );
+
+  const filteredMatches = useMemo(() => {
+    return worldCup2026Matches.filter((match) => {
+      const sportMatch = selectedSport === "all" || selectedSport === "futebol";
+      const eventMatch = selectedEvent === "all" || match.stage === selectedEvent;
+      const teamMatch =
+        selectedTeam === "all" ||
+        match.homeTeam === selectedTeam ||
+        match.awayTeam === selectedTeam;
+      const dateMatch = selectedDate === "all" || match.date === selectedDate;
+      const query = searchQuery.trim().toLowerCase();
+      const searchMatch =
+        query === "" ||
+        [
+          match.homeTeam,
+          match.awayTeam,
+          match.stage,
+          match.venue,
+          match.date,
+          match.league,
+        ]
+          .join(" ")
+          .toLowerCase()
+          .includes(query);
+
+      return sportMatch && eventMatch && teamMatch && dateMatch && searchMatch;
+    });
+  }, [searchQuery, selectedDate, selectedEvent, selectedSport, selectedTeam]);
+
+  const hasActiveFilters =
+    selectedSport !== "all" ||
+    selectedEvent !== "all" ||
+    selectedTeam !== "all" ||
+    selectedDate !== "all" ||
+    searchQuery !== "";
 
   return (
     <div className="min-h-screen bg-black">
       <Header />
-      
-      {/* Hero Section */}
-      <section className="relative min-h-[90vh] flex items-center justify-center overflow-hidden">
-        <div className="absolute inset-0">
-          <img
-            src={heroImage}
-            alt="Stadium atmosphere"
-            className="w-full h-full object-cover opacity-20"
-          />
-          <div className="absolute inset-0 bg-gradient-to-b from-black via-black/80 to-black" />
-        </div>
-        <div className="relative container max-w-7xl mx-auto px-6 py-32">
-          <div className="max-w-4xl">
-            <h1 className="text-6xl md:text-8xl lg:text-9xl font-bold mb-8 text-white leading-tight tracking-tight">
-              Join the new era of sports
-            </h1>
-            <h2 className="text-2xl md:text-3xl lg:text-4xl font-medium mb-12 text-white/80 max-w-3xl">
-              Defining the next generation of live sports experience
-            </h2>
-            <div className="flex flex-col sm:flex-row gap-4">
-              <a href="#live-now">
-                <button className="inline-flex items-center justify-center gap-3 whitespace-nowrap text-base font-semibold transition-all bg-white text-black hover:bg-white/90 hover:scale-105 h-14 px-8">
-                  Explore
-                </button>
-              </a>
+
+      <section className="relative bg-black py-12 md:py-16">
+        <div className="container max-w-7xl mx-auto px-6">
+          <div className="mb-8 md:mb-10">
+            <div className="flex items-center gap-3 mb-4">
+              <Ticket className="h-5 w-5 text-white/70" />
+              <span className="text-sm uppercase tracking-[0.2em] text-white/60">
+                Catálogo de eventos
+              </span>
             </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Live Games Section */}
-      <section id="live-now" className="relative bg-black py-32">
-        <div className="container max-w-7xl mx-auto px-6">
-          <div className="mb-16">
-            <h2 className="text-5xl md:text-6xl lg:text-7xl font-bold text-white mb-4">
-              Live Games
-            </h2>
-            <p className="text-xl text-white/60 max-w-2xl">
-              Join thousands of fans in real-time stadium experiences
+            <h1 className="text-3xl md:text-5xl font-bold text-white mb-3">
+              Copa do Mundo 2026
+            </h1>
+            <p className="text-base md:text-lg text-white/60 max-w-3xl">
+              Explore a agenda oficial por esporte, fase, seleção e data.
             </p>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {liveGames.map((game) => (
-              <GameCard key={game.id} {...game} />
-            ))}
-          </div>
-        </div>
-      </section>
 
-      {/* Upcoming Games Section */}
-      <section className="relative bg-black py-32">
-        <div className="container max-w-7xl mx-auto px-6">
-          <div className="mb-16">
-            <h2 className="text-5xl md:text-6xl lg:text-7xl font-bold text-white mb-4">
-              Upcoming Games
-            </h2>
-            <p className="text-xl text-white/60 max-w-2xl">
-              Reserve your spot before the game starts
-            </p>
+          <div className="grid grid-cols-1 lg:grid-cols-[1.3fr_repeat(4,0.8fr)] gap-3 mb-8">
+            <div className="relative">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-white/40" />
+              <Input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Buscar por seleção, sede ou fase"
+                className="pl-11 h-12 bg-white/5 border-white/10 text-white placeholder:text-white/40"
+              />
+            </div>
+
+            <Select value={selectedSport} onValueChange={setSelectedSport}>
+              <SelectTrigger className="h-12 bg-white/5 border-white/10 text-white">
+                <SelectValue placeholder="Esporte" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos esportes</SelectItem>
+                <SelectItem value="futebol">Futebol</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select value={selectedEvent} onValueChange={setSelectedEvent}>
+              <SelectTrigger className="h-12 bg-white/5 border-white/10 text-white">
+                <SelectValue placeholder="Evento" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos eventos</SelectItem>
+                {eventOptions.map((event) => (
+                  <SelectItem key={event} value={event}>
+                    {event}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={selectedTeam} onValueChange={setSelectedTeam}>
+              <SelectTrigger className="h-12 bg-white/5 border-white/10 text-white">
+                <SelectValue placeholder="Time" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos times</SelectItem>
+                {teamOptions.map((team) => (
+                  <SelectItem key={team} value={team}>
+                    {team}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={selectedDate} onValueChange={setSelectedDate}>
+              <SelectTrigger className="h-12 bg-white/5 border-white/10 text-white">
+                <SelectValue placeholder="Data" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas datas</SelectItem>
+                {dateOptions.map((date) => (
+                  <SelectItem key={date} value={date}>
+                    {date}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {upcomingGames.map((game) => (
-              <GameCard key={game.id} {...game} />
-            ))}
+
+          <div className="flex flex-wrap items-center justify-between gap-4 mb-10">
+            <div className="flex items-center gap-2 text-sm text-white/60">
+              <CalendarDays className="h-4 w-4" />
+              <span>
+                {filteredMatches.length} {filteredMatches.length === 1 ? "evento encontrado" : "eventos encontrados"}
+              </span>
+            </div>
+
+            {hasActiveFilters && (
+              <button
+                onClick={() => {
+                  setSelectedSport("all");
+                  setSelectedEvent("all");
+                  setSelectedTeam("all");
+                  setSelectedDate("all");
+                  setSearchQuery("");
+                }}
+                className="text-sm text-white/60 hover:text-white transition-colors"
+              >
+                Limpar filtros
+              </button>
+            )}
           </div>
+
+          {filteredMatches.length === 0 ? (
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-10 text-center text-white/70">
+              Nenhum evento encontrado com os filtros atuais.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {filteredMatches.map((game) => (
+                <GameCard
+                  key={game.id}
+                  {...game}
+                  startTime={`${game.date} • ${game.startTime}`}
+                  isFavorite={favoriteIds.includes(game.id)}
+                  isReserved={reservedIds.includes(game.id)}
+                  onToggleFavorite={handleToggleFavorite}
+                />
+              ))}
+            </div>
+          )}
         </div>
       </section>
 

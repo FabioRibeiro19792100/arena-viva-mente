@@ -7,6 +7,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { useNavigate } from "react-router-dom";
 import { 
+  CheckCheck,
+  Heart,
   Trophy, 
   MessageSquare, 
   ThumbsUp, 
@@ -15,39 +17,83 @@ import {
   Award,
   Star,
   Bell,
+  X,
   Shield
 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useMockAuth } from "@/contexts/MockAuthContext";
+import { worldCupMatchMap } from "@/data/worldCup2026";
+import { getProductState, removeReservation, toggleFavoriteMatch, type ProductState } from "@/lib/productState";
 
 const Perfil = () => {
   const navigate = useNavigate();
-  const [favoriteTeam, setFavoriteTeam] = useState("Palmeiras");
+  const { user, updateUser, logout } = useMockAuth();
+  const [favoriteTeam, setFavoriteTeam] = useState(user?.favoriteTeam || "Neutro");
+  const [productState, setProductState] = useState<ProductState>({
+    favorites: [],
+    reservations: [],
+    history: [],
+  });
 
-  // Mock data
-  const user = {
-    name: "Torcedor Apaixonado",
-    username: "@verdao_fanatic",
-    avatar: "/placeholder.svg",
-    favoriteTeam: "Palmeiras",
-    joinDate: "Novembro 2024",
+  useEffect(() => {
+    setFavoriteTeam(user?.favoriteTeam || "Neutro");
+  }, [user?.favoriteTeam]);
+
+  useEffect(() => {
+    if (!user) return;
+    void (async () => {
+      setProductState(await getProductState(user.id));
+    })();
+  }, [user]);
+
+  if (!user) return null;
+
+  const getHistoryPath = (context: "booking" | "arquibancada" | "resumo", matchId: string) => {
+    if (context === "booking") return `/booking/${matchId}`;
+    if (context === "arquibancada") return `/arquibancada/${matchId}`;
+    return `/resumo/${matchId}`;
+  };
+
+  const refreshProductState = () => {
+    if (!user) return;
+    void (async () => {
+      setProductState(await getProductState(user.id));
+    })();
+  };
+
+  const profile = {
+    ...user,
     stats: {
-      gamesWatched: 23,
-      messagesSent: 487,
-      likesReceived: 1243,
-      topMood: "Eufórico 🔥",
+      accessModel: "Sessão mock persistida",
+      provider: user.provider,
+      plan: user.plan === "premium" ? "Premium" : "Free",
+      favoriteMode: user.favoriteTeam === "Neutro" ? "Observador" : "Torcida ativa",
     },
     badges: [
       { id: 1, name: "Cadeira Cativa", icon: Trophy, description: "Participou de 20+ jogos", color: "text-yellow-500" },
       { id: 2, name: "Voz da Torcida", icon: MessageSquare, description: "500+ mensagens enviadas", color: "text-blue-500" },
-      { id: 3, name: "Moderação Limpa", icon: Award, description: "Nunca recebeu advertência", color: "text-green-500" },
-      { id: 4, name: "Maratonista", icon: Flame, description: "Assistiu 5 jogos seguidos", color: "text-orange-500" },
+      { id: 3, name: "Sessão Mock Verificada", icon: Shield, description: `Login social simulado via ${user.provider}`, color: "text-green-500" },
+      { id: 4, name: user.plan === "premium" ? "PRO 2026" : "Teste Produto", icon: Flame, description: user.plan === "premium" ? "Conta mock premium ativa" : "Conta mock gratuita ativa", color: "text-orange-500" },
     ],
-    recentGames: [
-      { id: "1", teams: "Palmeiras 2 x 1 Grêmio", date: "08 Jan", mood: "🔥 Euforia" },
-      { id: "2", teams: "Flamengo 1 x 1 Botafogo", date: "05 Jan", mood: "😤 Tensão" },
-      { id: "3", teams: "Lakers 92 x 89 Celtics", date: "03 Jan", mood: "🎯 Concentração" },
-    ],
+    favoriteMatches: productState.favorites
+      .map((matchId) => worldCupMatchMap[matchId])
+      .filter(Boolean)
+      .slice(0, 4),
+    reservations: productState.reservations
+      .map((reservation) => ({
+        ...reservation,
+        match: worldCupMatchMap[reservation.matchId],
+      }))
+      .filter((item) => item.match)
+      .slice(0, 4),
+    recentGames: productState.history
+      .map((item) => ({
+        ...item,
+        match: worldCupMatchMap[item.matchId],
+      }))
+      .filter((item) => item.match)
+      .slice(0, 5),
   };
 
   return (
@@ -60,13 +106,13 @@ const Perfil = () => {
           <Card className="md:col-span-1 bg-white/5 border border-white/10 backdrop-blur-sm">
             <CardHeader className="text-center">
               <Avatar className="w-24 h-24 mx-auto mb-4 ring-4 ring-white/20">
-                <AvatarImage src={user.avatar} />
+                <AvatarImage src={profile.avatar} />
                 <AvatarFallback className="text-2xl font-bold bg-white/10 text-white">
-                  {user.name.split(" ").map(n => n[0]).join("")}
+                  {profile.name.split(" ").map(n => n[0]).join("")}
                 </AvatarFallback>
               </Avatar>
-              <CardTitle className="text-xl text-white">{user.name}</CardTitle>
-              <p className="text-sm text-white/60">{user.username}</p>
+              <CardTitle className="text-xl text-white">{profile.name}</CardTitle>
+              <p className="text-sm text-white/60">{profile.username}</p>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
@@ -83,9 +129,16 @@ const Perfil = () => {
                     <SelectItem value="Grêmio">🔵 Grêmio</SelectItem>
                     <SelectItem value="Flamengo">🔴 Flamengo</SelectItem>
                     <SelectItem value="Corinthians">⚫ Corinthians</SelectItem>
-                    <SelectItem value="Neutral">⚪ Neutro (sem time)</SelectItem>
+                    <SelectItem value="Neutro">⚪ Neutro (sem time)</SelectItem>
                   </SelectContent>
                 </Select>
+                <Button
+                  variant="outline"
+                  className="w-full bg-white/5 border-white/10 text-white hover:bg-white/10"
+                  onClick={() => updateUser({ favoriteTeam })}
+                >
+                  Salvar time favorito
+                </Button>
                 <p className="text-xs text-white/60">
                   Your choice appears as a badge in your comments
                 </p>
@@ -93,7 +146,7 @@ const Perfil = () => {
               
               <div className="flex items-center gap-2 text-sm">
                 <Calendar className="h-4 w-4 text-white/60" />
-                <span className="text-white/60">Member since {user.joinDate}</span>
+                <span className="text-white/60">Member since {profile.joinDate}</span>
               </div>
               
               <Separator className="bg-white/10" />
@@ -101,6 +154,16 @@ const Perfil = () => {
               <Button variant="outline" className="w-full bg-white/5 border-white/10 text-white hover:bg-white/10">
                 <Bell className="mr-2 h-4 w-4" />
                 Notification preferences
+              </Button>
+              <Button
+                variant="outline"
+                className="w-full bg-white/5 border-white/10 text-white hover:bg-white/10"
+                onClick={() => {
+                  logout();
+                  navigate("/");
+                }}
+              >
+                Sair da sessão mock
               </Button>
             </CardContent>
           </Card>
@@ -116,23 +179,23 @@ const Perfil = () => {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="text-center p-4 bg-white/5 border border-white/10">
                     <Trophy className="h-8 w-8 mx-auto mb-2 text-white" />
-                    <p className="text-3xl font-bold text-white">{user.stats.gamesWatched}</p>
-                    <p className="text-sm text-white/60">Games watched</p>
+                    <p className="text-xl font-bold text-white">{profile.stats.accessModel}</p>
+                    <p className="text-sm text-white/60">Modelo de acesso</p>
                   </div>
                   <div className="text-center p-4 bg-white/5 border border-white/10">
                     <MessageSquare className="h-8 w-8 mx-auto mb-2 text-white" />
-                    <p className="text-3xl font-bold text-white">{user.stats.messagesSent}</p>
-                    <p className="text-sm text-white/60">Messages sent</p>
+                    <p className="text-3xl font-bold text-white">{profile.stats.provider}</p>
+                    <p className="text-sm text-white/60">Provider</p>
                   </div>
                   <div className="text-center p-4 bg-white/5 border border-white/10">
                     <ThumbsUp className="h-8 w-8 mx-auto mb-2 text-white" />
-                    <p className="text-3xl font-bold text-white">{user.stats.likesReceived}</p>
-                    <p className="text-sm text-white/60">Likes received</p>
+                    <p className="text-3xl font-bold text-white">{profile.stats.plan}</p>
+                    <p className="text-sm text-white/60">Plano atual</p>
                   </div>
                   <div className="text-center p-4 bg-white/5 border border-white/10">
                     <Flame className="h-8 w-8 mx-auto mb-2 text-white" />
-                    <p className="text-2xl font-bold text-white">{user.stats.topMood}</p>
-                    <p className="text-sm text-white/60">Top mood</p>
+                    <p className="text-2xl font-bold text-white">{profile.stats.favoriteMode}</p>
+                    <p className="text-sm text-white/60">Modo de presença</p>
                   </div>
                 </div>
               </CardContent>
@@ -148,7 +211,7 @@ const Perfil = () => {
               </CardHeader>
               <CardContent>
                 <div className="grid md:grid-cols-2 gap-4">
-                  {user.badges.map((badge) => (
+                  {profile.badges.map((badge) => (
                     <div 
                       key={badge.id}
                       className="flex gap-3 p-4 bg-white/5 border border-white/10 hover:border-white/30 transition-all hover:scale-[1.02]"
@@ -167,29 +230,129 @@ const Perfil = () => {
             {/* Histórico */}
             <Card className="bg-white/5 border border-white/10 backdrop-blur-sm">
               <CardHeader>
+                <CardTitle className="text-white">Reservas e favoritos</CardTitle>
+              </CardHeader>
+              <CardContent className="grid md:grid-cols-2 gap-4">
+                <div className="space-y-3">
+                  <p className="text-sm font-semibold text-white">Reservas salvas</p>
+                  {profile.reservations.length === 0 ? (
+                    <p className="text-sm text-white/60">Nenhuma reserva persistida ainda.</p>
+                  ) : (
+                    profile.reservations.map((reservation) => (
+                      <div
+                        key={reservation.matchId}
+                        className="p-3 bg-white/5 border border-white/10 hover:border-white/30 transition-colors"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <button
+                            className="flex-1 text-left"
+                            onClick={() => navigate(`/booking/${reservation.matchId}`)}
+                          >
+                            <p className="font-semibold text-white flex items-center gap-2">
+                              <CheckCheck className="h-4 w-4" />
+                              {reservation.match.homeTeam} x {reservation.match.awayTeam}
+                            </p>
+                            <p className="text-xs text-white/60 mt-1">
+                              {reservation.match.date} • {reservation.match.venue}
+                            </p>
+                          </button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-white/60 hover:text-white"
+                            onClick={() => {
+                              void (async () => {
+                                await removeReservation(user.id, reservation.matchId);
+                                refreshProductState();
+                              })();
+                            }}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                <div className="space-y-3">
+                  <p className="text-sm font-semibold text-white">Favoritos</p>
+                  {profile.favoriteMatches.length === 0 ? (
+                    <p className="text-sm text-white/60">Nenhum evento favoritado ainda.</p>
+                  ) : (
+                    profile.favoriteMatches.map((match) => (
+                      <div
+                        key={match.id}
+                        className="p-3 bg-white/5 border border-white/10 hover:border-white/30 transition-colors"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <button
+                            className="flex-1 text-left"
+                            onClick={() => navigate(`/booking/${match.id}`)}
+                          >
+                            <p className="font-semibold text-white flex items-center gap-2">
+                              <Heart className="h-4 w-4 fill-white" />
+                              {match.homeTeam} x {match.awayTeam}
+                            </p>
+                            <p className="text-xs text-white/60 mt-1">
+                              {match.stage} • {match.date}
+                            </p>
+                          </button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-white/60 hover:text-white"
+                            onClick={() => {
+                              void (async () => {
+                                await toggleFavoriteMatch(user.id, match.id);
+                                refreshProductState();
+                              })();
+                            }}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-white/5 border border-white/10 backdrop-blur-sm">
+              <CardHeader>
                 <CardTitle className="text-white">Recent Games</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                {user.recentGames.map((game) => (
+                {profile.recentGames.map((game) => (
                   <div 
-                    key={game.id}
+                    key={`${game.matchId}-${game.context}`}
                     className="flex items-center justify-between p-4 bg-white/5 border border-white/10 hover:border-white/30 transition-colors cursor-pointer"
-                    onClick={() => navigate(`/resumo/${game.id}`)}
+                    onClick={() => navigate(getHistoryPath(game.context, game.matchId))}
                   >
                     <div>
-                      <p className="font-semibold text-white">{game.teams}</p>
-                      <p className="text-sm text-white/60">{game.date}</p>
+                      <p className="font-semibold text-white">
+                        {game.match.homeTeam} x {game.match.awayTeam}
+                      </p>
+                      <p className="text-sm text-white/60">
+                        {game.match.date} • {game.context}
+                      </p>
                     </div>
-                    <Badge variant="secondary" className="bg-white/10 text-white border-white/20">{game.mood}</Badge>
+                    <Badge variant="secondary" className="bg-white/10 text-white border-white/20">
+                      {game.context}
+                    </Badge>
                   </div>
                 ))}
+                {profile.recentGames.length === 0 && (
+                  <p className="text-sm text-white/60">Nenhum histórico salvo ainda.</p>
+                )}
                 
                 <Button 
                   variant="outline" 
                   className="w-full mt-4 bg-white/5 border-white/10 text-white hover:bg-white/10"
-                  onClick={() => navigate("/galeria")}
+                  onClick={() => navigate("/")}
                 >
-                  View full history
+                  Explorar jogos
                 </Button>
               </CardContent>
             </Card>

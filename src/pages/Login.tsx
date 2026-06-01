@@ -8,22 +8,52 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Crown, Star, Zap, Shield, Check, Users } from "lucide-react";
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+import { useMockAuth, type MockAuthProvider, type MockPlan } from "@/contexts/MockAuthContext";
+import { worldCup2026Matches } from "@/data/worldCup2026";
 
 const Login = () => {
   const [name, setName] = useState("");
   const [favoriteTeam, setFavoriteTeam] = useState("");
+  const [selectedProvider, setSelectedProvider] = useState<MockAuthProvider>("google");
+  const [selectedPlan, setSelectedPlan] = useState<MockPlan>("free");
   const [showWelcomeDialog, setShowWelcomeDialog] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
+  const { login, isAuthenticated, mode, user } = useMockAuth();
+  const redirectTo = location.state?.from || `/arquibancada/${worldCup2026Matches[0].id}`;
 
-  const handleLogin = () => {
-    setShowWelcomeDialog(true);
+  useEffect(() => {
+    if (isAuthenticated && !showWelcomeDialog) {
+      setName(user?.name || "");
+      setFavoriteTeam(user?.favoriteTeam || "");
+      setSelectedPlan(user?.plan || "free");
+    }
+  }, [isAuthenticated, showWelcomeDialog, user]);
+
+  useEffect(() => {
+    if (mode === "supabase" && isAuthenticated) {
+      navigate(redirectTo, { replace: true });
+    }
+  }, [isAuthenticated, mode, navigate, redirectTo]);
+
+  const handleLogin = (provider: MockAuthProvider) => {
+    setSelectedProvider(provider);
+    login({
+      provider,
+      name,
+      favoriteTeam,
+      plan: selectedPlan,
+    });
+    if (mode === "mock") {
+      setShowWelcomeDialog(true);
+    }
   };
 
   const handleContinue = () => {
     setShowWelcomeDialog(false);
-    navigate("/arquibancada/1");
+    navigate(redirectTo);
   };
 
   return (
@@ -51,7 +81,7 @@ const Login = () => {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <Button variant="outline" className="w-full bg-white/5 border-white/10 text-white hover:bg-white/10" size="lg" onClick={handleLogin}>
+              <Button variant="outline" className="w-full bg-white/5 border-white/10 text-white hover:bg-white/10" size="lg" onClick={() => handleLogin("google")}>
                 <svg className="mr-2 h-5 w-5" viewBox="0 0 24 24">
                   <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
                   <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
@@ -61,14 +91,14 @@ const Login = () => {
                 Sign in with Google
               </Button>
               
-              <Button variant="outline" className="w-full bg-white/5 border-white/10 text-white hover:bg-white/10" size="lg" onClick={handleLogin}>
+              <Button variant="outline" className="w-full bg-white/5 border-white/10 text-white hover:bg-white/10" size="lg" onClick={() => handleLogin("github")}>
                 <svg className="mr-2 h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
                   <path d="M10 0C4.477 0 0 4.477 0 10c0 4.42 2.865 8.166 6.839 9.489.5.092.682-.217.682-.482 0-.237-.008-.866-.013-1.7-2.782.603-3.369-1.342-3.369-1.342-.454-1.155-1.11-1.462-1.11-1.462-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.831.092-.646.35-1.086.636-1.336-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.578 9.578 0 0110 4.836c.85.004 1.705.114 2.504.336 1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.203 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.578.688.48C17.137 18.163 20 14.418 20 10c0-5.523-4.477-10-10-10z"/>
                 </svg>
                 Sign in with GitHub
               </Button>
               
-              <Button variant="outline" className="w-full bg-white/5 border-white/10 text-white hover:bg-white/10" size="lg" onClick={handleLogin}>
+              <Button variant="outline" className="w-full bg-white/5 border-white/10 text-white hover:bg-white/10" size="lg" onClick={() => handleLogin("x")}>
                 <svg className="mr-2 h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723c-.951.555-2.005.959-3.127 1.184a4.92 4.92 0 00-8.384 4.482C7.69 8.095 4.067 6.13 1.64 3.162a4.822 4.822 0 00-.666 2.475c0 1.71.87 3.213 2.188 4.096a4.904 4.904 0 01-2.228-.616v.06a4.923 4.923 0 003.946 4.827 4.996 4.996 0 01-2.212.085 4.936 4.936 0 004.604 3.417 9.867 9.867 0 01-6.102 2.105c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 007.557 2.209c9.053 0 13.998-7.496 13.998-13.985 0-.21 0-.42-.015-.63A9.935 9.935 0 0024 4.59z"/>
                 </svg>
@@ -160,7 +190,7 @@ const Login = () => {
                     </li>
                     <li className="flex items-start gap-2">
                       <Check className="h-4 w-4 text-white shrink-0 mt-0.5" />
-                      <span className="text-white/80">Complete summaries and gallery</span>
+                      <span className="text-white/80">Resumos anexados a cada jogo</span>
                     </li>
                   </ul>
                 </div>
@@ -176,7 +206,12 @@ const Login = () => {
             <p className="text-white/60">Choose the best experience for you</p>
           </div>
 
-          <Tabs defaultValue="free" className="w-full">
+          <Tabs
+            defaultValue="free"
+            value={selectedPlan}
+            onValueChange={(value) => setSelectedPlan(value as MockPlan)}
+            className="w-full"
+          >
             <TabsList className="grid w-full grid-cols-2 mb-8">
               <TabsTrigger value="free">Plano Gratuito</TabsTrigger>
               <TabsTrigger value="premium" className="data-[state=active]:bg-accent data-[state=active]:text-accent-foreground">
@@ -216,7 +251,7 @@ const Login = () => {
                       <Check className="h-5 w-5 text-white shrink-0 mt-0.5" />
                       <div>
                         <p className="font-medium text-white">View post-game summaries</p>
-                        <p className="text-sm text-white/60">Relive the best moments in the gallery</p>
+                        <p className="text-sm text-white/60">Veja os highlights empacotados por IA depois do jogo</p>
                       </div>
                     </li>
                   </ul>
@@ -293,7 +328,7 @@ const Login = () => {
                       </div>
                     </li>
                   </ul>
-                  <Button className="w-full bg-white text-black hover:bg-white/90" size="lg">
+                  <Button className="w-full bg-white text-black hover:bg-white/90" size="lg" onClick={() => setSelectedPlan("premium")}>
                     <Crown className="mr-2 h-4 w-4" />
                     Subscribe Premium
                   </Button>
@@ -319,20 +354,20 @@ const Login = () => {
             <div className="bg-white/5 border border-white/10 p-4">
               <h4 className="font-semibold mb-2 flex items-center gap-2 text-white">
                 <Star className="h-4 w-4 text-white" />
-                Your Free Plan includes:
+                Seu acesso mock ativo:
               </h4>
               <ul className="space-y-2 text-sm">
                 <li className="flex items-start gap-2">
                   <Check className="h-4 w-4 text-white shrink-0 mt-0.5" />
-                  <span className="text-white/80">50 interactions per game</span>
+                  <span className="text-white/80">Provider: {selectedProvider}</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <Check className="h-4 w-4 text-white shrink-0 mt-0.5" />
-                  <span className="text-white/80">Access to all available games</span>
+                  <span className="text-white/80">Plano: {selectedPlan === "premium" ? "Premium" : "Free"}</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <Check className="h-4 w-4 text-white shrink-0 mt-0.5" />
-                  <span className="text-white/80">Complete summaries gallery</span>
+                  <span className="text-white/80">Perfil: {user?.name || name || "Torcedor 2026"}</span>
                 </li>
               </ul>
             </div>

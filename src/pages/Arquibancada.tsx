@@ -1,121 +1,168 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams } from "react-router-dom";
 import { Header } from "@/components/Header";
-import { Footer } from "@/components/Footer";
-import { InviteFriends } from "@/components/InviteFriends";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
-import { Users, ThumbsUp, ThumbsDown, Send, Shield, AlertTriangle, Pin, Filter } from "lucide-react";
+import {
+  AlertTriangle,
+  CalendarDays,
+  ChevronDown,
+  Filter,
+  MapPin,
+  Pin,
+  Send,
+  Shield,
+  ThumbsDown,
+  ThumbsUp,
+} from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { TeamOnboarding } from "@/components/TeamOnboarding";
+import { worldCupMatchMap } from "@/data/worldCup2026";
+import { useMockAuth } from "@/contexts/MockAuthContext";
+import { addHistoryEntry } from "@/lib/productState";
+import {
+  getMatchMessages,
+  getMatchPreference,
+  saveMatchPreference,
+  sendMatchMessage,
+  type MatchMessage,
+  type TeamSide,
+} from "@/lib/arquibancada";
+import { isSupabaseConfigured, supabase } from "@/integrations/supabase/client";
 
-// Mock games data
-const gamesData: Record<string, {
-  homeTeam: string;
-  awayTeam: string;
-  homeScore: number;
-  awayScore: number;
-  league: string;
-  status: string;
-  viewers: number;
-  maxSeats: number;
-  homeTeamLogo: string;
-  awayTeamLogo: string;
-}> = {
-  "1": {
-    homeTeam: "Palmeiras",
-    awayTeam: "Grêmio",
-    homeScore: 2,
-    awayScore: 1,
-    league: "Brasileirão Série A",
-    status: "Ao vivo • 78'",
-    viewers: 2984,
-    maxSeats: 3000,
-    homeTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/1/10/Palmeiras_logo.svg",
-    awayTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/5/5f/Gremio_logo.svg",
-  },
-  "2": {
-    homeTeam: "Lakers",
-    awayTeam: "Celtics",
-    homeScore: 89,
-    awayScore: 85,
-    league: "NBA",
-    status: "Ao vivo • Q3 8:42",
-    viewers: 1523,
-    maxSeats: 2500,
-    homeTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/3/3c/Los_Angeles_Lakers_logo.svg",
-    awayTeamLogo: "https://upload.wikimedia.org/wikipedia/en/8/8f/Boston_Celtics.svg",
-  },
-  "3": {
-    homeTeam: "Flamengo",
-    awayTeam: "Botafogo",
-    homeScore: 0,
-    awayScore: 0,
-    league: "Brasileirão Série A",
-    status: "Em breve • 19:30",
-    viewers: 847,
-    maxSeats: 3000,
-    homeTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/2/2e/Flamengo_braz_logo.svg",
-    awayTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/c/c3/Botafogo_de_Futebol_e_Regatas_logo.svg",
-  },
-  "4": {
-    homeTeam: "Corinthians",
-    awayTeam: "São Paulo",
-    homeScore: 0,
-    awayScore: 0,
-    league: "Brasileirão Série A",
-    status: "Em breve • 21:00",
-    viewers: 2156,
-    maxSeats: 3000,
-    homeTeamLogo: "https://upload.wikimedia.org/wikipedia/pt/b/b4/Corinthians_simbolo.png",
-    awayTeamLogo: "https://upload.wikimedia.org/wikipedia/commons/6/6f/Brasao_do_Sao_Paulo_Futebol_Clube.svg",
-  },
-};
+const fallbackGame = worldCupMatchMap["wc2026-07"];
+
+const formatMessageTime = (createdAt: string) =>
+  new Intl.DateTimeFormat("pt-BR", {
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(createdAt));
 
 const Arquibancada = () => {
   const { id } = useParams();
   const { toast } = useToast();
+  const { user } = useMockAuth();
   const [message, setMessage] = useState("");
   const [cooldown, setCooldown] = useState(0);
   const [isBlocked, setIsBlocked] = useState(false);
   const [filterTeam, setFilterTeam] = useState<string>("all");
-  const [pinnedUsers, setPinnedUsers] = useState<string[]>([]);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  
-  // Onboarding e seleção de torcida
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [currentUserTeam, setCurrentUserTeam] = useState<"home" | "away" | "neutral">("neutral");
-  
-  // Get game data based on ID
-  const game = gamesData[id || "1"] || gamesData["1"];
+  const [showMobilePanel, setShowMobilePanel] = useState(false);
+  const [pinnedUsers] = useState<string[]>([]);
+  const [messages, setMessages] = useState<MatchMessage[]>([]);
+  const [isMessagesLoading, setIsMessagesLoading] = useState(true);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const game = (id && worldCupMatchMap[id]) || fallbackGame;
 
-  // Verifica se usuário já escolheu torcida
   useEffect(() => {
-    const savedTeam = localStorage.getItem(`game-${id}-team`);
-    if (savedTeam) {
-      setCurrentUserTeam(savedTeam as "home" | "away" | "neutral");
-    } else {
-      setShowOnboarding(true);
+    if (!user) return;
+    void addHistoryEntry(user.id, game.id, "arquibancada");
+  }, [game.id, user]);
+
+  useEffect(() => {
+    if (!user) return;
+
+    let isActive = true;
+
+    void (async () => {
+      const savedTeam = await getMatchPreference(user.id, game.id);
+      if (!isActive) return;
+
+      if (savedTeam) {
+        setCurrentUserTeam(savedTeam);
+        setShowOnboarding(false);
+      } else {
+        setShowOnboarding(true);
+      }
+    })();
+
+    return () => {
+      isActive = false;
+    };
+  }, [game.id, user]);
+
+  useEffect(() => {
+    let isActive = true;
+
+    setIsMessagesLoading(true);
+
+    void (async () => {
+      const nextMessages = await getMatchMessages(game.id);
+      if (!isActive) return;
+      setMessages(nextMessages);
+      setIsMessagesLoading(false);
+    })();
+
+    if (!isSupabaseConfigured || !supabase) {
+      return () => {
+        isActive = false;
+      };
     }
-  }, [id]);
 
-  const [messages, setMessages] = useState([
-    { id: 1, user: "Torcedor123", text: "VAMOS TIME! BORA VIRAR!", time: "76'", likes: 23, dislikes: 2, team: "homeTeam" },
-    { id: 2, user: "TorcidaFiel", text: "Esse time tem raça demais!", time: "76'", likes: 15, dislikes: 0, team: "homeTeam" },
-    { id: 3, user: "FanáticoTotal", text: "TÉCNICO GENIAL!", time: "77'", likes: 31, dislikes: 1, team: "homeTeam" },
-    { id: 4, user: "Visitante1903", text: "juiz ladrão, pênalti claro não marcado", time: "77'", likes: 8, dislikes: 12, team: "awayTeam" },
-    { id: 5, user: "NeutralViewer", text: "Que jogaço! Vale cada segundo", time: "78'", likes: 19, dislikes: 0, team: "neutral" },
-  ]);
+    const channel = supabase
+      .channel(`match-messages-${game.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "messages",
+          filter: `match_id=eq.${game.id}`,
+        },
+        (payload) => {
+          const row = payload.new as {
+            id: string;
+            user_id: string;
+            user_name: string;
+            user_avatar_url: string | null;
+            text: string;
+            team_side: TeamSide;
+            likes_count: number;
+            dislikes_count: number;
+            created_at: string;
+          };
 
-  // Auto-scroll para última mensagem
+          setMessages((current) => {
+            if (current.some((message) => message.id === row.id)) {
+              return current;
+            }
+
+            return [
+              ...current,
+              {
+                id: row.id,
+                userId: row.user_id,
+                userName: row.user_name,
+                userAvatarUrl: row.user_avatar_url,
+                text: row.text,
+                teamSide: row.team_side,
+                likes: row.likes_count,
+                dislikes: row.dislikes_count,
+                createdAt: row.created_at,
+              },
+            ].sort(
+              (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+            );
+          });
+        },
+      )
+      .subscribe();
+
+    return () => {
+      isActive = false;
+      void supabase.removeChannel(channel);
+    };
+  }, [game.id]);
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Cooldown timer
   useEffect(() => {
     if (cooldown > 0) {
       const timer = setTimeout(() => setCooldown(cooldown - 1), 1000);
@@ -123,25 +170,29 @@ const Arquibancada = () => {
     }
   }, [cooldown]);
 
-  // Simula moderação por IA
+  const getInitials = (name: string) =>
+    name
+      .split(" ")
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase() ?? "")
+      .join("");
+
   const moderateMessage = (text: string) => {
     const bannedWords = ["idiota", "lixo", "merda", "burro"];
-    const hasBannedWord = bannedWords.some(word => text.toLowerCase().includes(word));
-    
-    if (hasBannedWord) {
-      return { blocked: true, severity: "high" };
-    }
-    
-    // Simula detecção de flood (muitas maiúsculas)
+    const hasBannedWord = bannedWords.some((word) => text.toLowerCase().includes(word));
+
+    if (hasBannedWord) return { blocked: true, severity: "high" };
+
     const upperCaseRatio = (text.match(/[A-Z]/g) || []).length / text.length;
     if (upperCaseRatio > 0.7 && text.length > 20) {
       return { blocked: true, severity: "low" };
     }
-    
+
     return { blocked: false, severity: "none" };
   };
 
-  const handleSendMessage = () => {
+  const handleSendMessage = async () => {
     if (cooldown > 0) {
       toast({
         title: "⏱️ Calma, torcida!",
@@ -152,7 +203,8 @@ const Arquibancada = () => {
     }
 
     if (!message.trim()) return;
-    
+    if (!user) return;
+
     if (message.length > 180) {
       toast({
         title: "✂️ Mensagem muito longa",
@@ -162,9 +214,7 @@ const Arquibancada = () => {
       return;
     }
 
-    // Moderação por IA
     const moderation = moderateMessage(message);
-    
     if (moderation.blocked) {
       if (moderation.severity === "high") {
         setIsBlocked(true);
@@ -173,7 +223,7 @@ const Arquibancada = () => {
           description: "Linguagem ofensiva detectada. Você foi temporariamente bloqueado por 10 minutos.",
           variant: "destructive",
         });
-        setTimeout(() => setIsBlocked(false), 600000); // 10 minutos
+        setTimeout(() => setIsBlocked(false), 600000);
       } else {
         toast({
           title: "⚠️ Ei, pegue leve!",
@@ -184,285 +234,274 @@ const Arquibancada = () => {
       return;
     }
 
-    // Envia mensagem
-    const newMessage = {
-      id: messages.length + 1,
-      user: "VocêAgora",
-      text: message,
-      time: "Agora",
-      likes: 0,
-      dislikes: 0,
-      team: currentUserTeam === "home" ? "homeTeam" : currentUserTeam === "away" ? "awayTeam" : "neutral",
-    };
-    setMessages([...messages, newMessage]);
-    setMessage("");
-    setCooldown(3); // 3 segundos de cooldown
+    try {
+      const trimmedMessage = message.trim();
+      await sendMatchMessage({
+        matchId: game.id,
+        user,
+        text: trimmedMessage,
+        teamSide: currentUserTeam,
+      });
+      setMessage("");
+      setCooldown(3);
+      if (!isSupabaseConfigured) {
+        setMessages(await getMatchMessages(game.id));
+      }
+    } catch {
+      toast({
+        title: "Nao foi possivel enviar",
+        description: "Tente novamente em alguns instantes.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleOnboardingComplete = (team: "home" | "away" | "neutral") => {
-    setCurrentUserTeam(team);
-    localStorage.setItem(`game-${id}-team`, team);
-    setShowOnboarding(false);
-    toast({
-      title: "🎉 Bem-vindo!",
-      description: "Você entrou na arquibancada. Aproveite o jogo!",
-    });
+    if (!user) return;
+
+    void (async () => {
+      await saveMatchPreference(user.id, game.id, team);
+      setCurrentUserTeam(team);
+      setShowOnboarding(false);
+      toast({
+        title: "🎉 Bem-vindo!",
+        description: "Você entrou na arquibancada. Aproveite o jogo!",
+      });
+    })();
   };
 
-  const togglePinUser = (username: string) => {
+  const togglePinUser = () => {
     toast({
-      title: "🔒 Recurso PRO",
-      description: "Fixar comentários de usuários é exclusivo para assinantes PRO.",
+      title: "Comentário fixado",
+      description: "Esse destaque ainda é local nesta fase de teste do produto.",
       variant: "default",
     });
   };
 
   const getTeamBadge = (team: string) => {
-    if (team === "homeTeam" || team === "home") return { text: game.homeTeam, color: "bg-white/10 text-white border-white/20" };
-    if (team === "awayTeam" || team === "away") return { text: game.awayTeam, color: "bg-white/10 text-white border-white/20" };
-    return { text: "Neutral", color: "bg-white/10 text-white border-white/20" };
+    if (team === "homeTeam" || team === "home") return { text: game.homeTeam };
+    if (team === "awayTeam" || team === "away") return { text: game.awayTeam };
+    return { text: "Neutro" };
   };
 
-  const filteredMessages = messages.filter(msg => {
+  const filteredMessages = messages.filter((msg) => {
     if (filterTeam === "all") return true;
-    if (filterTeam === "homeTeam") return msg.team === "homeTeam";
-    if (filterTeam === "awayTeam") return msg.team === "awayTeam";
-    if (filterTeam === "neutral") return msg.team === "neutral";
+    if (filterTeam === "homeTeam") return msg.teamSide === "home";
+    if (filterTeam === "awayTeam") return msg.teamSide === "away";
+    if (filterTeam === "neutral") return msg.teamSide === "neutral";
     return true;
   });
+
+  const sidePanel = (
+    <div className="space-y-4">
+      <Card className="border-white/10 bg-white/[0.04] backdrop-blur-sm">
+        <CardContent className="p-4 space-y-3">
+          <div>
+            <p className="text-base font-semibold text-white">
+              {game.homeTeam} x {game.awayTeam}
+            </p>
+            <p className="text-sm text-white/55 mt-1">{game.stage}</p>
+          </div>
+          <div className="space-y-2 text-sm text-white/65">
+            <div className="flex items-start gap-2">
+              <CalendarDays className="h-4 w-4 mt-0.5 shrink-0" />
+              <span>{game.date} • {game.startTime}</span>
+            </div>
+            <div className="flex items-start gap-2">
+              <MapPin className="h-4 w-4 mt-0.5 shrink-0" />
+              <span>{game.venue}</span>
+            </div>
+            <div className="flex items-start gap-2">
+              <Shield className="h-4 w-4 mt-0.5 shrink-0" />
+              <span>Moderação ativa da sala</span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-black">
       <Header />
-      
+
       <TeamOnboarding
         open={showOnboarding}
         onComplete={handleOnboardingComplete}
         homeTeam={game.homeTeam}
         awayTeam={game.awayTeam}
       />
-      
-      <div className="container max-w-7xl mx-auto py-12 md:py-16 px-6">
-        {/* Match Header - Full Width */}
-        <Card className="mb-6 md:mb-8 overflow-hidden bg-white/5 border border-white/10 backdrop-blur-sm">
-          <div className="bg-gradient-to-r from-white/5 via-black/50 to-white/5 p-6 md:p-8">
-            <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-              {/* Teams */}
-              <div className="flex items-center gap-6 md:gap-12 flex-1 justify-center">
-                <div className="flex flex-col items-center gap-3">
-                  <img 
-                    src={game.homeTeamLogo} 
-                    alt={game.homeTeam}
-                    className="w-16 h-16 md:w-20 md:h-20 object-contain"
-                  />
-                  <span className="font-bold text-lg text-white">{game.homeTeam}</span>
-                </div>
-                
-                <div className="text-center">
-                  <Badge variant="live" className="mb-3">{game.status}</Badge>
-                  <div className="text-4xl md:text-5xl font-bold">
-                    <span className="text-white">{game.homeScore}</span>
-                    <span className="text-white/40 mx-3">:</span>
-                    <span className="text-white">{game.awayScore}</span>
-                  </div>
-                  <p className="text-sm text-white/60 mt-2">{game.league}</p>
-                </div>
-                
-                <div className="flex flex-col items-center gap-3">
-                  <img 
-                    src={game.awayTeamLogo} 
-                    alt={game.awayTeam}
-                    className="w-16 h-16 md:w-20 md:h-20 object-contain"
-                  />
-                  <span className="font-bold text-lg text-white">{game.awayTeam}</span>
-                </div>
-              </div>
-            </div>
 
-            {/* Info Bar */}
-            <div className="flex flex-wrap items-center justify-center gap-4 md:gap-8 mt-6 pt-6 border-t border-white/10">
-              <div className="flex items-center gap-2 text-white/60">
-                <Users className="h-4 w-4" />
-                <span className="text-sm">{game.viewers.toLocaleString()} / {game.maxSeats.toLocaleString()} viewers</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Shield className="h-4 w-4 text-white animate-pulse" />
-                <span className="text-sm text-white font-medium">AI Moderating</span>
-              </div>
-              <InviteFriends 
-                gameId={id || "1"}
-                homeTeam={game.homeTeam}
-                awayTeam={game.awayTeam}
-              />
+      <div className="container max-w-6xl mx-auto px-4 md:px-6 pt-4 pb-52">
+        <div className="mb-4 rounded-2xl border border-white/10 bg-white/[0.035] backdrop-blur-sm">
+          <button
+            type="button"
+            className="flex w-full items-center justify-between gap-4 px-4 py-3 text-left lg:hidden"
+            onClick={() => setShowMobilePanel((current) => !current)}
+          >
+            <div className="min-w-0">
+              <p className="truncate text-sm font-medium text-white">
+                {game.homeTeam} x {game.awayTeam} • {game.stage}
+              </p>
+            </div>
+            <ChevronDown
+              className={`h-4 w-4 text-white/55 transition-transform ${showMobilePanel ? "rotate-180" : ""}`}
+            />
+          </button>
+
+          {showMobilePanel && <div className="px-4 pb-4 lg:hidden">{sidePanel}</div>}
+
+          <div className="hidden lg:block px-4 py-3">
+            <div className="flex flex-wrap items-center gap-3 text-xs text-white/45">
+              <Badge variant="outline" className="border-white/15 bg-transparent text-white/60">
+                {game.statusLabel}
+              </Badge>
+              <span>{game.homeTeam} x {game.awayTeam}</span>
             </div>
           </div>
-        </Card>
+        </div>
 
-        {/* Chat Area */}
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* Messages - Main Area */}
-          <div className="lg:col-span-3">
-            <Card className="min-h-[500px] max-h-[70vh] flex flex-col bg-white/5 border border-white/10 backdrop-blur-sm">
-              <CardContent className="p-0 flex-1 flex flex-col min-h-0">
-                {/* Filtros */}
-                <div className="flex gap-3 p-4 border-b border-white/10 items-center bg-black/30">
-                  <Filter className="h-4 w-4 text-white/60" />
-                  <Select value={filterTeam} onValueChange={setFilterTeam}>
-                    <SelectTrigger className="w-[180px] h-9">
-                      <SelectValue placeholder="Filtrar torcida" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todas as torcidas</SelectItem>
-                      <SelectItem value="homeTeam">{game.homeTeam}</SelectItem>
-                      <SelectItem value="awayTeam">{game.awayTeam}</SelectItem>
-                      <SelectItem value="neutral">Neutros</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <span className="text-xs text-white/60 ml-auto">
-                    {filteredMessages.length} messages
-                  </span>
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_280px] gap-6 items-start">
+          <div className="min-w-0">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+              <Select value={filterTeam} onValueChange={setFilterTeam}>
+                <SelectTrigger className="h-10 w-[180px] border-white/10 bg-white/[0.04] text-white">
+                  <Filter className="h-4 w-4 mr-2 text-white/45" />
+                  <SelectValue placeholder="Filtrar torcida" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas as torcidas</SelectItem>
+                  <SelectItem value="homeTeam">{game.homeTeam}</SelectItem>
+                  <SelectItem value="awayTeam">{game.awayTeam}</SelectItem>
+                  <SelectItem value="neutral">Neutros</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-0 rounded-[24px] border border-white/8 bg-white/[0.025] overflow-hidden">
+              {isMessagesLoading ? (
+                <div className="px-4 py-10 text-center text-sm text-white/55">
+                  Carregando conversa...
                 </div>
+              ) : filteredMessages.length === 0 ? (
+                <div className="px-4 py-10 text-center text-sm text-white/55">
+                  Ainda nao ha mensagens nesta partida. Puxe a primeira leitura da sala.
+                </div>
+              ) : filteredMessages.map((msg, index) => {
+                const teamBadge = getTeamBadge(msg.teamSide);
+                const isPinned = pinnedUsers.includes(msg.userName);
 
-                {/* Messages List */}
-                <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-black/20 min-h-0">
-                  {filteredMessages.map((msg, index) => {
-                    const teamBadge = getTeamBadge(msg.team);
-                    const isPinned = pinnedUsers.includes(msg.user);
-                    
-                    return (
-                      <div 
-                        key={msg.id} 
-                        className={`p-4 bg-white/5 border animate-fade-in hover:border-white/30 transition-all ${
-                          isPinned ? "border-white/50 shadow-[0_0_12px_rgba(255,255,255,0.3)]" : "border-white/10"
-                        }`}
-                        style={{ animationDelay: `${index * 0.05}s` }}
-                      >
-                        <div className="flex items-start justify-between mb-3">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-bold text-white">{msg.user}</span>
-                            <Badge variant="outline" className="text-xs text-white/60 border-white/20">{msg.time}</Badge>
-                            <Badge className={`text-xs border border-white/20 bg-white/10 text-white`}>{teamBadge.text}</Badge>
+                return (
+                  <div
+                    key={msg.id}
+                    className={`animate-fade-in px-4 py-4 md:px-5 transition-colors ${
+                      index !== filteredMessages.length - 1 ? "border-b border-white/6" : ""
+                    } ${isPinned ? "bg-white/[0.045]" : "bg-transparent"}`}
+                    style={{ animationDelay: `${index * 0.03}s` }}
+                  >
+                    <div className="flex items-start gap-3">
+                      <Avatar className="h-10 w-10 border border-white/10">
+                        <AvatarImage src={msg.userAvatarUrl || undefined} alt={msg.userName} />
+                        <AvatarFallback className="bg-white/10 text-xs font-semibold text-white">
+                          {getInitials(msg.userName)}
+                        </AvatarFallback>
+                      </Avatar>
+
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0 flex-1">
+                            <div className="mb-1 flex flex-wrap items-center gap-2">
+                              <span className="text-sm font-semibold text-white">{msg.userName}</span>
+                              <span className="text-[11px] text-white/35">{formatMessageTime(msg.createdAt)}</span>
+                              <Badge className="h-5 border-white/10 bg-white/[0.06] px-2 text-[10px] font-normal text-white/65">
+                                {teamBadge.text}
+                              </Badge>
+                            </div>
+
+                            <p className="text-[15px] md:text-base leading-7 text-white/92">{msg.text}</p>
+
+                            <div className="mt-3 flex items-center gap-5 text-sm text-white/38">
+                              <button className="flex items-center gap-2 hover:text-white transition-colors">
+                                <ThumbsUp className="h-4 w-4" />
+                                {msg.likes}
+                              </button>
+                              <button className="flex items-center gap-2 hover:text-white transition-colors">
+                                <ThumbsDown className="h-4 w-4" />
+                                {msg.dislikes}
+                              </button>
+                            </div>
                           </div>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 w-8 p-0"
-                            onClick={() => togglePinUser(msg.user)}
-                          >
-                            <Pin className={`h-4 w-4 ${isPinned ? "text-accent" : "text-muted-foreground"}`} />
+
+                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0 shrink-0" onClick={togglePinUser}>
+                            <Pin className="h-4 w-4 text-white/28" />
                           </Button>
                         </div>
-                        <p className="text-base mb-3 text-white">{msg.text}</p>
-                        <div className="flex gap-6 text-sm text-white/60">
-                          <button className="flex items-center gap-2 hover:text-white transition-colors">
-                            <ThumbsUp className="h-4 w-4" />
-                            {msg.likes}
-                          </button>
-                          <button className="flex items-center gap-2 hover:text-white transition-colors">
-                            <ThumbsDown className="h-4 w-4" />
-                            {msg.dislikes}
-                          </button>
-                        </div>
                       </div>
-                    );
-                  })}
-                  <div ref={messagesEndRef} />
-                </div>
-
-                {/* Aviso de bloqueio */}
-                {isBlocked && (
-                  <div className="flex items-center gap-3 p-4 mx-4 mb-4 bg-white/10 border border-white/20 text-white">
-                    <AlertTriangle className="h-5 w-5 shrink-0" />
-                    <p className="text-sm font-medium">
-                      You've been removed from this stadium for 10 minutes. Come back with sportsmanship.
-                    </p>
+                    </div>
                   </div>
-                )}
-
-                {/* Input de mensagem */}
-                <div className="p-4 border-t border-white/10 space-y-2 bg-black/30">
-                  <div className="flex gap-3">
-                    <Input
-                      placeholder={isBlocked ? "You're temporarily blocked..." : "Write your stadium chant..."}
-                      value={message}
-                      onChange={(e) => setMessage(e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && !isBlocked && cooldown === 0 && handleSendMessage()}
-                      maxLength={180}
-                      className="flex-1 h-12 bg-white/5 border-white/10 text-white placeholder:text-white/40"
-                      disabled={isBlocked || cooldown > 0}
-                    />
-                    <Button 
-                      onClick={handleSendMessage} 
-                      size="lg"
-                      className="h-12 px-6 bg-white text-black hover:bg-white/90"
-                      disabled={isBlocked || cooldown > 0}
-                    >
-                      {cooldown > 0 ? (
-                        <span className="font-bold">{cooldown}s</span>
-                      ) : (
-                        <Send className="h-5 w-5" />
-                      )}
-                    </Button>
-                  </div>
-                  <div className="flex justify-between text-xs text-white/60 px-1">
-                    <span>{message.length}/180</span>
-                    {cooldown > 0 && (
-                      <span className="text-white font-medium">
-                        Wait {cooldown}s
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                );
+              })}
+              <div ref={messagesEndRef} />
+            </div>
           </div>
 
-          {/* Sidebar */}
-          <div className="lg:col-span-1 space-y-4">
-            {/* Patrocínio */}
-            <Card className="bg-white/5 border border-white/10 backdrop-blur-sm">
-              <CardContent className="p-4 text-center">
-                <p className="text-xs font-semibold text-white/80">🍺 Arena Brahma</p>
-                <p className="text-lg font-bold text-white">20% OFF</p>
-                <p className="text-xs text-white/60">until final whistle</p>
-              </CardContent>
-            </Card>
+          <aside className="hidden lg:block sticky top-28">{sidePanel}</aside>
+        </div>
+      </div>
 
-            {/* Sua torcida */}
-            <Card className="bg-white/5 border border-white/10 backdrop-blur-sm">
-              <CardContent className="p-4">
-                <p className="text-xs text-white/60 mb-2">Your team</p>
-                <Badge className="border border-white/20 bg-white/10 text-white">
-                  {getTeamBadge(currentUserTeam === "home" ? "homeTeam" : currentUserTeam === "away" ? "awayTeam" : "neutral").text}
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-black/80 backdrop-blur-2xl">
+        <div className="container max-w-6xl mx-auto px-4 md:px-6 py-4">
+          {isBlocked && (
+            <div className="mb-3 flex items-center gap-3 rounded-2xl border border-white/15 bg-white/[0.08] px-4 py-3 text-white">
+              <AlertTriangle className="h-5 w-5 shrink-0" />
+              <p className="text-sm">Você foi pausado por 10 minutos. Volte com espírito esportivo.</p>
+            </div>
+          )}
+
+          <div className="rounded-[26px] border border-white/12 bg-white/[0.05] px-3 py-3 shadow-[0_-10px_40px_rgba(0,0,0,0.35)]">
+            <div className="mb-2 flex items-center justify-between gap-3 px-1">
+              <div className="flex items-center gap-2">
+                <Badge className="border-white/10 bg-white/[0.08] text-white/68">
+                  {getTeamBadge(
+                    currentUserTeam === "home" ? "homeTeam" : currentUserTeam === "away" ? "awayTeam" : "neutral",
+                  ).text}
                 </Badge>
-              </CardContent>
-            </Card>
+                <span className="text-xs text-white/35">{message.length}/180</span>
+              </div>
+            </div>
 
-            {/* Stats */}
-            <Card className="bg-white/5 border border-white/10 backdrop-blur-sm">
-              <CardContent className="p-4 space-y-3">
-                <p className="text-xs text-white/60 font-semibold">Room Statistics</p>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-white/60">Messages</span>
-                    <span className="font-semibold text-white">{messages.length}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-white/60">Viewers</span>
-                    <span className="font-semibold text-white">{game.viewers}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-white/60">Capacity</span>
-                    <span className="font-semibold text-white">{Math.round((game.viewers / game.maxSeats) * 100)}%</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            <div className="flex items-end gap-2">
+              <Input
+                placeholder={isBlocked ? "Você está temporariamente bloqueado..." : "Mande sua leitura do jogo, reação do momento ou puxe a torcida..."}
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !isBlocked && cooldown === 0) {
+                    void handleSendMessage();
+                  }
+                }}
+                maxLength={180}
+                className="h-14 border-0 bg-transparent text-white placeholder:text-white/30 shadow-none focus-visible:ring-0"
+                disabled={isBlocked || cooldown > 0}
+              />
+
+              <Button
+                onClick={() => void handleSendMessage()}
+                size="lg"
+                className="h-11 min-w-11 rounded-2xl bg-white text-black hover:bg-white/90"
+                disabled={isBlocked || cooldown > 0}
+              >
+                {cooldown > 0 ? <span className="font-bold">{cooldown}s</span> : <Send className="h-4 w-4" />}
+              </Button>
+            </div>
+
+            <div className="mt-2 flex items-center justify-between px-1 text-xs text-white/32">
+              <span>Mensagens respeitosas aparecem para toda a sala.</span>
+              {cooldown > 0 && <span>Aguarde {cooldown}s</span>}
+            </div>
           </div>
         </div>
       </div>
-      
-      <Footer />
     </div>
   );
 };

@@ -1,9 +1,11 @@
 import { Button } from "@/components/ui/button";
-import { Menu, User } from "lucide-react";
+import { Menu, LogOut, User } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useMockAuth } from "@/contexts/MockAuthContext";
 
 export const Header = () => {
   const navigate = useNavigate();
+  const { isAuthenticated, user, logout } = useMockAuth();
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-white/10 bg-black/80 backdrop-blur-xl supports-[backdrop-filter]:bg-black/60">
@@ -23,26 +25,43 @@ export const Header = () => {
             Games
           </button>
           <button 
-            onClick={() => navigate("/galeria")}
-            className="text-sm font-medium text-white/80 hover:text-white transition-colors"
-          >
-            Galeria
-          </button>
-          <button 
             onClick={() => navigate("/perfil")}
             className="text-sm font-medium text-white/80 hover:text-white transition-colors flex items-center gap-2"
           >
             <User className="h-4 w-4" />
-            Perfil
+            {isAuthenticated ? "Minha conta" : "Perfil"}
           </button>
-          <Button 
-            variant="default" 
-            size="sm"
-            onClick={() => navigate("/login")}
-            className="bg-white text-black hover:bg-white/90 font-semibold"
-          >
-            Login
-          </Button>
+          {isAuthenticated ? (
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => navigate("/perfil")}
+                className="text-sm text-white/70 hover:text-white transition-colors"
+              >
+                {user?.name}
+              </button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  logout();
+                  navigate("/");
+                }}
+                className="border-white/20 bg-white/5 text-white hover:bg-white/10"
+              >
+                <LogOut className="mr-2 h-4 w-4" />
+                Sair
+              </Button>
+            </div>
+          ) : (
+            <Button 
+              variant="default" 
+              size="sm"
+              onClick={() => navigate("/login")}
+              className="bg-white text-black hover:bg-white/90 font-semibold"
+            >
+              Login
+            </Button>
+          )}
         </nav>
 
         <Button 

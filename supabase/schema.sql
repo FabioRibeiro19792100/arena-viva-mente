@@ -1,0 +1,102 @@
+create table if not exists public.profiles (
+  id uuid primary key references auth.users(id) on delete cascade,
+  name text not null,
+  username text not null unique,
+  favorite_team text default 'Neutro',
+  provider text not null check (provider in ('google', 'github', 'x')),
+  plan text not null default 'free' check (plan in ('free', 'premium')),
+  avatar_url text,
+  join_date date,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.favorites (
+  user_id uuid not null references auth.users(id) on delete cascade,
+  match_id text not null,
+  created_at timestamptz not null default now(),
+  primary key (user_id, match_id)
+);
+
+create table if not exists public.reservations (
+  user_id uuid not null references auth.users(id) on delete cascade,
+  match_id text not null,
+  access_type text not null default 'digital' check (access_type in ('digital')),
+  reserved_at timestamptz not null default now(),
+  primary key (user_id, match_id)
+);
+
+create table if not exists public.history_entries (
+  user_id uuid not null references auth.users(id) on delete cascade,
+  match_id text not null,
+  context text not null check (context in ('booking', 'arquibancada', 'resumo')),
+  visited_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  primary key (user_id, match_id, context)
+);
+
+create table if not exists public.match_preferences (
+  user_id uuid not null references auth.users(id) on delete cascade,
+  match_id text not null,
+  team_side text not null check (team_side in ('home', 'away', 'neutral')),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  primary key (user_id, match_id)
+);
+
+create table if not exists public.messages (
+  id uuid primary key default gen_random_uuid(),
+  match_id text not null,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  user_name text not null,
+  user_avatar_url text,
+  text text not null check (char_length(text) <= 180),
+  team_side text not null check (team_side in ('home', 'away', 'neutral')),
+  likes_count integer not null default 0,
+  dislikes_count integer not null default 0,
+  created_at timestamptz not null default now()
+);
+
+alter table public.profiles enable row level security;
+alter table public.favorites enable row level security;
+alter table public.reservations enable row level security;
+alter table public.history_entries enable row level security;
+alter table public.match_preferences enable row level security;
+alter table public.messages enable row level security;
+
+drop policy if exists "profiles_select_own" on public.profiles;
+drop policy if exists "profiles_insert_own" on public.profiles;
+drop policy if exists "profiles_update_own" on public.profiles;
+drop policy if exists "favorites_all_own" on public.favorites;
+drop policy if exists "reservations_all_own" on public.reservations;
+drop policy if exists "history_entries_all_own" on public.history_entries;
+drop policy if exists "match_preferences_all_own" on public.match_preferences;
+drop policy if exists "messages_select_authenticated" on public.messages;
+drop policy if exists "messages_insert_own" on public.messages;
+
+create policy "profiles_select_own" on public.profiles
+  for select using (auth.uid() = id);
+
+create policy "profiles_insert_own" on public.profiles
+  for insert with check (auth.uid() = id);
+
+create policy "profiles_update_own" on public.profiles
+  for update using (auth.uid() = id);
+
+create policy "favorites_all_own" on public.favorites
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+create policy "reservations_all_own" on public.reservations
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+create policy "history_entries_all_own" on public.history_entries
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+create policy "match_preferences_all_own" on public.match_preferences
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+create policy "messages_select_authenticated" on public.messages
+  for select using (auth.role() = 'authenticated');
+
+create policy "messages_insert_own" on public.messages
+  for insert with check (auth.uid() = user_id);
