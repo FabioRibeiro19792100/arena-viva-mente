@@ -74,7 +74,9 @@ const Arquibancada = () => {
   const [pendingMessageCount, setPendingMessageCount] = useState(0);
   const [pullDistance, setPullDistance] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const feedWrapperRef = useRef<HTMLDivElement>(null);
   const touchStartYRef = useRef<number | null>(null);
+  const messagesRef = useRef<MatchMessage[]>([]);
   const game = (id && worldCupMatchMap[id]) || fallbackGame;
   const currentStatus = getCurrentMatchStatus(game);
   const statusLabel = getMatchStatusLabel(game);
@@ -105,6 +107,10 @@ const Arquibancada = () => {
       setPullDistance(0);
     }
   };
+
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
 
   useEffect(() => {
     if (!user) return;
@@ -179,6 +185,37 @@ const Arquibancada = () => {
       void supabase.removeChannel(channel);
     };
   }, [currentStatus, game.id, user?.id]);
+
+  useEffect(() => {
+    if (currentStatus !== "live") {
+      return;
+    }
+
+    const interval = window.setInterval(async () => {
+      if (document.visibilityState !== "visible") return;
+      if (isRefreshing || isMessagesLoading) return;
+
+      try {
+        const remoteMessages = await getMatchMessages(game.id);
+        const currentMessages = messagesRef.current;
+        const currentIds = new Set(currentMessages.map((item) => item.id));
+
+        const unseenMessages = remoteMessages.filter(
+          (item) => !currentIds.has(item.id) && item.userId !== user?.id,
+        );
+
+        if (unseenMessages.length > 0) {
+          setPendingMessageCount(unseenMessages.length);
+        }
+      } catch {
+        // Silent fallback: this polling only exists to light up the new-message indicator.
+      }
+    }, 10000);
+
+    return () => {
+      window.clearInterval(interval);
+    };
+  }, [currentStatus, game.id, isMessagesLoading, isRefreshing, user?.id]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -280,12 +317,14 @@ const Arquibancada = () => {
   };
 
   const handleTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
-    if (window.scrollY > 8) return;
+    const wrapperTop = feedWrapperRef.current?.getBoundingClientRect().top ?? 0;
+    if (wrapperTop < -8) return;
     touchStartYRef.current = event.touches[0]?.clientY ?? null;
   };
 
   const handleTouchMove = (event: React.TouchEvent<HTMLDivElement>) => {
-    if (touchStartYRef.current === null || window.scrollY > 8) return;
+    const wrapperTop = feedWrapperRef.current?.getBoundingClientRect().top ?? 0;
+    if (touchStartYRef.current === null || wrapperTop < -8) return;
 
     const currentY = event.touches[0]?.clientY ?? 0;
     const distance = Math.max(0, currentY - touchStartYRef.current);
@@ -487,6 +526,7 @@ const Arquibancada = () => {
             </div>
 
             <div
+              ref={feedWrapperRef}
               className="overflow-hidden rounded-[24px] border border-border/70 bg-card/80 shadow-[var(--shadow-card)]"
               onTouchStart={handleTouchStart}
               onTouchMove={handleTouchMove}
