@@ -51,6 +51,7 @@ const isPlaceholderTeam = (team: string) =>
   /^Winner Match /i.test(team) ||
   /^Loser Match /i.test(team) ||
   /^Group .* winners$/i.test(team) ||
+  /^Group .* runners-up$/i.test(team) ||
   /^Group .* third place$/i.test(team);
 
 interface GameCardProps {
@@ -189,18 +190,7 @@ export const GameCard = ({
         </div>
       </div>
       <CardContent className="flex flex-1 flex-col p-4">
-        <div className="min-h-6">
-          <div className="flex flex-wrap gap-2">
-            {isFavorite && (
-              <Badge variant="secondary" className="bg-primary/10 text-primary">
-                <Heart className="mr-1 h-3 w-3 fill-primary" />
-                Favoritado
-              </Badge>
-            )}
-          </div>
-        </div>
-
-        <div className="mt-3 space-y-2.5">
+        <div className="space-y-2.5">
           <div className="flex items-start gap-2 text-sm text-muted-foreground">
             <CalendarDays className="mt-0.5 h-4 w-4 shrink-0" />
             <div>
@@ -241,8 +231,8 @@ export const GameCard = ({
             if (isReserved) {
               return (
                 <Button
-                  className="h-10 w-full font-semibold"
-                  disabled
+                  variant="secondary"
+                  className="h-10 w-full font-semibold text-foreground hover:bg-secondary"
                 >
                   Sala reservada
                 </Button>
@@ -259,11 +249,13 @@ export const GameCard = ({
             );
           })()}
         </div>
-        {currentStatus === "scheduled" && (
-          <p className="pt-2 text-right text-xs text-muted-foreground">
-            {availableSpots} spots disponíveis
-          </p>
-        )}
+        <div className="flex min-h-7 items-end justify-end pt-2">
+          {currentStatus !== "ended" && (
+            <p className="text-right text-xs text-muted-foreground">
+              {availableSpots} spots disponíveis
+            </p>
+          )}
+        </div>
       </CardContent>
     </Card>
   );
