@@ -5,13 +5,15 @@ import { Footer } from "@/components/Footer";
 import { worldCup2026Matches } from "@/data/worldCup2026";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CalendarDays, Search, Ticket } from "lucide-react";
+import { CalendarDays, ChevronDown, Search, SlidersHorizontal } from "lucide-react";
 import { useMockAuth } from "@/contexts/MockAuthContext";
-import { getProductState, toggleFavoriteMatch } from "@/lib/productState";
+import { addReservation, getProductState, toggleFavoriteMatch } from "@/lib/productState";
 import { useNavigate } from "react-router-dom";
+import { useToast } from "@/hooks/use-toast";
 
 const Index = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const { user } = useMockAuth();
   const [selectedSport, setSelectedSport] = useState("all");
   const [selectedEvent, setSelectedEvent] = useState("all");
@@ -20,6 +22,7 @@ const Index = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
   const [reservedIds, setReservedIds] = useState<string[]>([]);
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
   useEffect(() => {
     if (!user) {
@@ -44,6 +47,28 @@ const Index = () => {
       const state = await getProductState(user.id);
       setFavoriteIds(state.favorites);
       setReservedIds(state.reservations.map((reservation) => reservation.matchId));
+    })();
+  };
+
+  const handleReserveMatch = (matchId: string) => {
+    if (!user) {
+      navigate("/login");
+      return;
+    }
+
+    void (async () => {
+      await addReservation(user.id, matchId);
+      const state = await getProductState(user.id);
+      setFavoriteIds(state.favorites);
+      setReservedIds(state.reservations.map((reservation) => reservation.matchId));
+
+      const match = worldCup2026Matches.find((item) => item.id === matchId);
+      toast({
+        title: "Sala reservada",
+        description: match
+          ? `${match.homeTeam} x ${match.awayTeam} foi adicionado à sua agenda.`
+          : "A reserva foi adicionada à sua agenda.",
+      });
     })();
   };
 
@@ -102,6 +127,14 @@ const Index = () => {
     selectedDate !== "all" ||
     searchQuery !== "";
 
+  const activeFilterCount = [
+    selectedSport !== "all",
+    selectedEvent !== "all",
+    selectedTeam !== "all",
+    selectedDate !== "all",
+    searchQuery.trim() !== "",
+  ].filter(Boolean).length;
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       <Header />
@@ -109,82 +142,112 @@ const Index = () => {
       <section className="relative py-12 md:py-16">
         <div className="container max-w-7xl mx-auto px-6">
           <div className="mb-8 md:mb-10">
-            <div className="flex items-center gap-3 mb-4">
-              <Ticket className="h-5 w-5 text-primary" />
-              <span className="text-sm uppercase tracking-[0.2em] text-muted-foreground">
-                Catálogo de eventos
-              </span>
-            </div>
             <h1 className="mb-3 text-3xl font-bold text-foreground md:text-5xl">
               Copa do Mundo 2026
             </h1>
-            <p className="max-w-3xl text-base text-muted-foreground md:text-lg">
-              Navegue pelos jogos, filtre o que importa e entre na sala de cada partida.
-            </p>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-[1.3fr_repeat(4,0.8fr)] gap-3 mb-8">
-            <div className="relative">
-              <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Buscar por seleção, sede ou fase"
-                className="h-12 border-border bg-card pl-11 placeholder:text-muted-foreground"
-              />
+          <div className="mb-8">
+            <div className="flex items-center gap-3 lg:hidden">
+              <button
+                type="button"
+                onClick={() => setMobileFiltersOpen((current) => !current)}
+                className="flex h-12 flex-1 items-center justify-between rounded-xl border border-border bg-card px-4 text-left text-sm font-medium text-foreground shadow-sm"
+              >
+                <span className="flex items-center gap-2">
+                  <SlidersHorizontal className="h-4 w-4 text-muted-foreground" />
+                  Filtros
+                  {activeFilterCount > 0 && (
+                    <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
+                      {activeFilterCount}
+                    </span>
+                  )}
+                </span>
+                <ChevronDown
+                  className={`h-4 w-4 text-muted-foreground transition-transform ${mobileFiltersOpen ? "rotate-180" : ""}`}
+                />
+              </button>
+
+              {hasActiveFilters && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedSport("all");
+                    setSelectedEvent("all");
+                    setSelectedTeam("all");
+                    setSelectedDate("all");
+                    setSearchQuery("");
+                  }}
+                  className="shrink-0 text-sm text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  Limpar
+                </button>
+              )}
             </div>
 
-            <Select value={selectedSport} onValueChange={setSelectedSport}>
-              <SelectTrigger className="h-12 border-border bg-card">
-                <SelectValue placeholder="Esporte" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos esportes</SelectItem>
-                <SelectItem value="futebol">Futebol</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className={`${mobileFiltersOpen ? "mt-3 grid" : "hidden"} grid-cols-1 gap-3 lg:mt-0 lg:grid lg:grid-cols-[1.3fr_repeat(4,0.8fr)]`}>
+              <div className="relative">
+                <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Buscar por seleção, sede ou fase"
+                  className="h-12 border-border bg-card pl-11 placeholder:text-muted-foreground"
+                />
+              </div>
 
-            <Select value={selectedEvent} onValueChange={setSelectedEvent}>
-              <SelectTrigger className="h-12 border-border bg-card">
-                <SelectValue placeholder="Evento" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos eventos</SelectItem>
-                {eventOptions.map((event) => (
-                  <SelectItem key={event} value={event}>
-                    {event}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              <Select value={selectedSport} onValueChange={setSelectedSport}>
+                <SelectTrigger className="h-12 border-border bg-card">
+                  <SelectValue placeholder="Esporte" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos esportes</SelectItem>
+                  <SelectItem value="futebol">Futebol</SelectItem>
+                </SelectContent>
+              </Select>
 
-            <Select value={selectedTeam} onValueChange={setSelectedTeam}>
-              <SelectTrigger className="h-12 border-border bg-card">
-                <SelectValue placeholder="Time" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos times</SelectItem>
-                {teamOptions.map((team) => (
-                  <SelectItem key={team} value={team}>
-                    {team}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              <Select value={selectedEvent} onValueChange={setSelectedEvent}>
+                <SelectTrigger className="h-12 border-border bg-card">
+                  <SelectValue placeholder="Fase" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas as fases</SelectItem>
+                  {eventOptions.map((event) => (
+                    <SelectItem key={event} value={event}>
+                      {event}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
 
-            <Select value={selectedDate} onValueChange={setSelectedDate}>
-              <SelectTrigger className="h-12 border-border bg-card">
-                <SelectValue placeholder="Data" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todas datas</SelectItem>
-                {dateOptions.map((date) => (
-                  <SelectItem key={date} value={date}>
-                    {date}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              <Select value={selectedTeam} onValueChange={setSelectedTeam}>
+                <SelectTrigger className="h-12 border-border bg-card">
+                  <SelectValue placeholder="Time" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos times</SelectItem>
+                  {teamOptions.map((team) => (
+                    <SelectItem key={team} value={team}>
+                      {team}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select value={selectedDate} onValueChange={setSelectedDate}>
+                <SelectTrigger className="h-12 border-border bg-card">
+                  <SelectValue placeholder="Data" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas datas</SelectItem>
+                  {dateOptions.map((date) => (
+                    <SelectItem key={date} value={date}>
+                      {date}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           <div className="flex flex-wrap items-center justify-between gap-4 mb-10">
@@ -221,10 +284,11 @@ const Index = () => {
                 <GameCard
                   key={game.id}
                   {...game}
-                  startTime={`${game.date} • ${game.startTime}`}
+                  startTime={game.startTime}
                   isFavorite={favoriteIds.includes(game.id)}
                   isReserved={reservedIds.includes(game.id)}
                   onToggleFavorite={handleToggleFavorite}
+                  onReserveMatch={handleReserveMatch}
                 />
               ))}
             </div>

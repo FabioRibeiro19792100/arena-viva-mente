@@ -2,7 +2,7 @@ const flag = (code: string) => `https://flagcdn.com/w160/${code}.png`;
 const worldCupLogo =
   "https://upload.wikimedia.org/wikipedia/en/thumb/4/4b/2026_FIFA_World_Cup_logo.svg/240px-2026_FIFA_World_Cup_logo.svg.png";
 
-export type MatchStatus = "live" | "scheduled" | "almost-full" | "full";
+export type MatchStatus = "live" | "scheduled" | "ended";
 
 export interface WorldCupMatch {
   id: string;
@@ -222,23 +222,17 @@ const rawMatches: RawMatch[] = [
   ["wc2026-104", "Final", "Winner Match 101", "Winner Match 102", "19 de julho de 2026", "15:00", "MetLife Stadium, New York / New Jersey", "19 jul 2026"],
 ];
 
-const getStatus = (index: number): MatchStatus => {
-  if (index < 4) return "almost-full";
-  if (index < 8) return "full";
-  return "scheduled";
-};
-
 const testMatch: WorldCupMatch = {
   id: "wc2026-test-01",
   homeTeam: "Brazil",
   awayTeam: "Argentina",
-  league: "Arena Tikitaka",
-  stage: "Partida de teste",
+  league: "Copa do Mundo FIFA 2026™",
+  stage: "Partida teste",
   status: "live",
-  statusLabel: "Sala piloto",
-  date: "31 de maio de 2026",
+  statusLabel: "Sala ao vivo",
+  date: "1 de junho de 2026",
   startTime: "20:00",
-  venue: "Sala piloto • Ambiente de validacao",
+  venue: "Arena Tikitaka, Sala principal",
   homeTeamLogo: teamLogo("Brazil"),
   awayTeamLogo: teamLogo("Argentina"),
   homeScore: 2,
@@ -252,7 +246,7 @@ const officialWorldCupMatches: WorldCupMatch[] = rawMatches.map(
     awayTeam,
     league: "Copa do Mundo FIFA 2026™",
     stage,
-    status: getStatus(index),
+    status: index === 0 ? "live" : "scheduled",
     statusLabel,
     date,
     startTime,
@@ -313,6 +307,54 @@ export const parseWorldCupMatchDate = (match: Pick<WorldCupMatch, "date" | "star
     Number(minutes),
   );
 };
+
+const LIVE_WINDOW_MS = 3 * 60 * 60 * 1000;
+
+export const getCurrentMatchStatus = (match: Pick<WorldCupMatch, "id" | "date" | "startTime" | "status">): MatchStatus => {
+  if (match.id === testMatch.id) {
+    return "live";
+  }
+
+  const kickoff = parseWorldCupMatchDate(match);
+  if (!kickoff) return match.status;
+
+  const now = Date.now();
+  if (now < kickoff.getTime()) return "scheduled";
+  if (now <= kickoff.getTime() + LIVE_WINDOW_MS) return "live";
+  return "ended";
+};
+
+export const getMatchAvailableSpots = (
+  match: Pick<WorldCupMatch, "id" | "stage" | "status" | "date" | "startTime">,
+) => {
+  const currentStatus = getCurrentMatchStatus(match);
+
+  if (currentStatus === "ended") return 0;
+  if (match.id === testMatch.id) return 18;
+
+  const hash = Array.from(match.id).reduce((total, char) => total + char.charCodeAt(0), 0);
+  const baseCapacity =
+    match.stage.includes("Final") || match.stage.includes("Semi")
+      ? 48
+      : match.stage.includes("Quarter")
+        ? 64
+        : match.stage.includes("Round")
+          ? 80
+          : 120;
+
+  const liveAdjustment = currentStatus === "live" ? 36 : 0;
+  return Math.max(6, baseCapacity - (hash % 42) - liveAdjustment);
+};
+
+export const getMatchStatusLabel = (match: Pick<WorldCupMatch, "id" | "date" | "startTime" | "status">) => {
+  const status = getCurrentMatchStatus(match);
+  if (status === "live") return "Sala ao vivo";
+  if (status === "scheduled") return "Reserva disponível";
+  return "Jogo encerrado";
+};
+
+export const isMatchRoomOpen = (match: Pick<WorldCupMatch, "id" | "date" | "startTime" | "status">) =>
+  getCurrentMatchStatus(match) === "live";
 
 export const isSummaryAvailableForMatch = (match: Pick<WorldCupMatch, "date" | "startTime">) => {
   const kickoff = parseWorldCupMatchDate(match);

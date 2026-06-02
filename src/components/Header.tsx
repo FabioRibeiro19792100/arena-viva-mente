@@ -20,10 +20,7 @@ export const Header = () => {
           <div className="flex h-11 w-11 items-center justify-center rounded-full bg-primary/10 text-primary">
             <span className="text-lg font-black tracking-tight">AT</span>
           </div>
-          <div className="min-w-0">
-            <h1 className="text-2xl font-bold tracking-tight text-foreground">Arena Tikitaka</h1>
-            <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Salas da Copa do Mundo 2026</p>
-          </div>
+          <h1 className="min-w-0 text-2xl font-bold tracking-tight text-foreground">Arena Tikitaka</h1>
         </div>
 
         <nav className="hidden md:flex items-center gap-8">

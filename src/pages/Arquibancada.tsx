@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { Header } from "@/components/Header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -14,6 +14,7 @@ import {
   Filter,
   MapPin,
   Pin,
+  RefreshCw,
   Send,
   Shield,
   ThumbsDown,
@@ -21,7 +22,7 @@ import {
 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { TeamOnboarding } from "@/components/TeamOnboarding";
-import { worldCupMatchMap } from "@/data/worldCup2026";
+import { getCurrentMatchStatus, getMatchStatusLabel, isSummaryAvailableForMatch, worldCupMatchMap } from "@/data/worldCup2026";
 import { useMockAuth } from "@/contexts/MockAuthContext";
 import { addHistoryEntry } from "@/lib/productState";
 import {
@@ -56,6 +57,7 @@ const mergeMessages = (current: MatchMessage[], incoming: MatchMessage[]) => {
 
 const Arquibancada = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
   const { toast } = useToast();
   const { user, mode } = useMockAuth();
   const [message, setMessage] = useState("");
@@ -68,11 +70,41 @@ const Arquibancada = () => {
   const [pinnedUsers] = useState<string[]>([]);
   const [messages, setMessages] = useState<MatchMessage[]>([]);
   const [isMessagesLoading, setIsMessagesLoading] = useState(true);
-  const [debugSessionUserId, setDebugSessionUserId] = useState<string | null>(null);
-  const [debugLastError, setDebugLastError] = useState<string | null>(null);
-  const [debugLastWriteAt, setDebugLastWriteAt] = useState<string | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [pendingMessageCount, setPendingMessageCount] = useState(0);
+  const [pullDistance, setPullDistance] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const touchStartYRef = useRef<number | null>(null);
   const game = (id && worldCupMatchMap[id]) || fallbackGame;
+  const currentStatus = getCurrentMatchStatus(game);
+  const statusLabel = getMatchStatusLabel(game);
+  const hasPostGameSummary = isSummaryAvailableForMatch(game);
+
+  const refreshMessages = async ({ showLoader = false }: { showLoader?: boolean } = {}) => {
+    if (currentStatus !== "live") return;
+
+    if (showLoader) {
+      setIsMessagesLoading(true);
+    } else {
+      setIsRefreshing(true);
+    }
+
+    try {
+      const nextMessages = await getMatchMessages(game.id);
+      setMessages((current) => mergeMessages(current, nextMessages));
+    } catch (error) {
+      toast({
+        title: "Nao foi possivel atualizar",
+        description: "Tente novamente em alguns instantes.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsMessagesLoading(false);
+      setIsRefreshing(false);
+      setPendingMessageCount(0);
+      setPullDistance(0);
+    }
+  };
 
   useEffect(() => {
     if (!user) return;
@@ -81,6 +113,10 @@ const Arquibancada = () => {
 
   useEffect(() => {
     if (!user) return;
+    if (currentStatus !== "live") {
+      setShowOnboarding(false);
+      return;
+    }
 
     let isActive = true;
 
@@ -99,39 +135,26 @@ const Arquibancada = () => {
     return () => {
       isActive = false;
     };
-  }, [game.id, user]);
+  }, [currentStatus, game.id, user]);
 
   useEffect(() => {
-    let isActive = true;
-
-    setIsMessagesLoading(true);
-
-    const refreshMessages = async (showLoader = false) => {
-      if (showLoader && isActive) {
-        setIsMessagesLoading(true);
-      }
-      const nextMessages = await getMatchMessages(game.id);
-      if (!isActive) return;
-      setMessages((current) => mergeMessages(current, nextMessages));
+    if (currentStatus !== "live") {
+      setMessages([]);
       setIsMessagesLoading(false);
-      setDebugLastError(null);
-    };
+      setPendingMessageCount(0);
+      return;
+    }
 
-    void refreshMessages(true);
+    void refreshMessages({ showLoader: true });
+  }, [currentStatus, game.id]);
 
-    if (!isSupabaseConfigured || !supabase) {
-      const fallbackInterval = window.setInterval(() => {
-        void refreshMessages();
-      }, 4000);
-
-      return () => {
-        isActive = false;
-        window.clearInterval(fallbackInterval);
-      };
+  useEffect(() => {
+    if (currentStatus !== "live" || !isSupabaseConfigured || !supabase) {
+      return;
     }
 
     const channel = supabase
-      .channel(`match-messages-${game.id}`)
+      .channel(`match-messages-indicator-${game.id}`)
       .on(
         "postgres_changes",
         {
@@ -141,65 +164,21 @@ const Arquibancada = () => {
           filter: `match_id=eq.${game.id}`,
         },
         (payload) => {
-          const row = payload.new as {
-            id: string;
-            user_id: string;
-            user_name: string;
-            user_avatar_url: string | null;
-            text: string;
-            team_side: TeamSide;
-            likes_count: number;
-            dislikes_count: number;
-            created_at: string;
-          };
+          const row = payload.new as { id: string; user_id: string };
 
-          setMessages((current) => {
-            if (current.some((message) => message.id === row.id)) {
-              return current;
-            }
+          if (row.user_id === user?.id) {
+            return;
+          }
 
-            return [
-              ...current,
-              {
-                id: row.id,
-                userId: row.user_id,
-                userName: row.user_name,
-                userAvatarUrl: row.user_avatar_url,
-                text: row.text,
-                teamSide: row.team_side,
-                likes: row.likes_count,
-                dislikes: row.dislikes_count,
-                createdAt: row.created_at,
-              },
-            ].sort(
-              (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
-            );
-          });
+          setPendingMessageCount((current) => current + 1);
         },
       )
       .subscribe();
 
-    const fallbackInterval = window.setInterval(() => {
-      void refreshMessages();
-    }, 4000);
-
-    const handleVisibilityOrFocus = () => {
-      if (document.visibilityState === "visible") {
-        void refreshMessages();
-      }
-    };
-
-    window.addEventListener("focus", handleVisibilityOrFocus);
-    document.addEventListener("visibilitychange", handleVisibilityOrFocus);
-
     return () => {
-      isActive = false;
-      window.clearInterval(fallbackInterval);
-      window.removeEventListener("focus", handleVisibilityOrFocus);
-      document.removeEventListener("visibilitychange", handleVisibilityOrFocus);
       void supabase.removeChannel(channel);
     };
-  }, [game.id]);
+  }, [currentStatus, game.id, user?.id]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -211,22 +190,6 @@ const Arquibancada = () => {
       return () => clearTimeout(timer);
     }
   }, [cooldown]);
-
-  useEffect(() => {
-    if (!isSupabaseConfigured || !supabase) {
-      setDebugSessionUserId(null);
-      return;
-    }
-
-    void supabase.auth.getSession().then(({ data, error }) => {
-      if (error) {
-        setDebugLastError(error.message);
-        return;
-      }
-
-      setDebugSessionUserId(data.session?.user?.id || null);
-    });
-  }, [user?.id]);
 
   const getInitials = (name: string) =>
     name
@@ -300,8 +263,6 @@ const Arquibancada = () => {
         text: trimmedMessage,
         teamSide: currentUserTeam,
       });
-      setDebugLastError(null);
-      setDebugLastWriteAt(new Date().toISOString());
       setMessages((current) => mergeMessages(current, [sentMessage]));
       setMessage("");
       setCooldown(3);
@@ -310,13 +271,39 @@ const Arquibancada = () => {
         setMessages((current) => mergeMessages(current, refreshedMessages));
       }
     } catch (error) {
-      setDebugLastError(error instanceof Error ? error.message : "Erro desconhecido ao enviar mensagem");
       toast({
         title: "Nao foi possivel enviar",
         description: "Tente novamente em alguns instantes.",
         variant: "destructive",
       });
     }
+  };
+
+  const handleTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
+    if (window.scrollY > 8) return;
+    touchStartYRef.current = event.touches[0]?.clientY ?? null;
+  };
+
+  const handleTouchMove = (event: React.TouchEvent<HTMLDivElement>) => {
+    if (touchStartYRef.current === null || window.scrollY > 8) return;
+
+    const currentY = event.touches[0]?.clientY ?? 0;
+    const distance = Math.max(0, currentY - touchStartYRef.current);
+    setPullDistance(Math.min(distance, 84));
+  };
+
+  const handleTouchEnd = () => {
+    if (touchStartYRef.current === null) return;
+
+    const shouldRefresh = pullDistance >= 72;
+    touchStartYRef.current = null;
+
+    if (shouldRefresh) {
+      void refreshMessages();
+      return;
+    }
+
+    setPullDistance(0);
   };
 
   const handleOnboardingComplete = (team: "home" | "away" | "neutral") => {
@@ -385,24 +372,6 @@ const Arquibancada = () => {
           </div>
         </CardContent>
       </Card>
-
-      <Card className="border-border/80 bg-card/90 shadow-[var(--shadow-card)] backdrop-blur-sm">
-        <CardContent className="p-4 space-y-2">
-          <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Debug</p>
-          <div className="space-y-1 text-xs text-muted-foreground">
-            <p>Modo: <span className="text-foreground">{mode}</span></p>
-            <p>Supabase configurado: <span className="text-foreground">{isSupabaseConfigured ? "sim" : "nao"}</span></p>
-            <p>match_id: <span className="text-foreground">{game.id}</span></p>
-            <p>user.id: <span className="break-all text-foreground">{user?.id || "sem usuario"}</span></p>
-            <p>session.user.id: <span className="break-all text-foreground">{debugSessionUserId || "sem sessao"}</span></p>
-            <p>mensagens carregadas: <span className="text-foreground">{messages.length}</span></p>
-            <p>ultimo envio: <span className="text-foreground">{debugLastWriteAt || "nenhum"}</span></p>
-            {debugLastError && (
-              <p className="break-words text-destructive">erro: {debugLastError}</p>
-            )}
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 
@@ -410,13 +379,50 @@ const Arquibancada = () => {
     <div className="min-h-screen bg-background text-foreground">
       <Header />
 
-      <TeamOnboarding
-        open={showOnboarding}
-        onComplete={handleOnboardingComplete}
-        homeTeam={game.homeTeam}
-        awayTeam={game.awayTeam}
-      />
+      {currentStatus === "live" && (
+        <TeamOnboarding
+          open={showOnboarding}
+          onComplete={handleOnboardingComplete}
+          homeTeam={game.homeTeam}
+          awayTeam={game.awayTeam}
+        />
+      )}
 
+      {currentStatus !== "live" ? (
+        <div className="container mx-auto max-w-4xl px-6 py-24">
+          <Card className="border-border/80 shadow-[var(--shadow-card)]">
+            <CardContent className="space-y-6 p-8 md:p-10">
+              <div className="space-y-2">
+                <Badge variant="outline" className="border-border bg-muted/45 text-muted-foreground">
+                  {statusLabel}
+                </Badge>
+                <h1 className="text-3xl font-bold text-foreground md:text-4xl">
+                  {currentStatus === "scheduled"
+                    ? "A sala abre no horário da partida."
+                    : "A sala ao vivo já foi encerrada."}
+                </h1>
+                <p className="max-w-2xl text-base text-muted-foreground md:text-lg">
+                  {currentStatus === "scheduled"
+                    ? "Antes do jogo, a ação principal é reservar sua sala. Quando a partida começar, a entrada é liberada."
+                    : "Você ainda pode revisar a reserva e abrir os highlights da partida."}
+                </p>
+              </div>
+
+              <div className="flex flex-wrap gap-3">
+                <Button onClick={() => navigate(`/booking/${game.id}`)}>
+                  {currentStatus === "scheduled" ? "Reservar sala" : "Ver partida"}
+                </Button>
+                {currentStatus === "ended" && hasPostGameSummary && (
+                  <Button variant="outline" onClick={() => navigate(`/resumo/${game.id}`)}>
+                    Ver highlights
+                  </Button>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      ) : (
+      <>
       <div className="container max-w-6xl mx-auto px-4 md:px-6 pt-4 pb-52">
         <div className="mb-4 rounded-2xl border border-border/80 bg-card/70 shadow-[var(--shadow-card)] backdrop-blur-sm">
           <button
@@ -425,9 +431,7 @@ const Arquibancada = () => {
             onClick={() => setShowMobilePanel((current) => !current)}
           >
             <div className="min-w-0">
-              <p className="truncate text-sm font-medium text-foreground">
-                {game.homeTeam} x {game.awayTeam} • {game.stage}
-              </p>
+              <p className="truncate text-sm font-medium text-foreground">Detalhes da partida</p>
             </div>
             <ChevronDown
               className={`h-4 w-4 text-muted-foreground transition-transform ${showMobilePanel ? "rotate-180" : ""}`}
@@ -435,15 +439,6 @@ const Arquibancada = () => {
           </button>
 
           {showMobilePanel && <div className="px-4 pb-4 lg:hidden">{sidePanel}</div>}
-
-          <div className="hidden lg:block px-4 py-3">
-            <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-              <Badge variant="outline" className="border-border bg-background/70 text-muted-foreground">
-                {game.statusLabel}
-              </Badge>
-              <span>{game.homeTeam} x {game.awayTeam}</span>
-            </div>
-          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_280px] gap-6 items-start">
@@ -461,9 +456,57 @@ const Arquibancada = () => {
                   <SelectItem value="neutral">Neutros</SelectItem>
                 </SelectContent>
               </Select>
+
+              <div className="flex items-center gap-2">
+                {pendingMessageCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => void refreshMessages()}
+                    className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-2 text-xs font-semibold text-primary transition-colors hover:bg-primary/15"
+                  >
+                    <span className="h-2 w-2 rounded-full bg-primary" aria-hidden="true" />
+                    {pendingMessageCount === 1 ? "1 nova mensagem" : `${pendingMessageCount} novas mensagens`}
+                  </button>
+                )}
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="relative h-10"
+                  onClick={() => void refreshMessages()}
+                  disabled={isMessagesLoading || isRefreshing}
+                >
+                  <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
+                  Atualizar
+                  {pendingMessageCount > 0 && (
+                    <span className="absolute -right-1 -top-1 h-3 w-3 rounded-full border-2 border-background bg-primary" aria-hidden="true" />
+                  )}
+                </Button>
+              </div>
             </div>
 
-            <div className="overflow-hidden rounded-[24px] border border-border/70 bg-card/80 shadow-[var(--shadow-card)]">
+            <div
+              className="overflow-hidden rounded-[24px] border border-border/70 bg-card/80 shadow-[var(--shadow-card)]"
+              onTouchStart={handleTouchStart}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
+            >
+              <div
+                className="flex items-center justify-center overflow-hidden text-xs font-medium text-muted-foreground transition-[max-height,opacity,padding] duration-200"
+                style={{
+                  maxHeight: pullDistance > 0 || isRefreshing ? 64 : 0,
+                  opacity: pullDistance > 0 || isRefreshing ? 1 : 0,
+                  paddingTop: pullDistance > 0 || isRefreshing ? 12 : 0,
+                  paddingBottom: pullDistance > 0 || isRefreshing ? 12 : 0,
+                }}
+              >
+                {isRefreshing
+                  ? "Atualizando conversa..."
+                  : pullDistance >= 72
+                    ? "Solte para atualizar"
+                    : "Puxe para atualizar"}
+              </div>
               {isMessagesLoading ? (
                 <div className="px-4 py-10 text-center text-sm text-muted-foreground">
                   Carregando conversa...
@@ -497,7 +540,9 @@ const Arquibancada = () => {
                           <div className="min-w-0 flex-1">
                             <div className="mb-1 flex flex-wrap items-center gap-2">
                               <div className="flex min-w-0 items-center gap-2">
-                                <span className="text-sm font-semibold text-foreground">{msg.userName}</span>
+                                <span className="text-[13px] font-medium text-foreground/80">
+                                  {msg.userName}
+                                </span>
                                 {teamIdentity.logo ? (
                                   <img
                                     src={teamIdentity.logo}
@@ -512,22 +557,21 @@ const Arquibancada = () => {
                             </div>
 
                             <p className="text-[15px] leading-7 text-foreground/90 md:text-base">{msg.text}</p>
-
-                            <div className="mt-3 flex items-center gap-5 text-sm text-muted-foreground">
-                              <button className="flex items-center gap-2 transition-colors hover:text-foreground">
-                                <ThumbsUp className="h-4 w-4" />
-                                {msg.likes}
-                              </button>
-                              <button className="flex items-center gap-2 transition-colors hover:text-foreground">
-                                <ThumbsDown className="h-4 w-4" />
-                                {msg.dislikes}
-                              </button>
-                            </div>
                           </div>
 
-                          <Button variant="ghost" size="sm" className="h-8 w-8 shrink-0 p-0" onClick={togglePinUser}>
-                            <Pin className="h-4 w-4 text-muted-foreground" />
-                          </Button>
+                          <div className="flex shrink-0 items-center self-start gap-1">
+                            <button className="flex h-8 items-center gap-1.5 rounded-full px-2 text-xs text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground">
+                              <ThumbsUp className="h-3.5 w-3.5" />
+                              {msg.likes}
+                            </button>
+                            <button className="flex h-8 items-center gap-1.5 rounded-full px-2 text-xs text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground">
+                              <ThumbsDown className="h-3.5 w-3.5" />
+                              {msg.dislikes}
+                            </button>
+                            <Button variant="ghost" size="sm" className="h-8 w-8 shrink-0 p-0" onClick={togglePinUser}>
+                              <Pin className="h-4 w-4 text-muted-foreground" />
+                            </Button>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -553,19 +597,34 @@ const Arquibancada = () => {
 
           <div className="rounded-[26px] border border-border bg-card px-3 py-3 shadow-[var(--shadow-card)]">
             <div className="mb-2 flex items-center justify-between gap-3 px-1">
-              <div className="flex items-center gap-2">
-                <Badge variant="outline" className="border-border bg-muted/45 text-foreground">
-                  {getTeamIdentity(
-                    currentUserTeam === "home" ? "homeTeam" : currentUserTeam === "away" ? "awayTeam" : "neutral",
-                  ).label}
-                </Badge>
-                <span className="text-xs text-muted-foreground">{message.length}/180</span>
-              </div>
+              {(() => {
+                const currentIdentity = getTeamIdentity(
+                  currentUserTeam === "home" ? "homeTeam" : currentUserTeam === "away" ? "awayTeam" : "neutral",
+                );
+
+                return (
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="border-border bg-muted/45 text-foreground">
+                      {currentIdentity.logo ? (
+                        <img
+                          src={currentIdentity.logo}
+                          alt={currentIdentity.label}
+                          className="mr-2 h-3.5 w-3.5 rounded-full object-contain"
+                        />
+                      ) : (
+                        <span className="mr-2 inline-block h-2.5 w-2.5 rounded-full bg-muted-foreground/60" aria-hidden="true" />
+                      )}
+                      {currentIdentity.label}
+                    </Badge>
+                    <span className="text-xs text-muted-foreground">{message.length}/180</span>
+                  </div>
+                );
+              })()}
             </div>
 
             <div className="flex items-end gap-2">
               <Input
-                placeholder={isBlocked ? "Você está temporariamente bloqueado..." : "Mande sua leitura do jogo, reação do momento ou puxe a torcida..."}
+                placeholder={isBlocked ? "Você está temporariamente bloqueado..." : "Escreva sua mensagem"}
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 onKeyDown={(e) => {
@@ -588,13 +647,16 @@ const Arquibancada = () => {
               </Button>
             </div>
 
-            <div className="mt-2 flex items-center justify-between px-1 text-xs text-muted-foreground">
-              <span>Mensagens respeitosas aparecem para toda a sala.</span>
-              {cooldown > 0 && <span>Aguarde {cooldown}s</span>}
-            </div>
+            {cooldown > 0 && (
+              <div className="mt-2 flex justify-end px-1 text-xs text-muted-foreground">
+                <span>Aguarde {cooldown}s</span>
+              </div>
+            )}
           </div>
         </div>
       </div>
+      </>
+      )}
     </div>
   );
 };
