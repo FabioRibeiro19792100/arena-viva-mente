@@ -9,8 +9,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useMockAuth } from "@/contexts/MockAuthContext";
-import { worldCupMatchMap } from "@/data/worldCup2026";
 import { getProductState, removeReservation, type ProductState } from "@/lib/productState";
+import { getMatchById } from "@/lib/runtimeMatches";
 import { Calendar, CheckCheck, Clock3, LogOut, MapPin, Star, X } from "lucide-react";
 
 const Perfil = () => {
@@ -51,7 +51,7 @@ const Perfil = () => {
   const reservations = productState.reservations
     .map((reservation) => ({
       ...reservation,
-      match: worldCupMatchMap[reservation.matchId],
+      match: getMatchById(reservation.matchId),
     }))
     .filter((item) => item.match)
     .slice(0, 4);
@@ -59,7 +59,7 @@ const Perfil = () => {
   const recentGames = productState.history
     .map((item) => ({
       ...item,
-      match: worldCupMatchMap[item.matchId],
+      match: getMatchById(item.matchId),
     }))
     .filter((item) => item.match)
     .slice(0, 5);

@@ -11,14 +11,30 @@ import matchLive from "@/assets/match-live.jpg";
 import { isSummaryAvailableForMatch, worldCupMatchMap, worldCupSummaries } from "@/data/worldCup2026";
 import { useMockAuth } from "@/contexts/MockAuthContext";
 import { addHistoryEntry } from "@/lib/productState";
+import { getMatchById } from "@/lib/runtimeMatches";
 
 const Resumo = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user } = useMockAuth();
-  const selectedSummary = worldCupSummaries.find((item) => item.id === id) || worldCupSummaries[0];
-  const selectedMatch = worldCupMatchMap[selectedSummary.id] || worldCupMatchMap["wc2026-07"];
+  const runtimeMatch = getMatchById(id);
+  const selectedSummary =
+    worldCupSummaries.find((item) => item.id === id) ||
+    (runtimeMatch
+      ? {
+          id: runtimeMatch.id,
+          homeTeam: runtimeMatch.homeTeam,
+          awayTeam: runtimeMatch.awayTeam,
+          score: "vs",
+          league: `${runtimeMatch.stage} • ${runtimeMatch.league}`,
+          date: `${runtimeMatch.date} • ${runtimeMatch.venue}`,
+          sentiment: "neutro" as const,
+          messagesCount: 0,
+          topPhrase: `"${runtimeMatch.homeTeam} x ${runtimeMatch.awayTeam} em ${runtimeMatch.venue}"`,
+        }
+      : worldCupSummaries[0]);
+  const selectedMatch = runtimeMatch || worldCupMatchMap[selectedSummary.id] || worldCupMatchMap["wc2026-07"];
   const isSummaryAvailable = isSummaryAvailableForMatch(selectedMatch);
 
   useEffect(() => {

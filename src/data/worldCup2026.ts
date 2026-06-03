@@ -19,6 +19,7 @@ export interface WorldCupMatch {
   awayTeamLogo: string;
   homeScore?: number;
   awayScore?: number;
+  liveDetail?: string;
 }
 
 export interface WorldCupSummary {
@@ -237,6 +238,7 @@ const testMatch: WorldCupMatch = {
   awayTeamLogo: teamLogo("Argentina"),
   homeScore: 2,
   awayScore: 1,
+  liveDetail: "67'",
 };
 
 const officialWorldCupMatches: WorldCupMatch[] = rawMatches.map(

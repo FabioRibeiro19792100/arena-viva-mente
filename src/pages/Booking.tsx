@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { getCurrentMatchStatus, getMatchAvailableSpots, isSummaryAvailableForMatch, parseWorldCupMatchDate, worldCupMatchMap } from "@/data/worldCup2026";
 import { useMockAuth } from "@/contexts/MockAuthContext";
 import { addHistoryEntry, addReservation, getProductState, removeReservation } from "@/lib/productState";
+import { getMatchById } from "@/lib/runtimeMatches";
 
 const fallbackMatch = worldCupMatchMap["wc2026-07"];
 
@@ -18,7 +19,7 @@ const Booking = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user } = useMockAuth();
-  const game = (id && worldCupMatchMap[id]) || fallbackMatch;
+  const game = getMatchById(id) || fallbackMatch;
   const hasPostGameSummary = isSummaryAvailableForMatch(game);
   const currentStatus = getCurrentMatchStatus(game);
   const availableSpots = getMatchAvailableSpots(game);

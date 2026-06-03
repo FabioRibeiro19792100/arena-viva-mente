@@ -34,6 +34,7 @@ import {
   type TeamSide,
 } from "@/lib/arquibancada";
 import { isSupabaseConfigured, supabase } from "@/integrations/supabase/client";
+import { getMatchById } from "@/lib/runtimeMatches";
 
 const fallbackGame = worldCupMatchMap["wc2026-07"];
 
@@ -77,7 +78,7 @@ const Arquibancada = () => {
   const feedWrapperRef = useRef<HTMLDivElement>(null);
   const touchStartYRef = useRef<number | null>(null);
   const messagesRef = useRef<MatchMessage[]>([]);
-  const game = (id && worldCupMatchMap[id]) || fallbackGame;
+  const game = getMatchById(id) || fallbackGame;
   const currentStatus = getCurrentMatchStatus(game);
   const statusLabel = getMatchStatusLabel(game);
   const hasPostGameSummary = isSummaryAvailableForMatch(game);
