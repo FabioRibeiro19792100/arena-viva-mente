@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { LogOut, Menu, Moon, Sun, User } from "lucide-react";
+import { Heart, LogOut, Menu, Moon, Sun, User } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useMockAuth } from "@/contexts/MockAuthContext";
 import { useTheme } from "next-themes";
@@ -17,9 +17,6 @@ export const Header = () => {
           className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
           onClick={() => navigate("/")}
         >
-          <div className="flex h-11 w-11 items-center justify-center rounded-full bg-primary/10 text-primary">
-            <span className="text-lg font-black tracking-tight">AT</span>
-          </div>
           <h1 className="min-w-0 text-2xl font-bold tracking-tight text-foreground">Arena Tikitaka</h1>
         </div>
 
@@ -37,6 +34,15 @@ export const Header = () => {
             <User className="h-4 w-4" />
             {isAuthenticated ? "Minha conta" : "Perfil"}
           </button>
+          {isAuthenticated && (
+            <button
+              onClick={() => navigate("/favoritos")}
+              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors flex items-center gap-2"
+            >
+              <Heart className="h-4 w-4" />
+              Favoritos
+            </button>
+          )}
           <Button
             variant="outline"
             size="icon"
@@ -79,6 +85,16 @@ export const Header = () => {
         </nav>
 
         <div className="flex items-center gap-2 md:hidden">
+          {isAuthenticated && (
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => navigate("/favoritos")}
+              className="h-10 w-10 rounded-full border-border bg-background/80"
+            >
+              <Heart className="h-4 w-4 text-foreground" />
+            </Button>
+          )}
           <Button
             variant="outline"
             size="icon"

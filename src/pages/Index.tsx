@@ -306,12 +306,13 @@ const Index = () => {
             <button
               type="button"
               onClick={() => setQuickFilter((current) => (current === "live" ? "all" : "live"))}
-              className={`h-10 border px-4 text-sm font-medium transition-colors ${
+              className={`inline-flex items-center gap-2 text-sm underline underline-offset-4 transition-colors ${
                 quickFilter === "live"
-                  ? "border-foreground bg-foreground text-background"
-                  : "border-border bg-card text-foreground hover:bg-muted"
+                  ? "font-semibold text-foreground"
+                  : "text-muted-foreground hover:text-foreground"
               }`}
             >
+              <span className="h-2 w-2 rounded-full bg-emerald-500" />
               Ao vivo agora
             </button>
           </div>

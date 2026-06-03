@@ -10,6 +10,7 @@ import Arquibancada from "./pages/Arquibancada";
 import Booking from "./pages/Booking";
 import Resumo from "./pages/Resumo";
 import Perfil from "./pages/Perfil";
+import Favoritos from "./pages/Favoritos";
 import NotFound from "./pages/NotFound";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { ThemeProvider } from "./components/theme-provider";
@@ -33,6 +34,7 @@ const App = () => (
                 <Route path="/arquibancada/:id" element={<Arquibancada />} />
                 <Route path="/booking/:id" element={<Booking />} />
                 <Route path="/perfil" element={<Perfil />} />
+                <Route path="/favoritos" element={<Favoritos />} />
               </Route>
               <Route path="*" element={<NotFound />} />
             </Routes>

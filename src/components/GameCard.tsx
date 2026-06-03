@@ -1,10 +1,11 @@
-import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { getCurrentMatchStatus, getMatchStatusLabel, type MatchStatus } from "@/data/worldCup2026";
-import { CheckCheck, Heart, MessageSquare, Sparkles, Ticket } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { getCurrentMatchStatus, getMatchStatusLabel, type MatchStatus } from "@/data/worldCup2026";
+import { CheckCheck, Heart, Sparkles, Ticket } from "lucide-react";
 
 const teamNamePtBr: Record<string, string> = {
   Algeria: "Argélia",
@@ -122,9 +123,7 @@ export const GameCard = ({
   awayScore,
   liveDetail,
   league,
-  stage,
   date,
-  venue,
   status,
   startTime,
   homeTeamLogo,
@@ -136,6 +135,7 @@ export const GameCard = ({
   onReserveMatch,
 }: GameCardProps) => {
   const navigate = useNavigate();
+  const [openPopover, setOpenPopover] = useState<null | "favorite" | "reserve" | "highlights" | "reserved">(null);
   const homeTeamLabel = teamNamePtBr[homeTeam] || homeTeam;
   const awayTeamLabel = teamNamePtBr[awayTeam] || awayTeam;
   const homeTeamDefined = !isPlaceholderTeam(homeTeam);
@@ -147,120 +147,132 @@ export const GameCard = ({
     (currentStatus === "live" || currentStatus === "ended") &&
     homeScore !== undefined &&
     awayScore !== undefined;
-  const statusTone =
-    currentStatus === "live"
-      ? "bg-emerald-500/12 text-emerald-700 dark:text-emerald-300"
-      : currentStatus === "ended"
-        ? "bg-muted text-muted-foreground"
-        : "bg-muted text-muted-foreground";
+
   const liveRoomClass =
     hasRoom && currentStatus === "live"
       ? "border-emerald-500/55 shadow-[0_0_0_1px_rgba(34,197,94,0.35),0_0_28px_rgba(34,197,94,0.12)]"
       : "border-border/80";
 
   const getStatusBadge = () => {
-    if (!hasRoom) {
-      return null;
-    }
-    if (currentStatus === "live") {
-      return (
-        <Badge variant="live">
-          🟢 Tempo de jogo
-          {liveDetail ? ` • ${liveDetail}` : ""}
-        </Badge>
-      );
-    }
-    if (currentStatus === "scheduled") {
-      return <Badge variant="scheduled">⚪ {statusLabel}</Badge>;
-    }
+    if (!hasRoom) return null;
+    if (currentStatus === "live") return null;
+    if (currentStatus === "scheduled") return null;
     return <Badge variant="full">⚫ {statusLabel}</Badge>;
   };
 
-  const favoriteTooltipLabel = isFavorite ? "Remover dos favoritos" : "Salvar nos favoritos";
+  const popoverCopy = {
+    favorite: {
+      title: isFavorite ? "Favorito salvo" : "Favoritar jogo",
+      description: isFavorite
+        ? "Esse jogo já está guardado na sua área de favoritos para acesso rápido."
+        : "Guarde esse jogo na sua área de favoritos para voltar rápido depois.",
+      actionLabel: isFavorite ? "Remover dos favoritos" : "Salvar nos favoritos",
+      action: () => {
+        onToggleFavorite?.(id);
+        setOpenPopover(null);
+      },
+    },
+    reserve: {
+      title: "Reservar sala",
+      description: "Reserve sua entrada agora e volte para a sala quando ela abrir.",
+      actionLabel: "Confirmar reserva",
+      action: () => {
+        onReserveMatch?.(id);
+        setOpenPopover(null);
+      },
+    },
+    highlights: {
+      title: "Ver highlights",
+      description: "Abra o resumo da partida e veja os destaques depois do jogo.",
+      actionLabel: "Abrir highlights",
+      action: () => {
+        navigate(`/resumo/${id}`);
+        setOpenPopover(null);
+      },
+    },
+    reserved: {
+      title: "Sala reservada",
+      description: "Sua reserva já está feita. Quando a sala abrir, você entra por aqui.",
+      actionLabel: "Fechar",
+      action: () => setOpenPopover(null),
+    },
+  } as const;
 
-  const headerMeta = [league, startTime ? `${date} • ${startTime}` : date]
-    .filter(Boolean)
-    .join(" • ");
-
-  const renderAction = () => {
-    if (!hasRoom) {
+  const renderIconAction = () => {
+    if (!hasRoom || currentStatus === "live") {
       return null;
     }
 
-    if (currentStatus === "live") {
-      return (
-        <button
-          type="button"
-          aria-label="Entrar"
-          className="h-9 rounded-full border border-border/90 bg-background px-4 text-sm font-medium text-foreground transition-colors hover:bg-muted"
-          onClick={() => navigate(`/arquibancada/${id}`)}
-        >
-          Entrar
-        </button>
+    const kind = currentStatus === "ended" ? "highlights" : isReserved ? "reserved" : "reserve";
+    const icon =
+      currentStatus === "ended" ? (
+        <Sparkles className="h-4 w-4" />
+      ) : isReserved ? (
+        <CheckCheck className="h-4 w-4" />
+      ) : (
+        <Ticket className="h-4 w-4" />
       );
-    }
-
-    if (currentStatus === "ended") {
-      return (
-        <button
-          type="button"
-          aria-label="Ver highlights"
-          className="flex h-9 w-9 items-center justify-center border border-border/90 bg-background text-foreground transition-colors hover:bg-muted"
-          onClick={() => navigate(`/resumo/${id}`)}
-        >
-          <Sparkles className="h-4 w-4" />
-        </button>
-      );
-    }
-
-    if (isReserved) {
-      return (
-        <div
-          aria-label="Sala reservada"
-          className="flex h-9 w-9 items-center justify-center border border-border/90 bg-muted text-foreground"
-        >
-          <CheckCheck className="h-4 w-4" />
-        </div>
-      );
-    }
 
     return (
-      <button
-        type="button"
-        aria-label="Reservar sala"
-        className="flex h-9 w-9 items-center justify-center border border-border/90 bg-background text-foreground transition-colors hover:bg-muted"
-        onClick={() => onReserveMatch?.(id)}
-      >
-        <Ticket className="h-4 w-4" />
-      </button>
+      <Popover open={openPopover === kind} onOpenChange={(open) => setOpenPopover(open ? kind : null)}>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            className={`flex h-9 w-9 items-center justify-center border border-border/90 text-foreground ${
+              isReserved ? "bg-muted" : "bg-background transition-colors hover:bg-muted"
+            }`}
+            aria-label={popoverCopy[kind].title}
+          >
+            {icon}
+          </button>
+        </PopoverTrigger>
+        <PopoverContent side="left" align="start" className="w-72 rounded-none border-border bg-card">
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <p className="text-sm font-semibold text-foreground">{popoverCopy[kind].title}</p>
+              <p className="text-sm text-muted-foreground">{popoverCopy[kind].description}</p>
+            </div>
+            <Button onClick={popoverCopy[kind].action} className="w-full rounded-none">
+              {popoverCopy[kind].actionLabel}
+            </Button>
+          </div>
+        </PopoverContent>
+      </Popover>
     );
   };
 
   return (
     <Card className={`flex h-full flex-col overflow-hidden bg-card transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[var(--shadow-card)] ${liveRoomClass}`}>
-      <TooltipProvider delayDuration={120}>
       <div className="flex h-full flex-col p-5">
         <div className="flex min-h-10 items-start justify-between gap-3">
-          <Tooltip>
-            <TooltipTrigger asChild>
+          <Popover open={openPopover === "favorite"} onOpenChange={(open) => setOpenPopover(open ? "favorite" : null)}>
+            <PopoverTrigger asChild>
               <button
                 type="button"
                 onClick={(event) => {
                   event.stopPropagation();
-                  onToggleFavorite?.(id);
+                  setOpenPopover("favorite");
                 }}
                 className="rounded-full border border-border/80 bg-background/90 p-2 text-muted-foreground transition-colors hover:text-foreground"
-                aria-label={favoriteTooltipLabel}
+                aria-label={isFavorite ? "Favorito salvo" : "Favoritar jogo"}
               >
                 <Heart className={`h-4 w-4 ${isFavorite ? "fill-primary text-primary" : ""}`} />
               </button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>{favoriteTooltipLabel}</p>
-            </TooltipContent>
-          </Tooltip>
+            </PopoverTrigger>
+            <PopoverContent side="left" align="start" className="w-72 rounded-none border-border bg-card">
+              <div className="space-y-3">
+                <div className="space-y-1">
+                  <p className="text-sm font-semibold text-foreground">{popoverCopy.favorite.title}</p>
+                  <p className="text-sm text-muted-foreground">{popoverCopy.favorite.description}</p>
+                </div>
+                <Button onClick={popoverCopy.favorite.action} className="w-full rounded-none">
+                  {popoverCopy.favorite.actionLabel}
+                </Button>
+              </div>
+            </PopoverContent>
+          </Popover>
 
-          <div className="flex min-h-8 items-start justify-end">
+          <div className="flex min-h-8 items-center justify-end gap-2">
             {hasRoom && isReserved ? (
               <Badge variant="secondary" className="bg-accent/12 text-foreground">
                 <CheckCheck className="mr-1 h-3 w-3" />
@@ -269,20 +281,56 @@ export const GameCard = ({
             ) : (
               getStatusBadge()
             )}
+
+            {hasRoom && currentStatus === "live" ? (
+              <button
+                type="button"
+                aria-label="Entrar"
+                className="h-9 rounded-full border border-border/90 bg-background px-4 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+                onClick={() => navigate(`/arquibancada/${id}`)}
+              >
+                Entrar
+              </button>
+            ) : (
+              renderIconAction()
+            )}
           </div>
         </div>
 
         <div className="mt-4 text-left">
-          <p className="text-[0.95rem] font-medium text-muted-foreground">{headerMeta}</p>
+          <p className="text-sm font-medium text-muted-foreground">{league}</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {date}
+            {startTime ? ` • ${startTime}` : ""}
+          </p>
         </div>
 
         <div className="mt-6 min-h-[152px]">
-          <div className="grid grid-cols-2 items-start gap-6">
+          <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-start gap-4">
             <div className="flex flex-col items-center text-center">
               <TeamMark src={homeTeamLogo} alt={homeTeamLabel} defined={homeTeamDefined} />
               <p className="mt-3 max-w-full truncate text-sm font-semibold text-foreground sm:text-[0.95rem]">
                 {homeTeamLabel}
               </p>
+            </div>
+
+            <div className="flex min-h-[110px] min-w-[72px] flex-col items-center justify-center gap-1">
+              <p
+                className={`text-sm font-semibold tracking-[0.12em] ${
+                  shouldShowScore ? "text-muted-foreground" : "invisible"
+                }`}
+              >
+                {shouldShowScore ? `${homeScore} - ${awayScore}` : "0 - 0"}
+              </p>
+
+              {currentStatus === "live" && liveDetail ? (
+                <span className="inline-flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                  <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                  {liveDetail}
+                </span>
+              ) : (
+                <span className="invisible text-xs font-medium">00'</span>
+              )}
             </div>
 
             <div className="flex flex-col items-center text-center">
@@ -292,50 +340,8 @@ export const GameCard = ({
               </p>
             </div>
           </div>
-          <div className="mt-4 flex min-h-5 items-center justify-center">
-            <p
-              className={`text-sm font-semibold tracking-[0.12em] ${
-                shouldShowScore ? "text-muted-foreground" : "invisible"
-              }`}
-            >
-              {shouldShowScore ? (
-                <>
-                  {homeScore} - {awayScore}
-                </>
-              ) : (
-                "0 - 0"
-              )}
-            </p>
-          </div>
-          <div className="mt-5 flex min-h-6 items-center justify-center">
-            {currentStatus === "live" && liveDetail ? (
-              <span className={`px-2 py-0.5 text-xs font-medium ${statusTone}`}>{liveDetail}</span>
-            ) : (
-              <span className="invisible px-2 py-0.5 text-xs font-medium">00'</span>
-            )}
-          </div>
-        </div>
-
-        <div className="mt-auto flex items-center justify-end gap-2 pt-4">
-          {hasRoom && (
-            <Tooltip>
-              <TooltipTrigger asChild>{renderAction()}</TooltipTrigger>
-              <TooltipContent>
-                <p>
-                  {currentStatus === "live"
-                    ? "Entrar na sala"
-                    : currentStatus === "ended"
-                      ? "Ver highlights"
-                      : isReserved
-                        ? "Sala reservada"
-                        : "Reservar sala"}
-                </p>
-              </TooltipContent>
-            </Tooltip>
-          )}
         </div>
       </div>
-      </TooltipProvider>
     </Card>
   );
 };
