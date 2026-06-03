@@ -59,7 +59,7 @@ const Arquibancada = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { user, mode } = useMockAuth();
+  const { user } = useMockAuth();
   const [message, setMessage] = useState("");
   const [cooldown, setCooldown] = useState(0);
   const [isBlocked, setIsBlocked] = useState(false);
@@ -105,6 +105,26 @@ const Arquibancada = () => {
       setIsRefreshing(false);
       setPendingMessageCount(0);
       setPullDistance(0);
+    }
+  };
+
+  const syncNewMessageIndicators = async () => {
+    if (currentStatus !== "live" || isRefreshing || isMessagesLoading) return;
+
+    try {
+      const remoteMessages = await getMatchMessages(game.id);
+      const currentMessages = messagesRef.current;
+      const currentIds = new Set(currentMessages.map((item) => item.id));
+
+      const unseenMessages = remoteMessages.filter(
+        (item) => !currentIds.has(item.id) && item.userId !== user?.id,
+      );
+
+      if (unseenMessages.length > 0) {
+        setPendingMessageCount(unseenMessages.length);
+      }
+    } catch {
+      // Silent fallback: this sync only exists to light up the new-message indicator.
     }
   };
 
@@ -191,29 +211,30 @@ const Arquibancada = () => {
       return;
     }
 
-    const interval = window.setInterval(async () => {
-      if (document.visibilityState !== "visible") return;
-      if (isRefreshing || isMessagesLoading) return;
-
-      try {
-        const remoteMessages = await getMatchMessages(game.id);
-        const currentMessages = messagesRef.current;
-        const currentIds = new Set(currentMessages.map((item) => item.id));
-
-        const unseenMessages = remoteMessages.filter(
-          (item) => !currentIds.has(item.id) && item.userId !== user?.id,
-        );
-
-        if (unseenMessages.length > 0) {
-          setPendingMessageCount(unseenMessages.length);
-        }
-      } catch {
-        // Silent fallback: this polling only exists to light up the new-message indicator.
-      }
-    }, 10000);
+    const interval = window.setInterval(() => {
+      void syncNewMessageIndicators();
+    }, 4000);
 
     return () => {
       window.clearInterval(interval);
+    };
+  }, [currentStatus, game.id, isMessagesLoading, isRefreshing, user?.id]);
+
+  useEffect(() => {
+    if (currentStatus !== "live") return;
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        void syncNewMessageIndicators();
+      }
+    };
+
+    window.addEventListener("focus", handleVisibilityChange);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener("focus", handleVisibilityChange);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [currentStatus, game.id, isMessagesLoading, isRefreshing, user?.id]);
 
@@ -294,20 +315,42 @@ const Arquibancada = () => {
 
     try {
       const trimmedMessage = message.trim();
+      const optimisticMessage: MatchMessage = {
+        id: `temp-${Date.now()}`,
+        userId: user.id,
+        userName: user.name,
+        userAvatarUrl: user.avatar,
+        text: trimmedMessage,
+        teamSide: currentUserTeam,
+        likes: 0,
+        dislikes: 0,
+        createdAt: new Date().toISOString(),
+      };
+
+      setMessages((current) => mergeMessages(current, [optimisticMessage]));
+      setMessage("");
+      setCooldown(3);
+
       const sentMessage = await sendMatchMessage({
         matchId: game.id,
         user,
         text: trimmedMessage,
         teamSide: currentUserTeam,
       });
-      setMessages((current) => mergeMessages(current, [sentMessage]));
-      setMessage("");
-      setCooldown(3);
+
+      setMessages((current) =>
+        mergeMessages(
+          current.filter((item) => item.id !== optimisticMessage.id),
+          [sentMessage],
+        ),
+      );
+
       if (!isSupabaseConfigured) {
         const refreshedMessages = await getMatchMessages(game.id);
         setMessages((current) => mergeMessages(current, refreshedMessages));
       }
     } catch (error) {
+      setMessages((current) => current.filter((item) => !item.id.startsWith("temp-")));
       toast({
         title: "Nao foi possivel enviar",
         description: "Tente novamente em alguns instantes.",
@@ -317,17 +360,20 @@ const Arquibancada = () => {
   };
 
   const handleTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
-    const wrapperTop = feedWrapperRef.current?.getBoundingClientRect().top ?? 0;
-    if (wrapperTop < -8) return;
+    const pageScrollTop = document.scrollingElement?.scrollTop ?? window.scrollY ?? 0;
+    if (pageScrollTop > 4) return;
     touchStartYRef.current = event.touches[0]?.clientY ?? null;
   };
 
   const handleTouchMove = (event: React.TouchEvent<HTMLDivElement>) => {
-    const wrapperTop = feedWrapperRef.current?.getBoundingClientRect().top ?? 0;
-    if (touchStartYRef.current === null || wrapperTop < -8) return;
+    const pageScrollTop = document.scrollingElement?.scrollTop ?? window.scrollY ?? 0;
+    if (touchStartYRef.current === null || pageScrollTop > 4) return;
 
     const currentY = event.touches[0]?.clientY ?? 0;
     const distance = Math.max(0, currentY - touchStartYRef.current);
+    if (distance > 0 && event.cancelable) {
+      event.preventDefault();
+    }
     setPullDistance(Math.min(distance, 84));
   };
 
@@ -528,6 +574,7 @@ const Arquibancada = () => {
             <div
               ref={feedWrapperRef}
               className="overflow-hidden rounded-[24px] border border-border/70 bg-card/80 shadow-[var(--shadow-card)]"
+              style={{ WebkitOverflowScrolling: "touch" }}
               onTouchStart={handleTouchStart}
               onTouchMove={handleTouchMove}
               onTouchEnd={handleTouchEnd}
