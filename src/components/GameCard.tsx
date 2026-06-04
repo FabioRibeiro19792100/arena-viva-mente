@@ -1,52 +1,15 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import { getCurrentMatchStatus, parseWorldCupMatchDate, type MatchStatus } from "@/data/worldCup2026";
+import {
+  formatBrasiliaTime,
+  getCurrentMatchStatus,
+  parseWorldCupMatchDate,
+  type MatchStatus,
+} from "@/data/worldCup2026";
 import { useToast } from "@/hooks/use-toast";
 import { CheckCheck, Heart, Share2, Sparkles, Ticket } from "lucide-react";
-
-const teamNamePtBr: Record<string, string> = {
-  Algeria: "Argélia",
-  Argentina: "Argentina",
-  Australia: "Austrália",
-  Austria: "Áustria",
-  Belgium: "Bélgica",
-  "Bosnia and Herzegovina": "Bósnia e Herzegovina",
-  Brazil: "Brasil",
-  Canada: "Canadá",
-  Colombia: "Colômbia",
-  Croatia: "Croácia",
-  Curacao: "Curaçao",
-  "Czech Republic": "República Tcheca",
-  England: "Inglaterra",
-  France: "França",
-  Germany: "Alemanha",
-  Ghana: "Gana",
-  Haiti: "Haiti",
-  Iran: "Irã",
-  Iraq: "Iraque",
-  "Ivory Coast": "Costa do Marfim",
-  Japan: "Japão",
-  Jordan: "Jordânia",
-  Mexico: "México",
-  Morocco: "Marrocos",
-  Netherlands: "Holanda",
-  "New Zealand": "Nova Zelândia",
-  Norway: "Noruega",
-  Panama: "Panamá",
-  Paraguay: "Paraguai",
-  "South Africa": "África do Sul",
-  "South Korea": "Coreia do Sul",
-  Scotland: "Escócia",
-  Senegal: "Senegal",
-  Sweden: "Suécia",
-  Switzerland: "Suíça",
-  Tunisia: "Tunísia",
-  Turkey: "Turquia",
-  "United States": "Estados Unidos",
-  Uzbekistan: "Uzbequistão",
-};
+import { translateTeamLabel } from "@/lib/matchLabels";
 
 const isPlaceholderTeam = (team: string) =>
   /^Winner Match /i.test(team) ||
@@ -73,6 +36,7 @@ interface GameCardProps {
   isFavorite?: boolean;
   isReserved?: boolean;
   hasRoom?: boolean;
+  reservationCount?: number;
   onToggleFavorite?: (matchId: string) => void;
   onReserveMatch?: (matchId: string) => void;
 }
@@ -130,16 +94,18 @@ export const GameCard = ({
   isFavorite = false,
   isReserved = false,
   hasRoom = false,
+  reservationCount = 0,
   onToggleFavorite,
   onReserveMatch,
 }: GameCardProps) => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [now, setNow] = useState(() => Date.now());
-  const homeTeamLabel = teamNamePtBr[homeTeam] || homeTeam;
-  const awayTeamLabel = teamNamePtBr[awayTeam] || awayTeam;
+  const homeTeamLabel = translateTeamLabel(homeTeam);
+  const awayTeamLabel = translateTeamLabel(awayTeam);
   const homeTeamDefined = !isPlaceholderTeam(homeTeam);
   const awayTeamDefined = !isPlaceholderTeam(awayTeam);
+  const normalizedReservationCount = Math.max(0, reservationCount);
 
   const currentStatus = getCurrentMatchStatus({ id, date, startTime: startTime || "", status });
   const canFavorite = currentStatus !== "ended";
@@ -172,13 +138,6 @@ export const GameCard = ({
       ? "border-emerald-500/55 shadow-[0_0_0_1px_rgba(34,197,94,0.35),0_0_28px_rgba(34,197,94,0.12)]"
       : "border-border/80";
 
-  const getStatusBadge = () => {
-    if (!hasRoom) return null;
-    if (currentStatus === "live") return null;
-    if (currentStatus === "scheduled") return null;
-    return null;
-  };
-
   const formattedCountdown = (() => {
     if (!shouldShowCountdown || countdownMs === null) {
       return null;
@@ -198,20 +157,12 @@ export const GameCard = ({
     }
 
     const kind = currentStatus === "ended" ? "highlights" : isReserved ? "reserved" : "reserve";
-    const label =
-      currentStatus === "ended"
-        ? "Highlights"
-        : isReserved
-          ? "Reservado"
-          : "Reservar";
-    const icon =
-      currentStatus === "ended" ? (
-        <Sparkles className="h-3.5 w-3.5" />
-      ) : isReserved ? (
-        <CheckCheck className="h-3.5 w-3.5" />
-      ) : (
-        <Ticket className="h-3.5 w-3.5" />
-      );
+    const label = currentStatus === "ended" ? "Highlights" : isReserved ? "Reservado" : "Reservar";
+    const icon = currentStatus === "ended"
+      ? <Sparkles className="h-3.5 w-3.5" />
+      : isReserved
+        ? <CheckCheck className="h-3.5 w-3.5" />
+        : <Ticket className="h-3.5 w-3.5" />;
 
     const handleClick = () => {
       if (kind === "reserve") {
@@ -225,17 +176,24 @@ export const GameCard = ({
     };
 
     return (
-      <button
-        type="button"
-        onClick={handleClick}
-        className={`inline-flex h-8 items-center justify-center gap-1.5 border border-border/90 px-2.5 text-xs font-medium text-foreground ${
-          isReserved ? "bg-muted" : "bg-background transition-colors hover:bg-muted"
-        }`}
-        aria-label={label}
-      >
-        {icon}
-        <span>{label}</span>
-      </button>
+      <div className="flex flex-col items-end gap-1">
+        <button
+          type="button"
+          onClick={handleClick}
+          className={`inline-flex h-8 items-center justify-center gap-1.5 border border-border/90 px-2.5 text-xs font-medium text-foreground ${
+            isReserved ? "bg-muted" : "bg-background transition-colors hover:bg-muted"
+          }`}
+          aria-label={label}
+        >
+          {icon}
+          <span>{label}</span>
+        </button>
+        {(isReserved || kind === "reserve") && (
+          <span className="text-[11px] text-muted-foreground">
+            {normalizedReservationCount} reservas
+          </span>
+        )}
+      </div>
     );
   };
 
@@ -251,7 +209,7 @@ export const GameCard = ({
     const shareUrl = `${window.location.origin}${path}`;
     const shareData = {
       title: `${homeTeamLabel} x ${awayTeamLabel}`,
-      text: `${league} • ${date}${startTime ? ` • ${startTime}` : ""}`,
+      text: `${league} • ${date}${startTime ? ` • ${formatBrasiliaTime(startTime)}` : ""}`,
       url: shareUrl,
     };
 
@@ -289,24 +247,20 @@ export const GameCard = ({
           </button>
 
           <div className="flex min-h-8 items-center justify-end gap-2">
-            {hasRoom && isReserved ? (
-              <Badge variant="secondary" className="bg-accent/12 text-foreground">
-                <CheckCheck className="mr-1 h-3 w-3" />
-                Reservado
-              </Badge>
-            ) : (
-              getStatusBadge()
-            )}
-
             {hasRoom && currentStatus === "live" ? (
-              <button
-                type="button"
-                aria-label="Entrar"
-                className="h-9 rounded-full border border-border/90 bg-background px-4 text-sm font-medium text-foreground transition-colors hover:bg-muted"
-                onClick={() => navigate(`/arquibancada/${id}`)}
-              >
-                Entrar
-              </button>
+              <div className="flex flex-col items-end gap-1">
+                <button
+                  type="button"
+                  aria-label="Entrar"
+                  className="h-9 rounded-full border border-border/90 bg-background px-4 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+                  onClick={() => navigate(`/arquibancada/${id}`)}
+                >
+                  Entrar
+                </button>
+                <span className="text-[11px] text-muted-foreground">
+                  {normalizedReservationCount} na sala
+                </span>
+              </div>
             ) : (
               renderTopAction()
             )}
@@ -317,7 +271,7 @@ export const GameCard = ({
           <p className="text-sm font-medium text-muted-foreground">{league}</p>
           <p className="mt-1 text-xs text-muted-foreground">
             {date}
-            {startTime ? ` • ${startTime}` : ""}
+            {startTime ? ` • ${formatBrasiliaTime(startTime)}` : ""}
           </p>
         </div>
 

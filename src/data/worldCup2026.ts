@@ -316,6 +316,9 @@ export const parseWorldCupMatchDate = (match: Pick<WorldCupMatch, "date" | "star
   );
 };
 
+export const formatBrasiliaTime = (startTime?: string) =>
+  startTime ? `${startTime} BRT` : "";
+
 const LIVE_WINDOW_MS = 3 * 60 * 60 * 1000;
 
 export const getCurrentMatchStatus = (match: Pick<WorldCupMatch, "id" | "date" | "startTime" | "status">): MatchStatus => {

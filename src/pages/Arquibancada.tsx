@@ -18,7 +18,13 @@ import {
   Shield,
 } from "lucide-react";
 import { TeamOnboarding } from "@/components/TeamOnboarding";
-import { getCurrentMatchStatus, getMatchStatusLabel, isSummaryAvailableForMatch, worldCupMatchMap } from "@/data/worldCup2026";
+import {
+  formatBrasiliaTime,
+  getCurrentMatchStatus,
+  getMatchStatusLabel,
+  isSummaryAvailableForMatch,
+  worldCupMatchMap,
+} from "@/data/worldCup2026";
 import { useMockAuth } from "@/contexts/MockAuthContext";
 import { addHistoryEntry } from "@/lib/productState";
 import { fetchFootballMatchInsights, type MatchInsightsPayload } from "@/lib/matchInsights";
@@ -478,7 +484,7 @@ const Arquibancada = () => {
           <div className="space-y-2 text-sm text-muted-foreground">
             <div className="flex items-start gap-2">
               <CalendarDays className="h-4 w-4 mt-0.5 shrink-0" />
-              <span>{game.date} • {game.startTime}</span>
+              <span>{game.date} • {formatBrasiliaTime(game.startTime)}</span>
             </div>
             <div className="flex items-start gap-2">
               <MapPin className="h-4 w-4 mt-0.5 shrink-0" />

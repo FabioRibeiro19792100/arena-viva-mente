@@ -11,9 +11,11 @@ import Booking from "./pages/Booking";
 import Resumo from "./pages/Resumo";
 import Perfil from "./pages/Perfil";
 import Favoritos from "./pages/Favoritos";
+import Reservas from "./pages/Reservas";
 import NotFound from "./pages/NotFound";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { ThemeProvider } from "./components/theme-provider";
+import { ReservationReminderManager } from "./components/ReservationReminderManager";
 
 const queryClient = new QueryClient();
 
@@ -25,6 +27,7 @@ const App = () => (
           <Toaster />
           <Sonner />
           <BrowserRouter>
+            <ReservationReminderManager />
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/login" element={<Login />} />
@@ -35,6 +38,7 @@ const App = () => (
                 <Route path="/booking/:id" element={<Booking />} />
                 <Route path="/perfil" element={<Perfil />} />
                 <Route path="/favoritos" element={<Favoritos />} />
+                <Route path="/reservas" element={<Reservas />} />
               </Route>
               <Route path="*" element={<NotFound />} />
             </Routes>

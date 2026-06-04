@@ -7,8 +7,13 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CalendarDays, Search } from "lucide-react";
 import { useMockAuth } from "@/contexts/MockAuthContext";
-import { addReservation, getProductState, toggleFavoriteMatch } from "@/lib/productState";
-import { useNavigate } from "react-router-dom";
+import {
+  addReservation,
+  getMatchReservationCounts,
+  getProductState,
+  toggleFavoriteMatch,
+} from "@/lib/productState";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import {
   mapApiFixtureToWorldCupMatch,
@@ -17,15 +22,31 @@ import {
   type ApiFootballFixture,
   type ApiNbaGame,
 } from "@/lib/apiFootball";
+import { normalizeSearchText, translateTeamLabel } from "@/lib/matchLabels";
 import { upsertRuntimeMatches } from "@/lib/runtimeMatches";
 
 type SportType = "futebol" | "basquete";
 type DisplayMatch = WorldCupMatch & { sport: SportType };
 type QuickFilterType = "all" | "live" | "soon";
 
+const getSearchableMatchText = (match: DisplayMatch) =>
+  normalizeSearchText(
+    [
+      match.homeTeam,
+      translateTeamLabel(match.homeTeam),
+      match.awayTeam,
+      translateTeamLabel(match.awayTeam),
+      match.stage,
+      match.venue,
+      match.date,
+      match.league,
+    ].join(" "),
+  );
+
 const Index = () => {
   const nbaTestDate = "2026-06-04";
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { toast } = useToast();
   const { user } = useMockAuth();
   const [selectedSport, setSelectedSport] = useState("all");
@@ -36,10 +57,20 @@ const Index = () => {
   const [quickFilter, setQuickFilter] = useState<QuickFilterType>("all");
   const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
   const [reservedIds, setReservedIds] = useState<string[]>([]);
+  const [reservationCounts, setReservationCounts] = useState<Record<string, number>>({});
   const [matches, setMatches] = useState<DisplayMatch[]>(
     worldCup2026Matches.map((match) => ({ ...match, sport: "futebol" })),
   );
   const [todayMatches, setTodayMatches] = useState<DisplayMatch[]>([]);
+
+  useEffect(() => {
+    const quick = searchParams.get("quick");
+    if (quick === "live" || quick === "soon") {
+      setQuickFilter(quick);
+      return;
+    }
+    setQuickFilter("all");
+  }, [searchParams]);
 
   useEffect(() => {
     if (!user) {
@@ -53,6 +84,27 @@ const Index = () => {
       setReservedIds(state.reservations.map((reservation) => reservation.matchId));
     })();
   }, [user]);
+
+  useEffect(() => {
+    const visibleIds = [...todayMatches, ...matches].map((match) => match.id);
+    if (visibleIds.length === 0) {
+      setReservationCounts({});
+      return;
+    }
+
+    let isActive = true;
+
+    void (async () => {
+      const counts = await getMatchReservationCounts(visibleIds);
+      if (isActive) {
+        setReservationCounts(counts);
+      }
+    })();
+
+    return () => {
+      isActive = false;
+    };
+  }, [matches, todayMatches]);
 
   useEffect(() => {
     let isActive = true;
@@ -178,20 +230,9 @@ const Index = () => {
               status: match.status,
             }) === "live"
           : isMatchStartingSoon(match));
-      const query = searchQuery.trim().toLowerCase();
+      const query = normalizeSearchText(searchQuery);
       const searchMatch =
-        query === "" ||
-        [
-          match.homeTeam,
-          match.awayTeam,
-          match.stage,
-          match.venue,
-          match.date,
-          match.league,
-        ]
-          .join(" ")
-          .toLowerCase()
-          .includes(query);
+        query === "" || getSearchableMatchText(match).includes(query);
 
       return sportMatch && leagueMatch && teamMatch && dateMatch && quickMatch && searchMatch;
     });
@@ -218,20 +259,9 @@ const Index = () => {
               status: match.status,
             }) === "live"
           : isMatchStartingSoon(match));
-        const query = searchQuery.trim().toLowerCase();
+        const query = normalizeSearchText(searchQuery);
         const searchMatch =
-          query === "" ||
-          [
-            match.homeTeam,
-            match.awayTeam,
-            match.stage,
-            match.venue,
-            match.date,
-            match.league,
-          ]
-            .join(" ")
-            .toLowerCase()
-            .includes(query);
+          query === "" || getSearchableMatchText(match).includes(query);
 
         return sportMatch && leagueMatch && teamMatch && dateMatch && quickMatch && searchMatch;
       });
@@ -263,6 +293,9 @@ const Index = () => {
       const state = await getProductState(user.id);
       setFavoriteIds(state.favorites);
       setReservedIds(state.reservations.map((reservation) => reservation.matchId));
+      setReservationCounts(
+        await getMatchReservationCounts([...todayMatches, ...matches].map((item) => item.id)),
+      );
 
       const match = [...todayMatches, ...matches].find((item) => item.id === matchId);
       toast({
@@ -318,6 +351,23 @@ const Index = () => {
     setSelectedDate("all");
     setQuickFilter("all");
     setSearchQuery("");
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current);
+      next.delete("quick");
+      return next;
+    });
+  };
+
+  const toggleQuickFilter = (value: Exclude<QuickFilterType, "all">) => {
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current);
+      if (quickFilter === value) {
+        next.delete("quick");
+      } else {
+        next.set("quick", value);
+      }
+      return next;
+    });
   };
 
   const getChipLabel = (type: "sport" | "league" | "team" | "date") => {
@@ -330,7 +380,7 @@ const Index = () => {
     }
 
     if (type === "team") {
-      return selectedTeam === "all" ? "Time" : selectedTeam;
+      return selectedTeam === "all" ? "Time" : translateTeamLabel(selectedTeam);
     }
 
     return selectedDate === "all" ? "Data" : selectedDate;
@@ -373,7 +423,7 @@ const Index = () => {
           <div className="mb-6 flex flex-wrap items-center gap-3">
             <button
               type="button"
-              onClick={() => setQuickFilter((current) => (current === "live" ? "all" : "live"))}
+              onClick={() => toggleQuickFilter("live")}
               className={`inline-flex items-center gap-2 text-sm underline underline-offset-4 transition-colors ${
                 quickFilter === "live"
                   ? "font-semibold text-foreground"
@@ -385,7 +435,7 @@ const Index = () => {
             </button>
             <button
               type="button"
-              onClick={() => setQuickFilter((current) => (current === "soon" ? "all" : "soon"))}
+              onClick={() => toggleQuickFilter("soon")}
               className={`inline-flex items-center gap-2 text-sm underline underline-offset-4 transition-colors ${
                 quickFilter === "soon"
                   ? "font-semibold text-foreground"
@@ -444,7 +494,7 @@ const Index = () => {
                       <SelectItem value="all">Todos times</SelectItem>
                       {teamOptions.map((team) => (
                         <SelectItem key={team} value={team}>
-                          {team}
+                          {translateTeamLabel(team)}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -533,7 +583,7 @@ const Index = () => {
                       <SelectItem value="all">Todos times</SelectItem>
                       {teamOptions.map((team) => (
                         <SelectItem key={team} value={team}>
-                          {team}
+                          {translateTeamLabel(team)}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -608,6 +658,7 @@ const Index = () => {
                               hasRoom={true}
                               isFavorite={favoriteIds.includes(game.id)}
                               isReserved={reservedIds.includes(game.id)}
+                              reservationCount={reservationCounts[game.id] || 0}
                               onToggleFavorite={handleToggleFavorite}
                               onReserveMatch={handleReserveMatch}
                             />

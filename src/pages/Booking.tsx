@@ -7,7 +7,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Clock, CheckCircle2, PartyPopper } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { getCurrentMatchStatus, getMatchAvailableSpots, isSummaryAvailableForMatch, parseWorldCupMatchDate, worldCupMatchMap } from "@/data/worldCup2026";
+import {
+  formatBrasiliaTime,
+  getCurrentMatchStatus,
+  getMatchAvailableSpots,
+  isSummaryAvailableForMatch,
+  parseWorldCupMatchDate,
+  worldCupMatchMap,
+} from "@/data/worldCup2026";
 import { useMockAuth } from "@/contexts/MockAuthContext";
 import { addHistoryEntry, addReservation, getProductState, removeReservation } from "@/lib/productState";
 import { getMatchById } from "@/lib/runtimeMatches";
@@ -126,7 +133,7 @@ const Booking = () => {
             </div>
 
             <p className="mt-6 text-center text-lg font-semibold text-foreground">
-              {game.date} às {game.startTime}
+              {game.date} às {formatBrasiliaTime(game.startTime)}
             </p>
             <p className="mt-2 text-center text-sm text-muted-foreground">
               {game.stage} • {game.venue}

@@ -1,0 +1,67 @@
+export const teamNamePtBr: Record<string, string> = {
+  Albania: "Albânia",
+  Algeria: "Argélia",
+  Argentina: "Argentina",
+  Australia: "Austrália",
+  Austria: "Áustria",
+  Belgium: "Bélgica",
+  "Bosnia and Herzegovina": "Bósnia e Herzegovina",
+  Brazil: "Brasil",
+  Canada: "Canadá",
+  Colombia: "Colômbia",
+  Congo: "Congo",
+  Croatia: "Croácia",
+  Curacao: "Curaçao",
+  "Curaçao": "Curaçao",
+  "Czech Republic": "República Tcheca",
+  Denmark: "Dinamarca",
+  Ecuador: "Equador",
+  Egypt: "Egito",
+  England: "Inglaterra",
+  France: "França",
+  Germany: "Alemanha",
+  Ghana: "Gana",
+  Greece: "Grécia",
+  Haiti: "Haiti",
+  Iran: "Irã",
+  Iraq: "Iraque",
+  Israel: "Israel",
+  "Ivory Coast": "Costa do Marfim",
+  Japan: "Japão",
+  Jordan: "Jordânia",
+  Maldives: "Maldivas",
+  Mexico: "México",
+  Morocco: "Marrocos",
+  Netherlands: "Holanda",
+  "New Zealand": "Nova Zelândia",
+  Norway: "Noruega",
+  Pakistan: "Paquistão",
+  Panama: "Panamá",
+  Paraguay: "Paraguai",
+  Portugal: "Portugal",
+  Qatar: "Catar",
+  "Saudi Arabia": "Arábia Saudita",
+  Scotland: "Escócia",
+  Senegal: "Senegal",
+  Spain: "Espanha",
+  Sweden: "Suécia",
+  Switzerland: "Suíça",
+  Tunisia: "Tunísia",
+  Turkey: "Turquia",
+  Uruguay: "Uruguai",
+  "United States": "Estados Unidos",
+  Uzbekistan: "Uzbequistão",
+  "South Africa": "África do Sul",
+  "South Korea": "Coreia do Sul",
+  "DR Congo": "RD Congo",
+};
+
+export const translateTeamLabel = (name: string) => teamNamePtBr[name] || name;
+
+export const normalizeSearchText = (value: string) =>
+  value
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();

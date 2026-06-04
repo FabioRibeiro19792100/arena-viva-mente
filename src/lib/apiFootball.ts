@@ -1,4 +1,5 @@
 import type { MatchStatus, WorldCupMatch } from "@/data/worldCup2026";
+import { normalizeSearchText, translateTeamLabel } from "@/lib/matchLabels";
 
 export interface ApiFootballFixture {
   fixture: {
@@ -141,14 +142,6 @@ const nationalTeamFlags: Record<string, string> = {
   Congo: flag("cg"),
 };
 
-const normalizeText = (value: string) =>
-  value
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim();
-
 const formatPtBrDate = (value: string) =>
   new Intl.DateTimeFormat("pt-BR", {
     timeZone: "America/Sao_Paulo",
@@ -229,7 +222,7 @@ const buildNbaLiveDetail = (game: ApiNbaGame, status: MatchStatus) => {
 };
 
 const buildFixtureKey = (homeTeam: string, awayTeam: string, date: string) =>
-  `${normalizeText(homeTeam)}::${normalizeText(awayTeam)}::${formatPtBrDate(date)}`;
+  `${normalizeSearchText(homeTeam)}::${normalizeSearchText(awayTeam)}::${formatPtBrDate(date)}`;
 
 const resolveFootballVisual = (teamName: string, fallbackLogo: string) =>
   nationalTeamFlags[teamName] || fallbackLogo;
@@ -237,12 +230,13 @@ const resolveFootballVisual = (teamName: string, fallbackLogo: string) =>
 const buildFootballLeagueLabel = (fixture: ApiFootballFixture) => {
   const leagueName = fixture.league.name?.trim();
   const country = fixture.league.country?.trim();
+  const countryLabel = country ? translateTeamLabel(country) : "";
 
   if (!leagueName) return "";
   if (!country || country.toLowerCase() === "world") return leagueName;
   if (leagueName.toLowerCase().includes(`(${country.toLowerCase()})`)) return leagueName;
 
-  return `${leagueName} (${country})`;
+  return `${leagueName} (${countryLabel || country})`;
 };
 
 export const mapApiFixtureToWorldCupMatch = (fixture: ApiFootballFixture): WorldCupMatch => {
@@ -326,7 +320,7 @@ export const mergeStaticMatchesWithApiFixtures = (
     }
 
     const fixture = fixtureMap.get(
-      `${normalizeText(match.homeTeam)}::${normalizeText(match.awayTeam)}::${match.date}`,
+      `${normalizeSearchText(match.homeTeam)}::${normalizeSearchText(match.awayTeam)}::${match.date}`,
     );
 
     if (!fixture) {

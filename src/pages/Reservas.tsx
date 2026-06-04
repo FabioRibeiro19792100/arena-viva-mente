@@ -14,7 +14,7 @@ import {
 } from "@/lib/productState";
 import { getMatchById } from "@/lib/runtimeMatches";
 
-const Favoritos = () => {
+const Reservas = () => {
   const navigate = useNavigate();
   const { user } = useMockAuth();
   const [productState, setProductState] = useState<ProductState>({
@@ -32,8 +32,8 @@ const Favoritos = () => {
   }, [user]);
 
   useEffect(() => {
-    const favoriteIds = productState.favorites;
-    if (favoriteIds.length === 0) {
+    const reservedIds = productState.reservations.map((reservation) => reservation.matchId);
+    if (reservedIds.length === 0) {
       setReservationCounts({});
       return;
     }
@@ -41,7 +41,7 @@ const Favoritos = () => {
     let isActive = true;
 
     void (async () => {
-      const counts = await getMatchReservationCounts(favoriteIds);
+      const counts = await getMatchReservationCounts(reservedIds);
       if (isActive) {
         setReservationCounts(counts);
       }
@@ -50,12 +50,12 @@ const Favoritos = () => {
     return () => {
       isActive = false;
     };
-  }, [productState.favorites]);
+  }, [productState.reservations]);
 
   if (!user) return null;
 
-  const favoriteMatches = productState.favorites
-    .map((matchId) => getMatchById(matchId))
+  const reservedMatches = productState.reservations
+    .map((reservation) => getMatchById(reservation.matchId))
     .filter(Boolean);
 
   const refreshState = async () => {
@@ -70,9 +70,9 @@ const Favoritos = () => {
         <div className="container mx-auto max-w-7xl px-6">
           <div className="mb-8 flex items-center justify-between gap-4">
             <div className="space-y-1">
-              <h1 className="text-2xl font-semibold text-foreground">Favoritos</h1>
+              <h1 className="text-2xl font-semibold text-foreground">Minhas reservas</h1>
               <p className="text-sm text-muted-foreground">
-                Jogos que você marcou para voltar rápido depois.
+                Jogos que você guardou para entrar mais rápido depois.
               </p>
             </div>
             <Button variant="outline" className="rounded-none" onClick={() => navigate("/")}>
@@ -80,20 +80,20 @@ const Favoritos = () => {
             </Button>
           </div>
 
-          {favoriteMatches.length === 0 ? (
+          {reservedMatches.length === 0 ? (
             <div className="border border-border bg-card p-8 text-center">
               <p className="text-sm text-muted-foreground">
-                Você ainda não marcou nenhum jogo como favorito.
+                Você ainda não reservou nenhuma sala.
               </p>
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
-              {favoriteMatches.map((game) => (
+              {reservedMatches.map((game) => (
                 <GameCard
                   key={game.id}
                   {...game}
                   startTime={game.startTime}
-                  hasRoom={game.id.startsWith("wc2026")}
+                  hasRoom={true}
                   isFavorite={productState.favorites.includes(game.id)}
                   isReserved={productState.reservations.some((reservation) => reservation.matchId === game.id)}
                   reservationCount={reservationCounts[game.id] || 0}
@@ -117,4 +117,4 @@ const Favoritos = () => {
   );
 };
 
-export default Favoritos;
+export default Reservas;

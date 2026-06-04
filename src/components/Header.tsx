@@ -3,6 +3,8 @@ import { Heart, LogOut, Menu, Moon, Sun, User } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useMockAuth } from "@/contexts/MockAuthContext";
 import { useTheme } from "next-themes";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { useState } from "react";
 
 interface HeaderProps {
   roomMode?: boolean;
@@ -14,6 +16,12 @@ export const Header = ({ roomMode = false, onRoomMenuClick }: HeaderProps) => {
   const { isAuthenticated, user, logout } = useMockAuth();
   const { resolvedTheme, setTheme } = useTheme();
   const isDark = resolvedTheme === "dark";
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
+
+  const navigateFromMenu = (path: string) => {
+    setShowMobileMenu(false);
+    navigate(path);
+  };
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/80 bg-background/90 backdrop-blur-xl supports-[backdrop-filter]:bg-background/75">
@@ -96,16 +104,6 @@ export const Header = ({ roomMode = false, onRoomMenuClick }: HeaderProps) => {
         </nav>
 
         <div className="flex items-center gap-2 md:hidden">
-          {!roomMode && isAuthenticated && (
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => navigate("/favoritos")}
-              className="h-10 w-10 rounded-full border-border bg-background/80"
-            >
-              <Heart className="h-4 w-4 text-foreground" />
-            </Button>
-          )}
           <Button
             variant="outline"
             size="icon"
@@ -124,12 +122,100 @@ export const Header = ({ roomMode = false, onRoomMenuClick }: HeaderProps) => {
               <Menu className="h-5 w-5" />
             </Button>
           ) : (
-            <Button variant="ghost" size="icon" className="text-foreground">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-foreground"
+              onClick={() => setShowMobileMenu(true)}
+            >
               <Menu className="h-5 w-5" />
             </Button>
           )}
         </div>
       </div>
+
+      {!roomMode && (
+        <Sheet open={showMobileMenu} onOpenChange={setShowMobileMenu}>
+          <SheetContent side="right" className="border-border bg-background px-5 py-16">
+            <div className="flex flex-col gap-6">
+              <div className="space-y-3">
+                <button
+                  onClick={() => navigateFromMenu("/")}
+                  className="flex w-full items-center justify-between text-left text-base text-foreground"
+                >
+                  Todos
+                </button>
+                <button
+                  onClick={() => navigateFromMenu("/?quick=live")}
+                  className="flex w-full items-center justify-between text-left text-base text-foreground"
+                >
+                  <span className="inline-flex items-center gap-2">
+                    <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                    Ao vivo agora
+                  </span>
+                </button>
+                <button
+                  onClick={() => navigateFromMenu("/?quick=soon")}
+                  className="flex w-full items-center justify-between text-left text-base text-foreground"
+                >
+                  <span className="inline-flex items-center gap-2">
+                    <span className="h-2 w-2 rounded-full bg-amber-500" />
+                    Em breve
+                  </span>
+                </button>
+                {isAuthenticated && (
+                  <>
+                    <button
+                      onClick={() => navigateFromMenu("/reservas")}
+                      className="flex w-full items-center justify-between text-left text-base text-foreground"
+                    >
+                      Minhas reservas
+                    </button>
+                    <button
+                      onClick={() => navigateFromMenu("/favoritos")}
+                      className="flex w-full items-center justify-between text-left text-base text-foreground"
+                    >
+                      Favoritos
+                    </button>
+                  </>
+                )}
+              </div>
+
+              <div className="border-t border-border pt-6">
+                {isAuthenticated ? (
+                  <div className="space-y-3">
+                    <button
+                      onClick={() => navigateFromMenu("/perfil")}
+                      className="flex w-full items-center gap-2 text-left text-sm text-muted-foreground"
+                    >
+                      <User className="h-4 w-4" />
+                      {user?.name || "Minha conta"}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowMobileMenu(false);
+                        logout();
+                        navigate("/");
+                      }}
+                      className="flex w-full items-center gap-2 text-left text-sm text-muted-foreground"
+                    >
+                      <LogOut className="h-4 w-4" />
+                      Sair
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => navigateFromMenu("/login")}
+                    className="text-sm text-foreground"
+                  >
+                    Login
+                  </button>
+                )}
+              </div>
+            </div>
+          </SheetContent>
+        </Sheet>
+      )}
     </header>
   );
 };

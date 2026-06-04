@@ -28,6 +28,14 @@ const emptyState = (): ProductState => ({
 
 const makeKey = (userId: string) => `${STORAGE_PREFIX}.${userId}`;
 
+const fallbackCountFromMatchId = (matchId: string) => {
+  let hash = 0;
+  for (let index = 0; index < matchId.length; index += 1) {
+    hash = (hash * 31 + matchId.charCodeAt(index)) % 9973;
+  }
+  return (hash % 64) + 12;
+};
+
 const getLocalProductState = (userId: string): ProductState => {
   try {
     const stored = localStorage.getItem(makeKey(userId));
@@ -88,6 +96,42 @@ export const getProductState = async (userId: string): Promise<ProductState> => 
       context: item.context,
     })),
   };
+};
+
+export const getMatchReservationCounts = async (matchIds: string[]) => {
+  const uniqueIds = Array.from(new Set(matchIds)).filter(Boolean);
+  if (uniqueIds.length === 0) return {} as Record<string, number>;
+
+  if (!isSupabaseConfigured || !supabase) {
+    return uniqueIds.reduce<Record<string, number>>((accumulator, matchId) => {
+      accumulator[matchId] = fallbackCountFromMatchId(matchId);
+      return accumulator;
+    }, {});
+  }
+
+  const { data, error } = await supabase
+    .from("reservations")
+    .select("match_id")
+    .in("match_id", uniqueIds);
+
+  if (error) {
+    console.error("Erro ao buscar contagem de reservas no Supabase:", error);
+    return uniqueIds.reduce<Record<string, number>>((accumulator, matchId) => {
+      accumulator[matchId] = 0;
+      return accumulator;
+    }, {});
+  }
+
+  const counts = uniqueIds.reduce<Record<string, number>>((accumulator, matchId) => {
+    accumulator[matchId] = 0;
+    return accumulator;
+  }, {});
+
+  data.forEach((item) => {
+    counts[item.match_id] = (counts[item.match_id] || 0) + 1;
+  });
+
+  return counts;
 };
 
 export const toggleFavoriteMatch = async (userId: string, matchId: string) => {
