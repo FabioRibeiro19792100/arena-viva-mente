@@ -11,14 +11,26 @@ import { Label } from "@/components/ui/label";
 import { useMockAuth } from "@/contexts/MockAuthContext";
 import { worldCup2026Matches } from "@/data/worldCup2026";
 
+const PENDING_REDIRECT_KEY = "arena-viva-mente.pending-auth-redirect";
+const isLocalDevHost = () =>
+  typeof window !== "undefined" &&
+  (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
+
 const Login = () => {
   const [name, setName] = useState("");
   const [favoriteTeam, setFavoriteTeam] = useState("");
   const [showWelcomeDialog, setShowWelcomeDialog] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
-  const { login, isAuthenticated, mode, user } = useMockAuth();
-  const redirectTo = location.state?.from || `/arquibancada/${worldCup2026Matches[0].id}`;
+  const { login, loginDevBypass, isAuthenticated, mode, user } = useMockAuth();
+  const showLocalBypass = isLocalDevHost();
+  const queryRedirect = new URLSearchParams(location.search).get("next");
+  const storedRedirect = typeof window !== "undefined" ? localStorage.getItem(PENDING_REDIRECT_KEY) : null;
+  const redirectTo =
+    queryRedirect ||
+    storedRedirect ||
+    location.state?.from ||
+    `/arquibancada/${worldCup2026Matches[0].id}`;
 
   useEffect(() => {
     if (isAuthenticated && !showWelcomeDialog) {
@@ -29,6 +41,7 @@ const Login = () => {
 
   useEffect(() => {
     if (mode === "supabase" && isAuthenticated) {
+      localStorage.removeItem(PENDING_REDIRECT_KEY);
       navigate(redirectTo, { replace: true });
     }
   }, [isAuthenticated, mode, navigate, redirectTo]);
@@ -48,6 +61,15 @@ const Login = () => {
 
   const handleContinue = () => {
     setShowWelcomeDialog(false);
+    localStorage.removeItem(PENDING_REDIRECT_KEY);
+    navigate(redirectTo);
+  };
+
+  const handleLocalBypass = () => {
+    loginDevBypass({
+      name,
+      favoriteTeam,
+    });
     navigate(redirectTo);
   };
 
@@ -77,6 +99,17 @@ const Login = () => {
                 </svg>
                 Entrar com Google
               </Button>
+
+              {showLocalBypass && (
+                <Button
+                  variant="ghost"
+                  size="lg"
+                  className="w-full justify-center border border-dashed border-border text-foreground hover:bg-muted"
+                  onClick={handleLocalBypass}
+                >
+                  Entrar localmente
+                </Button>
+              )}
 
               <div className="space-y-4 border-t border-border pt-4">
                 <div className="space-y-2">

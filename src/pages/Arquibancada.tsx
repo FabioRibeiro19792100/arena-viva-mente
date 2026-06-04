@@ -10,21 +10,18 @@ import { useToast } from "@/hooks/use-toast";
 import {
   AlertTriangle,
   CalendarDays,
-  ChevronDown,
   Filter,
+  Heart,
   MapPin,
-  Pin,
   RefreshCw,
   Send,
   Shield,
-  ThumbsDown,
-  ThumbsUp,
 } from "lucide-react";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { TeamOnboarding } from "@/components/TeamOnboarding";
 import { getCurrentMatchStatus, getMatchStatusLabel, isSummaryAvailableForMatch, worldCupMatchMap } from "@/data/worldCup2026";
 import { useMockAuth } from "@/contexts/MockAuthContext";
 import { addHistoryEntry } from "@/lib/productState";
+import { fetchFootballMatchInsights, type MatchInsightsPayload } from "@/lib/matchInsights";
 import {
   getMatchMessages,
   getMatchPreference,
@@ -64,12 +61,17 @@ const Arquibancada = () => {
   const [message, setMessage] = useState("");
   const [cooldown, setCooldown] = useState(0);
   const [isBlocked, setIsBlocked] = useState(false);
-  const [filterTeam, setFilterTeam] = useState<string>("all");
+  const [activeTeamFilters, setActiveTeamFilters] = useState<Array<"home" | "neutral" | "away">>([
+    "home",
+    "neutral",
+    "away",
+  ]);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [currentUserTeam, setCurrentUserTeam] = useState<"home" | "away" | "neutral">("neutral");
   const [showMobilePanel, setShowMobilePanel] = useState(false);
-  const [pinnedUsers] = useState<string[]>([]);
   const [messages, setMessages] = useState<MatchMessage[]>([]);
+  const [insights, setInsights] = useState<MatchInsightsPayload | null>(null);
+  const [isInsightsLoading, setIsInsightsLoading] = useState(false);
   const [isMessagesLoading, setIsMessagesLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [pendingMessageCount, setPendingMessageCount] = useState(0);
@@ -122,7 +124,7 @@ const Arquibancada = () => {
       );
 
       if (unseenMessages.length > 0) {
-        setPendingMessageCount(unseenMessages.length);
+        setPendingMessageCount((current) => Math.max(current, unseenMessages.length));
       }
     } catch {
       // Silent fallback: this sync only exists to light up the new-message indicator.
@@ -137,6 +139,45 @@ const Arquibancada = () => {
     if (!user) return;
     void addHistoryEntry(user.id, game.id, "arquibancada");
   }, [game.id, user]);
+
+  useEffect(() => {
+    let isActive = true;
+
+    if (game.apiSource && game.apiSource !== "football") {
+      setInsights(null);
+      setIsInsightsLoading(false);
+      return;
+    }
+
+    setIsInsightsLoading(true);
+
+    void (async () => {
+      try {
+        const nextInsights = await fetchFootballMatchInsights(game);
+        if (!isActive) return;
+        setInsights(nextInsights);
+      } catch {
+        if (!isActive) return;
+        setInsights(null);
+      } finally {
+        if (isActive) {
+          setIsInsightsLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      isActive = false;
+    };
+  }, [
+    game.id,
+    game.apiSource,
+    game.apiFixtureId,
+    game.apiHomeTeamId,
+    game.apiAwayTeamId,
+    game.apiLeagueId,
+    game.apiSeason,
+  ]);
 
   useEffect(() => {
     if (!user) return;
@@ -360,15 +401,19 @@ const Arquibancada = () => {
     }
   };
 
+  const isFeedAtTop = () => {
+    const rect = feedWrapperRef.current?.getBoundingClientRect();
+    if (!rect) return false;
+    return rect.top >= 0;
+  };
+
   const handleTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
-    const pageScrollTop = document.scrollingElement?.scrollTop ?? window.scrollY ?? 0;
-    if (pageScrollTop > 4) return;
+    if (!isFeedAtTop()) return;
     touchStartYRef.current = event.touches[0]?.clientY ?? null;
   };
 
   const handleTouchMove = (event: React.TouchEvent<HTMLDivElement>) => {
-    const pageScrollTop = document.scrollingElement?.scrollTop ?? window.scrollY ?? 0;
-    if (touchStartYRef.current === null || pageScrollTop > 4) return;
+    if (touchStartYRef.current === null || !isFeedAtTop()) return;
 
     const currentY = event.touches[0]?.clientY ?? 0;
     const distance = Math.max(0, currentY - touchStartYRef.current);
@@ -399,19 +444,7 @@ const Arquibancada = () => {
       await saveMatchPreference(user.id, game.id, team);
       setCurrentUserTeam(team);
       setShowOnboarding(false);
-      toast({
-        title: "🎉 Bem-vindo!",
-        description: "Você entrou na arquibancada. Aproveite o jogo!",
-      });
     })();
-  };
-
-  const togglePinUser = () => {
-    toast({
-      title: "Comentário fixado",
-      description: "Esse destaque fica salvo na sua experiência atual da sala.",
-      variant: "default",
-    });
   };
 
   const getTeamIdentity = (team: string) => {
@@ -424,13 +457,13 @@ const Arquibancada = () => {
     return { label: "Neutro", logo: null, tone: "neutral" as const };
   };
 
-  const filteredMessages = messages.filter((msg) => {
-    if (filterTeam === "all") return true;
-    if (filterTeam === "homeTeam") return msg.teamSide === "home";
-    if (filterTeam === "awayTeam") return msg.teamSide === "away";
-    if (filterTeam === "neutral") return msg.teamSide === "neutral";
-    return true;
-  });
+  const toggleTeamFilter = (team: "home" | "neutral" | "away") => {
+    setActiveTeamFilters((current) =>
+      current.includes(team) ? current.filter((item) => item !== team) : [...current, team],
+    );
+  };
+
+  const filteredMessages = messages.filter((msg) => activeTeamFilters.includes(msg.teamSide));
 
   const sidePanel = (
     <div className="space-y-4">
@@ -458,12 +491,315 @@ const Arquibancada = () => {
           </div>
         </CardContent>
       </Card>
+
+      {(isInsightsLoading || insights) && (
+        <Card className="border-border/80 bg-card/90 shadow-[var(--shadow-card)] backdrop-blur-sm">
+          <CardContent className="space-y-3 p-4">
+            {isInsightsLoading ? (
+              <div className="text-sm text-muted-foreground">Carregando dados da partida...</div>
+            ) : insights ? (
+              <>
+                {insights.events.length > 0 && (
+                  <details open className="border-b border-border/60 pb-3">
+                    <summary className="cursor-pointer list-none text-sm font-semibold text-foreground [&::-webkit-details-marker]:hidden">
+                      Eventos da partida
+                    </summary>
+                    <div className="mt-3 space-y-2">
+                      {insights.events.map((event, index) => (
+                        <div key={`${event.minute}-${event.type}-${index}`} className="grid grid-cols-[48px_minmax(0,1fr)] gap-3 text-sm">
+                          <span className="text-muted-foreground">{event.minute || "—"}</span>
+                          <div className="min-w-0">
+                            <p className="font-medium text-foreground">
+                              {event.type}{event.player ? ` · ${event.player}` : ""}
+                            </p>
+                            <p className="text-muted-foreground">
+                              {event.team ? `${event.team} · ` : ""}{event.detail}
+                              {event.assist ? ` · Assistência: ${event.assist}` : ""}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </details>
+                )}
+
+                {insights.lineups.length > 0 && (
+                  <details className="border-b border-border/60 pb-3">
+                    <summary className="cursor-pointer list-none text-sm font-semibold text-foreground [&::-webkit-details-marker]:hidden">
+                      Lineups
+                    </summary>
+                    <div className="mt-3 space-y-3">
+                      {insights.lineups.map((lineup) => (
+                        <div key={lineup.team} className="space-y-2">
+                          <div>
+                            <p className="text-sm font-medium text-foreground">
+                              {lineup.team} · {lineup.formation}
+                            </p>
+                            <p className="text-xs text-muted-foreground">Técnico: {lineup.coach}</p>
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            <span className="text-foreground/80">Titulares:</span> {lineup.starters.join(", ")}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            <span className="text-foreground/80">Banco:</span> {lineup.substitutes.join(", ")}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </details>
+                )}
+
+                {insights.teamStats.length > 0 && (
+                  <details className="border-b border-border/60 pb-3">
+                    <summary className="cursor-pointer list-none text-sm font-semibold text-foreground [&::-webkit-details-marker]:hidden">
+                      Estatísticas por time
+                    </summary>
+                    <div className="mt-3 space-y-3">
+                      {insights.teamStats.map((teamStats) => (
+                        <div key={teamStats.team}>
+                          <p className="mb-2 text-sm font-medium text-foreground">{teamStats.team}</p>
+                          <div className="grid grid-cols-2 gap-2 text-xs">
+                            {teamStats.stats.map((stat) => (
+                              <div key={`${teamStats.team}-${stat.label}`} className="border border-border/60 px-2 py-2">
+                                <p className="text-muted-foreground">{stat.label}</p>
+                                <p className="mt-1 font-medium text-foreground">{stat.value}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </details>
+                )}
+
+                {insights.playerStats.length > 0 && (
+                  <details className="border-b border-border/60 pb-3">
+                    <summary className="cursor-pointer list-none text-sm font-semibold text-foreground [&::-webkit-details-marker]:hidden">
+                      Destaques individuais
+                    </summary>
+                    <div className="mt-3 space-y-2">
+                      {insights.playerStats.map((player) => (
+                        <div key={`${player.team}-${player.player}`} className="border border-border/60 px-3 py-2">
+                          <div className="flex items-center justify-between gap-3">
+                            <p className="text-sm font-medium text-foreground">{player.player}</p>
+                            {player.rating && <span className="text-xs text-muted-foreground">Nota {player.rating}</span>}
+                          </div>
+                          <p className="text-xs text-muted-foreground">{player.team} · {player.summary}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </details>
+                )}
+
+                {(insights.prediction || insights.odds.length > 0) && (
+                  <details className="border-b border-border/60 pb-3">
+                    <summary className="cursor-pointer list-none text-sm font-semibold text-foreground [&::-webkit-details-marker]:hidden">
+                      Odds e prediction
+                    </summary>
+                    <div className="mt-3 space-y-3">
+                      {insights.prediction && (
+                        <div className="border border-border/60 px-3 py-3">
+                          <p className="text-sm font-medium text-foreground">{insights.prediction.advice || "Leitura da API"}</p>
+                          <div className="mt-2 flex flex-wrap gap-3 text-xs text-muted-foreground">
+                            {insights.prediction.homePercent && <span>Casa {insights.prediction.homePercent}</span>}
+                            {insights.prediction.drawPercent && <span>Empate {insights.prediction.drawPercent}</span>}
+                            {insights.prediction.awayPercent && <span>Fora {insights.prediction.awayPercent}</span>}
+                          </div>
+                        </div>
+                      )}
+                      {insights.odds.map((odd) => (
+                        <div key={odd.bookmaker} className="border border-border/60 px-3 py-2 text-xs">
+                          <p className="font-medium text-foreground">{odd.bookmaker}</p>
+                          <p className="mt-1 text-muted-foreground">
+                            Casa {odd.home || "—"} · Empate {odd.draw || "—"} · Fora {odd.away || "—"}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </details>
+                )}
+
+                {insights.headToHead.length > 0 && (
+                  <details className="pb-1">
+                    <summary className="cursor-pointer list-none text-sm font-semibold text-foreground [&::-webkit-details-marker]:hidden">
+                      Histórico head-to-head
+                    </summary>
+                    <div className="mt-3 space-y-2">
+                      {insights.headToHead.map((fixture, index) => (
+                        <div key={`${fixture.date}-${fixture.homeTeam}-${index}`} className="border border-border/60 px-3 py-2 text-xs">
+                          <p className="font-medium text-foreground">
+                            {fixture.homeTeam} {fixture.score} {fixture.awayTeam}
+                          </p>
+                          <p className="text-muted-foreground">{fixture.league} · {fixture.date}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </details>
+                )}
+              </>
+            ) : (
+              <div className="text-sm text-muted-foreground">
+                Dados avançados disponíveis nas partidas oficiais de futebol com cobertura detalhada.
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+
+  const mobileMenuPanel = (
+    <div className="space-y-2">
+      {isInsightsLoading ? (
+        <div className="border border-border/80 bg-card/70 px-4 py-3 text-sm text-muted-foreground">
+          Carregando dados da partida...
+        </div>
+      ) : insights ? (
+        <>
+          {insights.events.length > 0 && (
+            <details className="border border-border/80 bg-card/70 px-4 py-3">
+              <summary className="cursor-pointer list-none text-sm font-semibold text-foreground [&::-webkit-details-marker]:hidden">
+                Eventos da partida
+              </summary>
+              <div className="mt-3 space-y-2">
+                {insights.events.map((event, index) => (
+                  <div key={`${event.minute}-${event.type}-${index}`} className="grid grid-cols-[48px_minmax(0,1fr)] gap-3 text-sm">
+                    <span className="text-muted-foreground">{event.minute || "—"}</span>
+                    <div className="min-w-0">
+                      <p className="font-medium text-foreground">
+                        {event.type}{event.player ? ` · ${event.player}` : ""}
+                      </p>
+                      <p className="text-muted-foreground">
+                        {event.team ? `${event.team} · ` : ""}{event.detail}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </details>
+          )}
+
+          {insights.lineups.length > 0 && (
+            <details className="border border-border/80 bg-card/70 px-4 py-3">
+              <summary className="cursor-pointer list-none text-sm font-semibold text-foreground [&::-webkit-details-marker]:hidden">
+                Lineups
+              </summary>
+              <div className="mt-3 space-y-3">
+                {insights.lineups.map((lineup) => (
+                  <div key={lineup.team} className="space-y-2">
+                    <div>
+                      <p className="text-sm font-medium text-foreground">
+                        {lineup.team} · {lineup.formation}
+                      </p>
+                      <p className="text-xs text-muted-foreground">Técnico: {lineup.coach}</p>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      <span className="text-foreground/80">Titulares:</span> {lineup.starters.join(", ")}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      <span className="text-foreground/80">Banco:</span> {lineup.substitutes.join(", ")}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </details>
+          )}
+
+          {insights.teamStats.length > 0 && (
+            <details className="border border-border/80 bg-card/70 px-4 py-3">
+              <summary className="cursor-pointer list-none text-sm font-semibold text-foreground [&::-webkit-details-marker]:hidden">
+                Estatísticas por time
+              </summary>
+              <div className="mt-3 space-y-3">
+                {insights.teamStats.map((teamStats) => (
+                  <div key={teamStats.team}>
+                    <p className="mb-2 text-sm font-medium text-foreground">{teamStats.team}</p>
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      {teamStats.stats.map((stat) => (
+                        <div key={`${teamStats.team}-${stat.label}`} className="border border-border/60 px-2 py-2">
+                          <p className="text-muted-foreground">{stat.label}</p>
+                          <p className="mt-1 font-medium text-foreground">{stat.value}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </details>
+          )}
+
+          {insights.playerStats.length > 0 && (
+            <details className="border border-border/80 bg-card/70 px-4 py-3">
+              <summary className="cursor-pointer list-none text-sm font-semibold text-foreground [&::-webkit-details-marker]:hidden">
+                Destaques individuais
+              </summary>
+              <div className="mt-3 space-y-2">
+                {insights.playerStats.map((player) => (
+                  <div key={`${player.team}-${player.player}`} className="border border-border/60 px-3 py-2">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-sm font-medium text-foreground">{player.player}</p>
+                      {player.rating && <span className="text-xs text-muted-foreground">Nota {player.rating}</span>}
+                    </div>
+                    <p className="text-xs text-muted-foreground">{player.team} · {player.summary}</p>
+                  </div>
+                ))}
+              </div>
+            </details>
+          )}
+
+          {(insights.prediction || insights.odds.length > 0) && (
+            <details className="border border-border/80 bg-card/70 px-4 py-3">
+              <summary className="cursor-pointer list-none text-sm font-semibold text-foreground [&::-webkit-details-marker]:hidden">
+                Odds e prediction
+              </summary>
+              <div className="mt-3 space-y-3">
+                {insights.prediction && (
+                  <div className="border border-border/60 px-3 py-3">
+                    <p className="text-sm font-medium text-foreground">{insights.prediction.advice || "Leitura da API"}</p>
+                    <div className="mt-2 flex flex-wrap gap-3 text-xs text-muted-foreground">
+                      {insights.prediction.homePercent && <span>Casa {insights.prediction.homePercent}</span>}
+                      {insights.prediction.drawPercent && <span>Empate {insights.prediction.drawPercent}</span>}
+                      {insights.prediction.awayPercent && <span>Fora {insights.prediction.awayPercent}</span>}
+                    </div>
+                  </div>
+                )}
+                {insights.odds.map((odd) => (
+                  <div key={odd.bookmaker} className="border border-border/60 px-3 py-2 text-xs">
+                    <p className="font-medium text-foreground">{odd.bookmaker}</p>
+                    <p className="mt-1 text-muted-foreground">
+                      Casa {odd.home || "—"} · Empate {odd.draw || "—"} · Fora {odd.away || "—"}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </details>
+          )}
+
+          {insights.headToHead.length > 0 && (
+            <details className="border border-border/80 bg-card/70 px-4 py-3">
+              <summary className="cursor-pointer list-none text-sm font-semibold text-foreground [&::-webkit-details-marker]:hidden">
+                Histórico head-to-head
+              </summary>
+              <div className="mt-3 space-y-2">
+                {insights.headToHead.map((fixture, index) => (
+                  <div key={`${fixture.date}-${fixture.homeTeam}-${index}`} className="border border-border/60 px-3 py-2 text-xs">
+                    <p className="font-medium text-foreground">
+                      {fixture.homeTeam} {fixture.score} {fixture.awayTeam}
+                    </p>
+                    <p className="text-muted-foreground">{fixture.league} · {fixture.date}</p>
+                  </div>
+                ))}
+              </div>
+            </details>
+          )}
+        </>
+      ) : null}
     </div>
   );
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <Header />
+      <Header roomMode onRoomMenuClick={() => setShowMobilePanel((current) => !current)} />
 
       {currentStatus === "live" && (
         <TeamOnboarding
@@ -471,6 +807,8 @@ const Arquibancada = () => {
           onComplete={handleOnboardingComplete}
           homeTeam={game.homeTeam}
           awayTeam={game.awayTeam}
+          homeTeamLogo={game.homeTeamLogo}
+          awayTeamLogo={game.awayTeamLogo}
         />
       )}
 
@@ -510,65 +848,69 @@ const Arquibancada = () => {
       ) : (
       <>
       <div className="container max-w-6xl mx-auto px-4 md:px-6 pt-4 pb-52">
-        <div className="mb-4 rounded-2xl border border-border/80 bg-card/70 shadow-[var(--shadow-card)] backdrop-blur-sm">
-          <button
-            type="button"
-            className="flex w-full items-center justify-between gap-4 px-4 py-3 text-left lg:hidden"
-            onClick={() => setShowMobilePanel((current) => !current)}
-          >
-            <div className="min-w-0">
-              <p className="truncate text-sm font-medium text-foreground">Detalhes da partida</p>
+        {showMobilePanel && (
+          <div className="mb-4 lg:hidden">
+            <div className="rounded-2xl border border-border/80 bg-card/70 p-3 shadow-[var(--shadow-card)] backdrop-blur-sm">
+              {mobileMenuPanel}
             </div>
-            <ChevronDown
-              className={`h-4 w-4 text-muted-foreground transition-transform ${showMobilePanel ? "rotate-180" : ""}`}
-            />
-          </button>
-
-          {showMobilePanel && <div className="px-4 pb-4 lg:hidden">{sidePanel}</div>}
-        </div>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_280px] gap-6 items-start">
           <div className="min-w-0">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-              <Select value={filterTeam} onValueChange={setFilterTeam}>
-                <SelectTrigger className="h-10 w-[180px] border-border bg-card">
-                  <Filter className="mr-2 h-4 w-4 text-muted-foreground" />
-                  <SelectValue placeholder="Filtrar torcida" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todas as torcidas</SelectItem>
-                  <SelectItem value="homeTeam">{game.homeTeam}</SelectItem>
-                  <SelectItem value="awayTeam">{game.awayTeam}</SelectItem>
-                  <SelectItem value="neutral">Neutros</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="flex items-center gap-1.5">
+                <span className="inline-flex h-8 w-8 items-center justify-center text-muted-foreground" aria-hidden="true">
+                  <Filter className="h-4 w-4" />
+                </span>
+                {[
+                  {
+                    value: "home" as const,
+                    label: game.homeTeam,
+                    logo: game.homeTeamLogo,
+                  },
+                  {
+                    value: "neutral" as const,
+                    label: "Neutro",
+                    logo: null,
+                  },
+                  {
+                    value: "away" as const,
+                    label: game.awayTeam,
+                    logo: game.awayTeamLogo,
+                  },
+                ].map((option) => {
+                  const isActive = activeTeamFilters.includes(option.value);
 
-              <div className="flex items-center gap-2">
-                {pendingMessageCount > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => void refreshMessages()}
-                    className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-2 text-xs font-semibold text-primary transition-colors hover:bg-primary/15"
-                  >
-                    <span className="h-2 w-2 rounded-full bg-primary" aria-hidden="true" />
-                    {pendingMessageCount === 1 ? "1 nova mensagem" : `${pendingMessageCount} novas mensagens`}
-                  </button>
-                )}
-
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="relative h-10"
-                  onClick={() => void refreshMessages()}
-                  disabled={isMessagesLoading || isRefreshing}
-                >
-                  <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
-                  Atualizar
-                  {pendingMessageCount > 0 && (
-                    <span className="absolute -right-1 -top-1 h-3 w-3 rounded-full border-2 border-background bg-primary" aria-hidden="true" />
-                  )}
-                </Button>
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => toggleTeamFilter(option.value)}
+                      className="inline-flex h-9 w-9 items-center justify-center"
+                      aria-pressed={isActive}
+                      aria-label={`Filtrar por ${option.label}`}
+                      title={option.label}
+                    >
+                      {option.logo ? (
+                        <img
+                          src={option.logo}
+                          alt={option.label}
+                          className={`h-6 w-6 rounded-full object-cover transition-all ${
+                            isActive ? "opacity-100" : "opacity-30 grayscale"
+                          }`}
+                        />
+                      ) : (
+                        <span
+                          className={`inline-block h-6 w-6 rounded-full transition-all ${
+                            isActive ? "bg-slate-500" : "bg-slate-400/35"
+                          }`}
+                          aria-hidden="true"
+                        />
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
@@ -605,14 +947,13 @@ const Arquibancada = () => {
                 </div>
               ) : filteredMessages.map((msg, index) => {
                 const teamIdentity = getTeamIdentity(msg.teamSide);
-                const isPinned = pinnedUsers.includes(msg.userName);
 
                 return (
                   <div
                     key={msg.id}
                     className={`animate-fade-in px-4 py-4 md:px-5 transition-colors ${
                       index !== filteredMessages.length - 1 ? "border-b border-border/60" : ""
-                    } ${isPinned ? "bg-primary/[0.045]" : "bg-transparent"}`}
+                    } bg-transparent`}
                     style={{ animationDelay: `${index * 0.03}s` }}
                   >
                     <div className="flex items-start gap-3">
@@ -628,7 +969,7 @@ const Arquibancada = () => {
                           <div className="min-w-0 flex-1">
                             <div className="mb-1 flex flex-wrap items-center gap-2">
                               <div className="flex min-w-0 items-center gap-2">
-                                <span className="text-[13px] font-medium text-foreground/80">
+                                <span className="text-xs font-medium text-foreground/75">
                                   {msg.userName}
                                 </span>
                                 {teamIdentity.logo ? (
@@ -641,23 +982,15 @@ const Arquibancada = () => {
                                   <span className="inline-block h-2.5 w-2.5 rounded-full bg-muted-foreground/60" aria-hidden="true" />
                                 )}
                               </div>
-                              <span className="text-[11px] text-muted-foreground">{formatMessageTime(msg.createdAt)}</span>
+                              <span className="text-[11px] text-foreground/45">{formatMessageTime(msg.createdAt)}</span>
                             </div>
 
                             <p className="text-[15px] leading-7 text-foreground/90 md:text-base">{msg.text}</p>
                           </div>
 
-                          <div className="flex shrink-0 items-center self-start gap-1">
-                            <button className="flex h-8 items-center gap-1.5 rounded-full px-2 text-xs text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground">
-                              <ThumbsUp className="h-3.5 w-3.5" />
-                              {msg.likes}
-                            </button>
-                            <button className="flex h-8 items-center gap-1.5 rounded-full px-2 text-xs text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground">
-                              <ThumbsDown className="h-3.5 w-3.5" />
-                              {msg.dislikes}
-                            </button>
-                            <Button variant="ghost" size="sm" className="h-8 w-8 shrink-0 p-0" onClick={togglePinUser}>
-                              <Pin className="h-4 w-4 text-muted-foreground" />
+                          <div className="flex shrink-0 items-center self-start">
+                            <Button variant="ghost" size="sm" className="h-8 w-8 shrink-0 p-0">
+                              <Heart className="h-4 w-4 text-muted-foreground" />
                             </Button>
                           </div>
                         </div>
@@ -667,6 +1000,24 @@ const Arquibancada = () => {
                 );
               })}
               <div ref={messagesEndRef} />
+            </div>
+
+            <div className="mt-4 flex justify-end">
+              <button
+                type="button"
+                onClick={() => void refreshMessages()}
+                disabled={isMessagesLoading || isRefreshing}
+                className="inline-flex items-center gap-2 text-xs text-muted-foreground transition-colors hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
+              >
+                <RefreshCw className={`h-3.5 w-3.5 ${isRefreshing ? "animate-spin" : ""}`} />
+                <span>Atualizar</span>
+                {pendingMessageCount > 0 && (
+                  <>
+                    <span className="h-2 w-2 rounded-full bg-primary" aria-hidden="true" />
+                    <span>{pendingMessageCount}</span>
+                  </>
+                )}
+              </button>
             </div>
           </div>
 

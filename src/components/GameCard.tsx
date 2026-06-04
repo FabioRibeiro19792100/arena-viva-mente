@@ -1,11 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { getCurrentMatchStatus, getMatchStatusLabel, type MatchStatus } from "@/data/worldCup2026";
-import { CheckCheck, Heart, Sparkles, Ticket } from "lucide-react";
+import { getCurrentMatchStatus, parseWorldCupMatchDate, type MatchStatus } from "@/data/worldCup2026";
+import { useToast } from "@/hooks/use-toast";
+import { CheckCheck, Heart, Share2, Sparkles, Ticket } from "lucide-react";
 
 const teamNamePtBr: Record<string, string> = {
   Algeria: "Argélia",
@@ -135,18 +134,38 @@ export const GameCard = ({
   onReserveMatch,
 }: GameCardProps) => {
   const navigate = useNavigate();
-  const [openPopover, setOpenPopover] = useState<null | "favorite" | "reserve" | "highlights" | "reserved">(null);
+  const { toast } = useToast();
+  const [now, setNow] = useState(() => Date.now());
   const homeTeamLabel = teamNamePtBr[homeTeam] || homeTeam;
   const awayTeamLabel = teamNamePtBr[awayTeam] || awayTeam;
   const homeTeamDefined = !isPlaceholderTeam(homeTeam);
   const awayTeamDefined = !isPlaceholderTeam(awayTeam);
 
   const currentStatus = getCurrentMatchStatus({ id, date, startTime: startTime || "", status });
-  const statusLabel = getMatchStatusLabel({ id, date, startTime: startTime || "", status });
+  const canFavorite = currentStatus !== "ended";
   const shouldShowScore =
     (currentStatus === "live" || currentStatus === "ended") &&
     homeScore !== undefined &&
     awayScore !== undefined;
+  const kickoff = parseWorldCupMatchDate({ date, startTime: startTime || "" });
+  const countdownMs = kickoff ? kickoff.getTime() - now : null;
+  const shouldShowCountdown =
+    currentStatus === "scheduled" &&
+    countdownMs !== null &&
+    countdownMs > 0 &&
+    countdownMs <= 2 * 60 * 60 * 1000;
+
+  useEffect(() => {
+    if (!shouldShowCountdown) {
+      return;
+    }
+
+    const intervalId = window.setInterval(() => {
+      setNow(Date.now());
+    }, 1000);
+
+    return () => window.clearInterval(intervalId);
+  }, [shouldShowCountdown]);
 
   const liveRoomClass =
     hasRoom && currentStatus === "live"
@@ -157,120 +176,117 @@ export const GameCard = ({
     if (!hasRoom) return null;
     if (currentStatus === "live") return null;
     if (currentStatus === "scheduled") return null;
-    return <Badge variant="full">⚫ {statusLabel}</Badge>;
+    return null;
   };
 
-  const popoverCopy = {
-    favorite: {
-      title: isFavorite ? "Favorito salvo" : "Favoritar jogo",
-      description: isFavorite
-        ? "Esse jogo já está guardado na sua área de favoritos para acesso rápido."
-        : "Guarde esse jogo na sua área de favoritos para voltar rápido depois.",
-      actionLabel: isFavorite ? "Remover dos favoritos" : "Salvar nos favoritos",
-      action: () => {
-        onToggleFavorite?.(id);
-        setOpenPopover(null);
-      },
-    },
-    reserve: {
-      title: "Reservar sala",
-      description: "Reserve sua entrada agora e volte para a sala quando ela abrir.",
-      actionLabel: "Confirmar reserva",
-      action: () => {
-        onReserveMatch?.(id);
-        setOpenPopover(null);
-      },
-    },
-    highlights: {
-      title: "Ver highlights",
-      description: "Abra o resumo da partida e veja os destaques depois do jogo.",
-      actionLabel: "Abrir highlights",
-      action: () => {
-        navigate(`/resumo/${id}`);
-        setOpenPopover(null);
-      },
-    },
-    reserved: {
-      title: "Sala reservada",
-      description: "Sua reserva já está feita. Quando a sala abrir, você entra por aqui.",
-      actionLabel: "Fechar",
-      action: () => setOpenPopover(null),
-    },
-  } as const;
+  const formattedCountdown = (() => {
+    if (!shouldShowCountdown || countdownMs === null) {
+      return null;
+    }
 
-  const renderIconAction = () => {
+    const totalSeconds = Math.max(0, Math.floor(countdownMs / 1000));
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+
+    return [hours, minutes, seconds].map((value) => String(value).padStart(2, "0")).join(":");
+  })();
+
+  const renderTopAction = () => {
     if (!hasRoom || currentStatus === "live") {
       return null;
     }
 
     const kind = currentStatus === "ended" ? "highlights" : isReserved ? "reserved" : "reserve";
+    const label =
+      currentStatus === "ended"
+        ? "Highlights"
+        : isReserved
+          ? "Reservado"
+          : "Reservar";
     const icon =
       currentStatus === "ended" ? (
-        <Sparkles className="h-4 w-4" />
+        <Sparkles className="h-3.5 w-3.5" />
       ) : isReserved ? (
-        <CheckCheck className="h-4 w-4" />
+        <CheckCheck className="h-3.5 w-3.5" />
       ) : (
-        <Ticket className="h-4 w-4" />
+        <Ticket className="h-3.5 w-3.5" />
       );
 
+    const handleClick = () => {
+      if (kind === "reserve") {
+        onReserveMatch?.(id);
+        return;
+      }
+
+      if (kind === "highlights") {
+        navigate(`/resumo/${id}`);
+      }
+    };
+
     return (
-      <Popover open={openPopover === kind} onOpenChange={(open) => setOpenPopover(open ? kind : null)}>
-        <PopoverTrigger asChild>
-          <button
-            type="button"
-            className={`flex h-9 w-9 items-center justify-center border border-border/90 text-foreground ${
-              isReserved ? "bg-muted" : "bg-background transition-colors hover:bg-muted"
-            }`}
-            aria-label={popoverCopy[kind].title}
-          >
-            {icon}
-          </button>
-        </PopoverTrigger>
-        <PopoverContent side="left" align="start" className="w-72 rounded-none border-border bg-card">
-          <div className="space-y-3">
-            <div className="space-y-1">
-              <p className="text-sm font-semibold text-foreground">{popoverCopy[kind].title}</p>
-              <p className="text-sm text-muted-foreground">{popoverCopy[kind].description}</p>
-            </div>
-            <Button onClick={popoverCopy[kind].action} className="w-full rounded-none">
-              {popoverCopy[kind].actionLabel}
-            </Button>
-          </div>
-        </PopoverContent>
-      </Popover>
+      <button
+        type="button"
+        onClick={handleClick}
+        className={`inline-flex h-8 items-center justify-center gap-1.5 border border-border/90 px-2.5 text-xs font-medium text-foreground ${
+          isReserved ? "bg-muted" : "bg-background transition-colors hover:bg-muted"
+        }`}
+        aria-label={label}
+      >
+        {icon}
+        <span>{label}</span>
+      </button>
     );
+  };
+
+  const handleShare = async () => {
+    const path =
+      currentStatus === "live" && hasRoom
+        ? `/arquibancada/${id}`
+        : currentStatus === "ended"
+          ? `/resumo/${id}`
+          : hasRoom
+            ? `/booking/${id}`
+            : "/";
+    const shareUrl = `${window.location.origin}${path}`;
+    const shareData = {
+      title: `${homeTeamLabel} x ${awayTeamLabel}`,
+      text: `${league} • ${date}${startTime ? ` • ${startTime}` : ""}`,
+      url: shareUrl,
+    };
+
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+      } else if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(`${shareData.title}\n${shareData.text}\n${shareData.url}`);
+        toast({
+          title: "Link copiado",
+          description: "O evento foi copiado para compartilhar.",
+        });
+      }
+    } catch {
+      // Ignore canceled shares.
+    }
   };
 
   return (
     <Card className={`flex h-full flex-col overflow-hidden bg-card transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[var(--shadow-card)] ${liveRoomClass}`}>
       <div className="flex h-full flex-col p-5">
         <div className="flex min-h-10 items-start justify-between gap-3">
-          <Popover open={openPopover === "favorite"} onOpenChange={(open) => setOpenPopover(open ? "favorite" : null)}>
-            <PopoverTrigger asChild>
-              <button
-                type="button"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  setOpenPopover("favorite");
-                }}
-                className="rounded-full border border-border/80 bg-background/90 p-2 text-muted-foreground transition-colors hover:text-foreground"
-                aria-label={isFavorite ? "Favorito salvo" : "Favoritar jogo"}
-              >
-                <Heart className={`h-4 w-4 ${isFavorite ? "fill-primary text-primary" : ""}`} />
-              </button>
-            </PopoverTrigger>
-            <PopoverContent side="left" align="start" className="w-72 rounded-none border-border bg-card">
-              <div className="space-y-3">
-                <div className="space-y-1">
-                  <p className="text-sm font-semibold text-foreground">{popoverCopy.favorite.title}</p>
-                  <p className="text-sm text-muted-foreground">{popoverCopy.favorite.description}</p>
-                </div>
-                <Button onClick={popoverCopy.favorite.action} className="w-full rounded-none">
-                  {popoverCopy.favorite.actionLabel}
-                </Button>
-              </div>
-            </PopoverContent>
-          </Popover>
+          <button
+            type="button"
+            onClick={() => canFavorite && onToggleFavorite?.(id)}
+            disabled={!canFavorite}
+            className={`rounded-full border border-border/80 bg-background/90 p-2 transition-colors ${
+              canFavorite
+                ? "text-muted-foreground hover:text-foreground"
+                : "cursor-not-allowed text-muted-foreground/40"
+            }`}
+            aria-label={canFavorite ? (isFavorite ? "Remover dos favoritos" : "Salvar nos favoritos") : "Favoritos indisponíveis para jogo encerrado"}
+          >
+            <Heart className={`h-4 w-4 ${isFavorite ? "fill-primary text-primary" : ""}`} />
+          </button>
 
           <div className="flex min-h-8 items-center justify-end gap-2">
             {hasRoom && isReserved ? (
@@ -292,7 +308,7 @@ export const GameCard = ({
                 Entrar
               </button>
             ) : (
-              renderIconAction()
+              renderTopAction()
             )}
           </div>
         </div>
@@ -317,10 +333,10 @@ export const GameCard = ({
             <div className="flex min-h-[110px] min-w-[72px] flex-col items-center justify-center gap-1">
               <p
                 className={`text-sm font-semibold tracking-[0.12em] ${
-                  shouldShowScore ? "text-muted-foreground" : "invisible"
+                  shouldShowScore || shouldShowCountdown ? "text-muted-foreground" : "invisible"
                 }`}
               >
-                {shouldShowScore ? `${homeScore} - ${awayScore}` : "0 - 0"}
+                {shouldShowScore ? `${homeScore} - ${awayScore}` : formattedCountdown || "0 - 0"}
               </p>
 
               {currentStatus === "live" && liveDetail ? (
@@ -328,6 +344,13 @@ export const GameCard = ({
                   <span className="h-2 w-2 rounded-full bg-emerald-500" />
                   {liveDetail}
                 </span>
+              ) : shouldShowCountdown ? (
+                <span className="inline-flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                  <span className="h-2 w-2 rounded-full bg-amber-500" />
+                  Em breve
+                </span>
+              ) : currentStatus === "ended" && shouldShowScore ? (
+                <span className="text-xs font-medium text-muted-foreground">Encerrado</span>
               ) : (
                 <span className="invisible text-xs font-medium">00'</span>
               )}
@@ -340,6 +363,17 @@ export const GameCard = ({
               </p>
             </div>
           </div>
+        </div>
+
+        <div className="mt-auto flex justify-end pt-4">
+          <button
+            type="button"
+            onClick={handleShare}
+            className="inline-flex h-8 w-8 items-center justify-center text-muted-foreground transition-colors hover:text-foreground"
+            aria-label="Compartilhar"
+          >
+            <Share2 className="h-4 w-4" />
+          </button>
         </div>
       </div>
     </Card>

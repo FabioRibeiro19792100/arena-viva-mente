@@ -17,15 +17,18 @@ export interface ApiFootballFixture {
   league: {
     id: number;
     name: string;
+    country?: string | null;
     round: string;
     season: number;
   };
   teams: {
     home: {
+      id?: number;
       name: string;
       logo: string;
     };
     away: {
+      id?: number;
       name: string;
       logo: string;
     };
@@ -231,6 +234,17 @@ const buildFixtureKey = (homeTeam: string, awayTeam: string, date: string) =>
 const resolveFootballVisual = (teamName: string, fallbackLogo: string) =>
   nationalTeamFlags[teamName] || fallbackLogo;
 
+const buildFootballLeagueLabel = (fixture: ApiFootballFixture) => {
+  const leagueName = fixture.league.name?.trim();
+  const country = fixture.league.country?.trim();
+
+  if (!leagueName) return "";
+  if (!country || country.toLowerCase() === "world") return leagueName;
+  if (leagueName.toLowerCase().includes(`(${country.toLowerCase()})`)) return leagueName;
+
+  return `${leagueName} (${country})`;
+};
+
 export const mapApiFixtureToWorldCupMatch = (fixture: ApiFootballFixture): WorldCupMatch => {
   const venue = buildVenue(fixture);
   const formattedDate = capitalizeMonth(formatPtBrDate(fixture.fixture.date));
@@ -241,7 +255,7 @@ export const mapApiFixtureToWorldCupMatch = (fixture: ApiFootballFixture): World
     id: `api-football-${fixture.fixture.id}`,
     homeTeam: fixture.teams.home.name,
     awayTeam: fixture.teams.away.name,
-    league: fixture.league.name,
+    league: buildFootballLeagueLabel(fixture),
     stage: fixture.league.round,
     status,
     statusLabel: fixture.fixture.status.long,
@@ -253,6 +267,12 @@ export const mapApiFixtureToWorldCupMatch = (fixture: ApiFootballFixture): World
     homeScore: fixture.goals.home ?? undefined,
     awayScore: fixture.goals.away ?? undefined,
     liveDetail: buildFootballLiveDetail(fixture, status),
+    apiSource: "football",
+    apiFixtureId: fixture.fixture.id,
+    apiLeagueId: fixture.league.id,
+    apiSeason: fixture.league.season,
+    apiHomeTeamId: fixture.teams.home.id,
+    apiAwayTeamId: fixture.teams.away.id,
   };
 };
 
@@ -281,6 +301,7 @@ export const mapApiNbaGameToMatch = (game: ApiNbaGame): WorldCupMatch => {
     homeScore: game.scores.home.points ?? undefined,
     awayScore: game.scores.visitors.points ?? undefined,
     liveDetail: buildNbaLiveDetail(game, status),
+    apiSource: "nba",
   };
 };
 
@@ -319,7 +340,7 @@ export const mergeStaticMatchesWithApiFixtures = (
 
     return {
       ...match,
-      league: fixture.league.name || match.league,
+      league: buildFootballLeagueLabel(fixture) || match.league,
       stage: fixture.league.round || match.stage,
       status,
       statusLabel: fixture.fixture.status.long || match.statusLabel,
@@ -331,6 +352,12 @@ export const mergeStaticMatchesWithApiFixtures = (
       homeScore: fixture.goals.home ?? match.homeScore,
       awayScore: fixture.goals.away ?? match.awayScore,
       liveDetail: buildFootballLiveDetail(fixture, status) || match.liveDetail,
+      apiSource: "football",
+      apiFixtureId: fixture.fixture.id,
+      apiLeagueId: fixture.league.id,
+      apiSeason: fixture.league.season,
+      apiHomeTeamId: fixture.teams.home.id,
+      apiAwayTeamId: fixture.teams.away.id,
     };
   });
 };

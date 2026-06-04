@@ -17,6 +17,9 @@ export interface MatchMessage {
 
 const LOCAL_TEAM_PREFIX = "arena-viva-mente.match-team";
 const LOCAL_MESSAGES_PREFIX = "arena-viva-mente.match-messages";
+const isLocalDevHost = () =>
+  typeof window !== "undefined" &&
+  (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
 
 const teamKey = (userId: string, matchId: string) => `${LOCAL_TEAM_PREFIX}.${userId}.${matchId}`;
 const messagesKey = (matchId: string) => `${LOCAL_MESSAGES_PREFIX}.${matchId}`;
@@ -35,7 +38,7 @@ const saveLocalMessages = (matchId: string, messages: MatchMessage[]) => {
 };
 
 export const getMatchPreference = async (userId: string, matchId: string): Promise<TeamSide | null> => {
-  if (!isSupabaseConfigured || !supabase) {
+  if (!isSupabaseConfigured || !supabase || isLocalDevHost()) {
     const stored = localStorage.getItem(teamKey(userId, matchId));
     return stored ? (stored as TeamSide) : null;
   }
@@ -56,7 +59,7 @@ export const getMatchPreference = async (userId: string, matchId: string): Promi
 };
 
 export const saveMatchPreference = async (userId: string, matchId: string, teamSide: TeamSide) => {
-  if (!isSupabaseConfigured || !supabase) {
+  if (!isSupabaseConfigured || !supabase || isLocalDevHost()) {
     localStorage.setItem(teamKey(userId, matchId), teamSide);
     return;
   }
@@ -96,7 +99,7 @@ const mapMessageRow = (row: {
 });
 
 export const getMatchMessages = async (matchId: string): Promise<MatchMessage[]> => {
-  if (!isSupabaseConfigured || !supabase) {
+  if (!isSupabaseConfigured || !supabase || isLocalDevHost()) {
     return readLocalMessages(matchId);
   }
 
@@ -122,7 +125,7 @@ export const sendMatchMessage = async (input: {
   text: string;
   teamSide: TeamSide;
 }) => {
-  if (!isSupabaseConfigured || !supabase) {
+  if (!isSupabaseConfigured || !supabase || isLocalDevHost()) {
     const nextMessage: MatchMessage = {
       id: `local-${Date.now()}`,
       userId: input.user.id,

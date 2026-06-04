@@ -2,10 +2,10 @@ import { useEffect, useMemo, useState } from "react";
 import { Header } from "@/components/Header";
 import { GameCard } from "@/components/GameCard";
 import { Footer } from "@/components/Footer";
-import { getCurrentMatchStatus, worldCup2026Matches, type WorldCupMatch } from "@/data/worldCup2026";
+import { getCurrentMatchStatus, parseWorldCupMatchDate, worldCup2026Matches, type WorldCupMatch } from "@/data/worldCup2026";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CalendarDays, ChevronDown, Search, SlidersHorizontal } from "lucide-react";
+import { CalendarDays, Search } from "lucide-react";
 import { useMockAuth } from "@/contexts/MockAuthContext";
 import { addReservation, getProductState, toggleFavoriteMatch } from "@/lib/productState";
 import { useNavigate } from "react-router-dom";
@@ -21,6 +21,7 @@ import { upsertRuntimeMatches } from "@/lib/runtimeMatches";
 
 type SportType = "futebol" | "basquete";
 type DisplayMatch = WorldCupMatch & { sport: SportType };
+type QuickFilterType = "all" | "live" | "soon";
 
 const Index = () => {
   const nbaTestDate = "2026-06-04";
@@ -29,14 +30,12 @@ const Index = () => {
   const { user } = useMockAuth();
   const [selectedSport, setSelectedSport] = useState("all");
   const [selectedLeague, setSelectedLeague] = useState("all");
-  const [selectedEvent, setSelectedEvent] = useState("all");
   const [selectedTeam, setSelectedTeam] = useState("all");
   const [selectedDate, setSelectedDate] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
-  const [quickFilter, setQuickFilter] = useState<"all" | "live">("all");
+  const [quickFilter, setQuickFilter] = useState<QuickFilterType>("all");
   const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
   const [reservedIds, setReservedIds] = useState<string[]>([]);
-  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [matches, setMatches] = useState<DisplayMatch[]>(
     worldCup2026Matches.map((match) => ({ ...match, sport: "futebol" })),
   );
@@ -84,12 +83,13 @@ const Index = () => {
             : [];
 
           if (fixtures.length > 0) {
-            setMatches(
-              mergeStaticMatchesWithApiFixtures(worldCup2026Matches, fixtures).map((match) => ({
-                ...match,
-                sport: "futebol" as const,
-              })),
-            );
+            const mergedWorldCupMatches = mergeStaticMatchesWithApiFixtures(worldCup2026Matches, fixtures).map((match) => ({
+              ...match,
+              sport: "futebol" as const,
+            }));
+
+            setMatches(mergedWorldCupMatches);
+            upsertRuntimeMatches(mergedWorldCupMatches);
           }
         }
 
@@ -137,13 +137,32 @@ const Index = () => {
     };
   }, []);
 
+  const isMatchStartingSoon = (match: Pick<DisplayMatch, "date" | "startTime" | "status" | "id">) => {
+    const status = getCurrentMatchStatus(match);
+    if (status !== "scheduled") {
+      return false;
+    }
+
+    const kickoff = parseWorldCupMatchDate({ date: match.date, startTime: match.startTime || "" });
+    if (!kickoff) {
+      return false;
+    }
+
+    const diff = kickoff.getTime() - Date.now();
+    return diff > 0 && diff <= 2 * 60 * 60 * 1000;
+  };
+
   const todayMatchIds = useMemo(() => new Set(todayMatches.map((match) => match.id)), [todayMatches]);
+  const allMatches = useMemo(() => [...todayMatches, ...matches], [todayMatches, matches]);
+  const sportScopedMatches = useMemo(
+    () => allMatches.filter((match) => selectedSport === "all" || match.sport === selectedSport),
+    [allMatches, selectedSport],
+  );
 
   const filteredTodayMatches = useMemo(() => {
     return todayMatches.filter((match) => {
       const sportMatch = selectedSport === "all" || match.sport === selectedSport;
       const leagueMatch = selectedLeague === "all" || match.league === selectedLeague;
-      const eventMatch = selectedEvent === "all" || match.stage === selectedEvent;
       const teamMatch =
         selectedTeam === "all" ||
         match.homeTeam === selectedTeam ||
@@ -151,12 +170,14 @@ const Index = () => {
       const dateMatch = selectedDate === "all" || match.date === selectedDate;
       const quickMatch =
         quickFilter === "all" ||
-        getCurrentMatchStatus({
-          id: match.id,
-          date: match.date,
-          startTime: match.startTime || "",
-          status: match.status,
-        }) === "live";
+        (quickFilter === "live"
+          ? getCurrentMatchStatus({
+              id: match.id,
+              date: match.date,
+              startTime: match.startTime || "",
+              status: match.status,
+            }) === "live"
+          : isMatchStartingSoon(match));
       const query = searchQuery.trim().toLowerCase();
       const searchMatch =
         query === "" ||
@@ -172,9 +193,9 @@ const Index = () => {
           .toLowerCase()
           .includes(query);
 
-      return sportMatch && leagueMatch && eventMatch && teamMatch && dateMatch && quickMatch && searchMatch;
+      return sportMatch && leagueMatch && teamMatch && dateMatch && quickMatch && searchMatch;
     });
-  }, [todayMatches, searchQuery, selectedDate, selectedEvent, selectedLeague, selectedSport, selectedTeam, quickFilter]);
+  }, [todayMatches, searchQuery, selectedDate, selectedLeague, selectedSport, selectedTeam, quickFilter]);
 
   const filteredMatches = useMemo(() => {
     return matches
@@ -182,20 +203,21 @@ const Index = () => {
       .filter((match) => {
         const sportMatch = selectedSport === "all" || match.sport === selectedSport;
         const leagueMatch = selectedLeague === "all" || match.league === selectedLeague;
-        const eventMatch = selectedEvent === "all" || match.stage === selectedEvent;
         const teamMatch =
           selectedTeam === "all" ||
           match.homeTeam === selectedTeam ||
           match.awayTeam === selectedTeam;
-        const dateMatch = selectedDate === "all" || match.date === selectedDate;
-        const quickMatch =
-          quickFilter === "all" ||
-          getCurrentMatchStatus({
-            id: match.id,
-            date: match.date,
-            startTime: match.startTime || "",
-            status: match.status,
-          }) === "live";
+      const dateMatch = selectedDate === "all" || match.date === selectedDate;
+      const quickMatch =
+        quickFilter === "all" ||
+        (quickFilter === "live"
+          ? getCurrentMatchStatus({
+              id: match.id,
+              date: match.date,
+              startTime: match.startTime || "",
+              status: match.status,
+            }) === "live"
+          : isMatchStartingSoon(match));
         const query = searchQuery.trim().toLowerCase();
         const searchMatch =
           query === "" ||
@@ -211,9 +233,9 @@ const Index = () => {
             .toLowerCase()
             .includes(query);
 
-        return sportMatch && leagueMatch && eventMatch && teamMatch && dateMatch && quickMatch && searchMatch;
+        return sportMatch && leagueMatch && teamMatch && dateMatch && quickMatch && searchMatch;
       });
-  }, [matches, todayMatchIds, searchQuery, selectedDate, selectedEvent, selectedLeague, selectedSport, selectedTeam, quickFilter]);
+  }, [matches, todayMatchIds, searchQuery, selectedDate, selectedLeague, selectedSport, selectedTeam, quickFilter]);
 
   const totalVisibleMatches = filteredTodayMatches.length + filteredMatches.length;
 
@@ -252,35 +274,29 @@ const Index = () => {
     })();
   };
 
-  const eventOptions = useMemo(
-    () => Array.from(new Set([...todayMatches, ...matches].map((match) => match.stage))),
-    [matches, todayMatches],
-  );
-
   const leagueOptions = useMemo(
-    () => Array.from(new Set([...todayMatches, ...matches].map((match) => match.league))).sort((a, b) => a.localeCompare(b)),
-    [matches, todayMatches],
+    () => Array.from(new Set(sportScopedMatches.map((match) => match.league))).sort((a, b) => a.localeCompare(b)),
+    [sportScopedMatches],
   );
 
   const teamOptions = useMemo(
     () =>
       Array.from(
         new Set(
-          [...todayMatches, ...matches].flatMap((match) => [match.homeTeam, match.awayTeam]),
+          sportScopedMatches.flatMap((match) => [match.homeTeam, match.awayTeam]),
         ),
       ).sort((a, b) => a.localeCompare(b)),
-    [matches, todayMatches],
+    [sportScopedMatches],
   );
 
   const dateOptions = useMemo(
-    () => Array.from(new Set([...todayMatches, ...matches].map((match) => match.date))),
-    [matches, todayMatches],
+    () => Array.from(new Set(sportScopedMatches.map((match) => match.date))),
+    [sportScopedMatches],
   );
 
   const hasActiveFilters =
     selectedSport !== "all" ||
     selectedLeague !== "all" ||
-    selectedEvent !== "all" ||
     selectedTeam !== "all" ||
     selectedDate !== "all" ||
     quickFilter !== "all" ||
@@ -289,19 +305,71 @@ const Index = () => {
   const activeFilterCount = [
     selectedSport !== "all",
     selectedLeague !== "all",
-    selectedEvent !== "all",
     selectedTeam !== "all",
     selectedDate !== "all",
     quickFilter !== "all",
     searchQuery.trim() !== "",
   ].filter(Boolean).length;
 
+  const resetFilters = () => {
+    setSelectedSport("all");
+    setSelectedLeague("all");
+    setSelectedTeam("all");
+    setSelectedDate("all");
+    setQuickFilter("all");
+    setSearchQuery("");
+  };
+
+  const getChipLabel = (type: "sport" | "league" | "team" | "date") => {
+    if (type === "sport") {
+      return selectedSport === "all" ? "Esporte" : selectedSport === "futebol" ? "Futebol" : "Basquete";
+    }
+
+    if (type === "league") {
+      return selectedLeague === "all" ? "Campeonato" : selectedLeague;
+    }
+
+    if (type === "team") {
+      return selectedTeam === "all" ? "Time" : selectedTeam;
+    }
+
+    return selectedDate === "all" ? "Data" : selectedDate;
+  };
+
+  const groupMatchesByLeague = (items: DisplayMatch[]) =>
+    Array.from(
+      items.reduce((groups, match) => {
+        const current = groups.get(match.league) || [];
+        current.push(match);
+        groups.set(match.league, current);
+        return groups;
+      }, new Map<string, DisplayMatch[]>()),
+    );
+
+  useEffect(() => {
+    if (selectedLeague !== "all" && !leagueOptions.includes(selectedLeague)) {
+      setSelectedLeague("all");
+    }
+  }, [leagueOptions, selectedLeague]);
+
+  useEffect(() => {
+    if (selectedTeam !== "all" && !teamOptions.includes(selectedTeam)) {
+      setSelectedTeam("all");
+    }
+  }, [teamOptions, selectedTeam]);
+
+  useEffect(() => {
+    if (selectedDate !== "all" && !dateOptions.includes(selectedDate)) {
+      setSelectedDate("all");
+    }
+  }, [dateOptions, selectedDate]);
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       <Header />
 
       <section className="relative py-12 md:py-16">
-        <div className="container max-w-7xl mx-auto px-6">
+        <div className="container px-6">
           <div className="mb-6 flex flex-wrap items-center gap-3">
             <button
               type="button"
@@ -315,206 +383,243 @@ const Index = () => {
               <span className="h-2 w-2 rounded-full bg-emerald-500" />
               Ao vivo agora
             </button>
+            <button
+              type="button"
+              onClick={() => setQuickFilter((current) => (current === "soon" ? "all" : "soon"))}
+              className={`inline-flex items-center gap-2 text-sm underline underline-offset-4 transition-colors ${
+                quickFilter === "soon"
+                  ? "font-semibold text-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <span className="h-2 w-2 rounded-full bg-amber-500" />
+              Em breve
+            </button>
           </div>
 
-          <div className="mb-8">
-            <div className="flex items-center gap-3 lg:hidden">
-              <button
-                type="button"
-                onClick={() => setMobileFiltersOpen((current) => !current)}
-                className="flex h-12 flex-1 items-center justify-between rounded-xl border border-border bg-card px-4 text-left text-sm font-medium text-foreground shadow-sm"
-              >
-                <span className="flex items-center gap-2">
-                  <SlidersHorizontal className="h-4 w-4 text-muted-foreground" />
-                  Filtros
-                  {activeFilterCount > 0 && (
-                    <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
-                      {activeFilterCount}
-                    </span>
-                  )}
-                </span>
-                <ChevronDown
-                  className={`h-4 w-4 text-muted-foreground transition-transform ${mobileFiltersOpen ? "rotate-180" : ""}`}
-                />
-              </button>
-
-              {hasActiveFilters && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedSport("all");
-                    setSelectedLeague("all");
-                    setSelectedEvent("all");
-                    setSelectedTeam("all");
-                    setSelectedDate("all");
-                    setQuickFilter("all");
-                    setSearchQuery("");
-                  }}
-                  className="shrink-0 text-sm text-muted-foreground transition-colors hover:text-foreground"
-                >
-                  Limpar
-                </button>
-              )}
-            </div>
-
-            <div className={`${mobileFiltersOpen ? "mt-3 grid" : "hidden"} grid-cols-1 gap-3 lg:mt-0 lg:grid lg:grid-cols-[1.3fr_repeat(5,0.8fr)]`}>
+          <div className="mb-8 lg:hidden">
+            <div className="space-y-3 lg:hidden">
               <div className="relative">
                 <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Buscar por seleção, sede ou fase"
-                  className="h-12 border-border bg-card pl-11 placeholder:text-muted-foreground"
+                  placeholder="Buscar por seleção, campeonato ou data"
+                  className="h-11 border-border bg-card pl-11 placeholder:text-muted-foreground"
                 />
               </div>
 
-              <Select value={selectedSport} onValueChange={setSelectedSport}>
-                <SelectTrigger className="h-12 border-border bg-card">
-                  <SelectValue placeholder="Esporte" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos esportes</SelectItem>
-                  <SelectItem value="futebol">Futebol</SelectItem>
-                  <SelectItem value="basquete">Basquete</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="-mx-6 overflow-x-auto px-6 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                <div className="flex w-max items-center gap-2">
+                  <Select value={selectedSport} onValueChange={setSelectedSport}>
+                    <SelectTrigger className="h-9 min-w-fit whitespace-nowrap border-border bg-card px-3 text-xs">
+                      <SelectValue>{getChipLabel("sport")}</SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos esportes</SelectItem>
+                      <SelectItem value="futebol">Futebol</SelectItem>
+                      <SelectItem value="basquete">Basquete</SelectItem>
+                    </SelectContent>
+                  </Select>
 
-              <Select value={selectedLeague} onValueChange={setSelectedLeague}>
-                <SelectTrigger className="h-12 border-border bg-card">
-                  <SelectValue placeholder="Campeonato" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos campeonatos</SelectItem>
-                  {leagueOptions.map((league) => (
-                    <SelectItem key={league} value={league}>
-                      {league}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                  <Select value={selectedLeague} onValueChange={setSelectedLeague}>
+                    <SelectTrigger className="h-9 min-w-fit whitespace-nowrap border-border bg-card px-3 text-xs">
+                      <SelectValue>{getChipLabel("league")}</SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos campeonatos</SelectItem>
+                      {leagueOptions.map((league) => (
+                        <SelectItem key={league} value={league}>
+                          {league}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
 
-              <Select value={selectedEvent} onValueChange={setSelectedEvent}>
-                <SelectTrigger className="h-12 border-border bg-card">
-                  <SelectValue placeholder="Fase" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todas as fases</SelectItem>
-                  {eventOptions.map((event) => (
-                    <SelectItem key={event} value={event}>
-                      {event}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                  <Select value={selectedTeam} onValueChange={setSelectedTeam}>
+                    <SelectTrigger className="h-9 min-w-fit whitespace-nowrap border-border bg-card px-3 text-xs">
+                      <SelectValue>{getChipLabel("team")}</SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos times</SelectItem>
+                      {teamOptions.map((team) => (
+                        <SelectItem key={team} value={team}>
+                          {team}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
 
-              <Select value={selectedTeam} onValueChange={setSelectedTeam}>
-                <SelectTrigger className="h-12 border-border bg-card">
-                  <SelectValue placeholder="Time" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos times</SelectItem>
-                  {teamOptions.map((team) => (
-                    <SelectItem key={team} value={team}>
-                      {team}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                  <Select value={selectedDate} onValueChange={setSelectedDate}>
+                    <SelectTrigger className="h-9 min-w-fit whitespace-nowrap border-border bg-card px-3 text-xs">
+                      <SelectValue>{getChipLabel("date")}</SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todas datas</SelectItem>
+                      {dateOptions.map((date) => (
+                        <SelectItem key={date} value={date}>
+                          {date}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
 
-              <Select value={selectedDate} onValueChange={setSelectedDate}>
-                <SelectTrigger className="h-12 border-border bg-card">
-                  <SelectValue placeholder="Data" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todas datas</SelectItem>
-                  {dateOptions.map((date) => (
-                    <SelectItem key={date} value={date}>
-                      {date}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                  {hasActiveFilters && (
+                    <button
+                      type="button"
+                      onClick={resetFilters}
+                      className="inline-flex h-9 items-center whitespace-nowrap border border-border px-3 text-xs text-muted-foreground transition-colors hover:text-foreground"
+                    >
+                      Limpar
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
+
           </div>
 
-          <div className="flex flex-wrap items-center justify-between gap-4 mb-10">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <CalendarDays className="h-4 w-4" />
-              <span>
-                {totalVisibleMatches} {totalVisibleMatches === 1 ? "evento encontrado" : "eventos encontrados"}
-              </span>
-            </div>
+          <div className="lg:grid lg:grid-cols-[260px_minmax(0,1fr)] lg:gap-10">
+            <aside className="hidden lg:block">
+              <div className="sticky top-24 space-y-4 border-r border-border pr-8">
+                <div className="relative">
+                  <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Buscar por seleção, campeonato ou data"
+                    className="h-11 border-border bg-card pl-11 placeholder:text-muted-foreground"
+                  />
+                </div>
 
-            {hasActiveFilters && (
-              <button
-                onClick={() => {
-                  setSelectedSport("all");
-                  setSelectedLeague("all");
-                  setSelectedEvent("all");
-                  setSelectedTeam("all");
-                  setSelectedDate("all");
-                  setQuickFilter("all");
-                  setSearchQuery("");
-                }}
-                className="text-sm text-muted-foreground transition-colors hover:text-foreground"
-              >
-                Limpar filtros
-              </button>
-            )}
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">Esporte</p>
+                  <Select value={selectedSport} onValueChange={setSelectedSport}>
+                    <SelectTrigger className="h-11 border-border bg-card">
+                      <SelectValue placeholder="Esporte" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos esportes</SelectItem>
+                      <SelectItem value="futebol">Futebol</SelectItem>
+                      <SelectItem value="basquete">Basquete</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">Campeonato</p>
+                  <Select value={selectedLeague} onValueChange={setSelectedLeague}>
+                    <SelectTrigger className="h-11 border-border bg-card">
+                      <SelectValue placeholder="Campeonato" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos campeonatos</SelectItem>
+                      {leagueOptions.map((league) => (
+                        <SelectItem key={league} value={league}>
+                          {league}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">Time</p>
+                  <Select value={selectedTeam} onValueChange={setSelectedTeam}>
+                    <SelectTrigger className="h-11 border-border bg-card">
+                      <SelectValue placeholder="Time" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos times</SelectItem>
+                      {teamOptions.map((team) => (
+                        <SelectItem key={team} value={team}>
+                          {team}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">Data</p>
+                  <Select value={selectedDate} onValueChange={setSelectedDate}>
+                    <SelectTrigger className="h-11 border-border bg-card">
+                      <SelectValue placeholder="Data" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todas datas</SelectItem>
+                      {dateOptions.map((date) => (
+                        <SelectItem key={date} value={date}>
+                          {date}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {hasActiveFilters && (
+                  <button
+                    onClick={resetFilters}
+                    className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+                  >
+                    Limpar filtros
+                  </button>
+                )}
+              </div>
+            </aside>
+
+            <div>
+              <div className="mb-10 flex flex-wrap items-center justify-between gap-4">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <CalendarDays className="h-4 w-4" />
+                  <span>
+                    {totalVisibleMatches} {totalVisibleMatches === 1 ? "evento encontrado" : "eventos encontrados"}
+                  </span>
+                </div>
+
+                {hasActiveFilters && (
+                  <button
+                    onClick={resetFilters}
+                    className="text-sm text-muted-foreground transition-colors hover:text-foreground lg:hidden"
+                  >
+                    Limpar filtros
+                  </button>
+                )}
+              </div>
+
+              {totalVisibleMatches === 0 ? (
+                <div className="rounded-2xl border border-border bg-card p-10 text-center text-muted-foreground shadow-[var(--shadow-card)]">
+                  Nenhum evento encontrado com os filtros atuais.
+                </div>
+              ) : (
+                <div className="space-y-12">
+                  {[...groupMatchesByLeague(filteredTodayMatches), ...groupMatchesByLeague(filteredMatches)].map(
+                    ([league, leagueMatches]) => (
+                      <section key={league} className="space-y-5">
+                        <div className="space-y-1">
+                          <h2 className="text-2xl font-semibold text-foreground">{league}</h2>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+                          {leagueMatches.map((game) => (
+                            <GameCard
+                              key={game.id}
+                              {...game}
+                              startTime={game.startTime}
+                              hasRoom={true}
+                              isFavorite={favoriteIds.includes(game.id)}
+                              isReserved={reservedIds.includes(game.id)}
+                              onToggleFavorite={handleToggleFavorite}
+                              onReserveMatch={handleReserveMatch}
+                            />
+                          ))}
+                        </div>
+                      </section>
+                    ),
+                  )}
+                </div>
+              )}
+            </div>
           </div>
-
-          {totalVisibleMatches === 0 ? (
-            <div className="rounded-2xl border border-border bg-card p-10 text-center text-muted-foreground shadow-[var(--shadow-card)]">
-              Nenhum evento encontrado com os filtros atuais.
-            </div>
-          ) : (
-            <div className="space-y-12">
-              {filteredTodayMatches.length > 0 && (
-                <section className="space-y-5">
-                  <div className="space-y-1">
-                    <h2 className="text-2xl font-semibold text-foreground">Hoje</h2>
-                    <p className="text-sm text-muted-foreground">Jogos reais do dia para testar status, entrada e fluxo ao vivo.</p>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                    {filteredTodayMatches.map((game) => (
-                      <GameCard
-                        key={game.id}
-                        {...game}
-                        startTime={game.startTime}
-                        hasRoom={false}
-                        isFavorite={favoriteIds.includes(game.id)}
-                        isReserved={reservedIds.includes(game.id)}
-                        onToggleFavorite={handleToggleFavorite}
-                        onReserveMatch={handleReserveMatch}
-                      />
-                    ))}
-                  </div>
-                </section>
-              )}
-
-              {filteredMatches.length > 0 && (
-                <section className="space-y-5">
-                  <div className="space-y-1">
-                    <h2 className="text-2xl font-semibold text-foreground">Copa do Mundo 2026</h2>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                    {filteredMatches.map((game) => (
-                      <GameCard
-                        key={game.id}
-                        {...game}
-                        startTime={game.startTime}
-                        hasRoom={true}
-                        isFavorite={favoriteIds.includes(game.id)}
-                        isReserved={reservedIds.includes(game.id)}
-                        onToggleFavorite={handleToggleFavorite}
-                        onReserveMatch={handleReserveMatch}
-                      />
-                    ))}
-                  </div>
-                </section>
-              )}
-            </div>
-          )}
         </div>
       </section>
 

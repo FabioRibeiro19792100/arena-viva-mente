@@ -32,7 +32,16 @@ export const getMatchById = (id?: string | null) => {
   if (!id) return null;
 
   const staticMatch = worldCupMatchMap[id];
-  if (staticMatch) return staticMatch;
+  const runtimeMatch = getRuntimeMatches().find((match) => match.id === id) || null;
 
-  return getRuntimeMatches().find((match) => match.id === id) || null;
+  if (staticMatch && runtimeMatch) {
+    return {
+      ...staticMatch,
+      ...runtimeMatch,
+    };
+  }
+
+  if (runtimeMatch) return runtimeMatch;
+  if (staticMatch) return staticMatch;
+  return null;
 };

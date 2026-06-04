@@ -20,6 +20,12 @@ export interface WorldCupMatch {
   homeScore?: number;
   awayScore?: number;
   liveDetail?: string;
+  apiSource?: "football" | "nba";
+  apiFixtureId?: number;
+  apiLeagueId?: number;
+  apiSeason?: number;
+  apiHomeTeamId?: number;
+  apiAwayTeamId?: number;
 }
 
 export interface WorldCupSummary {
@@ -233,7 +239,7 @@ const testMatch: WorldCupMatch = {
   statusLabel: "Sala ao vivo",
   date: "1 de junho de 2026",
   startTime: "20:00",
-  venue: "Arena Tikitaka, Sala principal",
+  venue: "Bancada, Sala principal",
   homeTeamLogo: teamLogo("Brazil"),
   awayTeamLogo: teamLogo("Argentina"),
   homeScore: 2,
@@ -315,6 +321,10 @@ const LIVE_WINDOW_MS = 3 * 60 * 60 * 1000;
 export const getCurrentMatchStatus = (match: Pick<WorldCupMatch, "id" | "date" | "startTime" | "status">): MatchStatus => {
   if (match.id === testMatch.id) {
     return "live";
+  }
+
+  if (match.id.startsWith("api-")) {
+    return match.status;
   }
 
   const kickoff = parseWorldCupMatchDate(match);

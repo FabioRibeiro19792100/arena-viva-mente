@@ -11,6 +11,7 @@ export interface MockUser {
   id: string;
   name: string;
   username: string;
+  email: string;
   favoriteTeam: string;
   provider: MockAuthProvider;
   plan: MockPlan;
@@ -29,14 +30,17 @@ interface MockAuthContextValue {
     favoriteTeam?: string;
     plan?: MockPlan;
   }) => void;
+  loginDevBypass: (input: { name?: string; favoriteTeam?: string }) => void;
   logout: () => void;
-  updateUser: (updates: Partial<Pick<MockUser, "name" | "favoriteTeam" | "plan">>) => void;
+  updateUser: (updates: Partial<Pick<MockUser, "name" | "username" | "favoriteTeam" | "plan">>) => void;
 }
 
 type ProfileRow = Database["public"]["Tables"]["profiles"]["Row"];
 
 const STORAGE_KEY = "arena-viva-mente.mock-auth";
 const PENDING_AUTH_KEY = "arena-viva-mente.pending-auth-profile";
+const PENDING_REDIRECT_KEY = "arena-viva-mente.pending-auth-redirect";
+const DEV_BYPASS_KEY = "arena-viva-mente.dev-bypass-auth";
 
 const MockAuthContext = createContext<MockAuthContextValue | undefined>(undefined);
 
@@ -47,6 +51,11 @@ const sanitizeUsername = (name: string) =>
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "_")
     .replace(/^_+|_+$/g, "") || "torcedor_2026"}`;
+
+const normalizeNickname = (value: string) => {
+  const cleaned = value.trim().replace(/^@+/, "");
+  return cleaned ? sanitizeUsername(cleaned) : "@torcedor_2026";
+};
 
 const makeAvatar = (name: string) =>
   `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=111111&color=ffffff`;
@@ -64,10 +73,11 @@ const providerFromSupabase = (user: SupabaseUser): MockAuthProvider => {
   return "google";
 };
 
-const buildUserFromProfile = (profile: ProfileRow): MockUser => ({
+const buildUserFromProfile = (profile: ProfileRow, email = ""): MockUser => ({
   id: profile.id,
   name: profile.name,
   username: profile.username,
+  email,
   favoriteTeam: profile.favorite_team || "Neutro",
   provider: profile.provider,
   plan: profile.plan,
@@ -92,6 +102,19 @@ const readPendingProfile = () => {
 };
 
 const clearPendingProfile = () => localStorage.removeItem(PENDING_AUTH_KEY);
+const isLocalDevHost = () =>
+  typeof window !== "undefined" &&
+  (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
+
+const buildOAuthRedirectUrl = () => {
+  const { origin, pathname, search, hash } = window.location;
+  const next = `${pathname}${search}${hash}`;
+  localStorage.setItem(PENDING_REDIRECT_KEY, next);
+
+  const redirect = new URL(`${origin}/login`);
+  redirect.searchParams.set("next", next);
+  return redirect.toString();
+};
 
 const resolveProfilePayload = (
   authUser: SupabaseUser,
@@ -135,7 +158,7 @@ const getOrCreateSupabaseProfile = async (authUser: SupabaseUser) => {
   }
 
   if (existingProfile && !pending) {
-    return buildUserFromProfile(existingProfile);
+    return buildUserFromProfile(existingProfile, authUser.email || "");
   }
 
   const payload = existingProfile
@@ -161,11 +184,11 @@ const getOrCreateSupabaseProfile = async (authUser: SupabaseUser) => {
 
   if (upsertError) {
     console.error("Erro ao salvar perfil no Supabase:", upsertError);
-    return existingProfile ? buildUserFromProfile(existingProfile) : null;
+    return existingProfile ? buildUserFromProfile(existingProfile, authUser.email || "") : null;
   }
 
   clearPendingProfile();
-  return buildUserFromProfile(profile);
+  return buildUserFromProfile(profile, authUser.email || "");
 };
 
 export const MockAuthProvider = ({ children }: { children: React.ReactNode }) => {
@@ -196,6 +219,15 @@ export const MockAuthProvider = ({ children }: { children: React.ReactNode }) =>
       if (!active) return;
 
       if (!session?.user) {
+        if (isLocalDevHost()) {
+          const storedBypass = localStorage.getItem(DEV_BYPASS_KEY);
+          if (storedBypass) {
+            setUser(JSON.parse(storedBypass));
+            setIsLoading(false);
+            return;
+          }
+        }
+
         setUser(null);
         setIsLoading(false);
         return;
@@ -217,6 +249,15 @@ export const MockAuthProvider = ({ children }: { children: React.ReactNode }) =>
         if (!active) return;
 
         if (!session?.user) {
+          if (isLocalDevHost()) {
+            const storedBypass = localStorage.getItem(DEV_BYPASS_KEY);
+            if (storedBypass) {
+              setUser(JSON.parse(storedBypass));
+              setIsLoading(false);
+              return;
+            }
+          }
+
           setUser(null);
           setIsLoading(false);
           return;
@@ -267,7 +308,7 @@ export const MockAuthProvider = ({ children }: { children: React.ReactNode }) =>
           void supabase.auth.signInWithOAuth({
             provider: mappedProvider,
             options: {
-              redirectTo: `${window.location.origin}/login`,
+              redirectTo: buildOAuthRedirectUrl(),
             },
           });
           return;
@@ -275,19 +316,39 @@ export const MockAuthProvider = ({ children }: { children: React.ReactNode }) =>
 
         const finalName = name?.trim() || "Torcedor 2026";
         const finalTeam = favoriteTeam?.trim() || "Neutro";
-        const nextUser: MockUser = {
-          id: `mock-${provider}-${Date.now()}`,
-          name: finalName,
-          username: sanitizeUsername(finalName),
-          favoriteTeam: finalTeam,
-          provider,
-          plan,
+      const nextUser: MockUser = {
+        id: `mock-${provider}-${Date.now()}`,
+        name: finalName,
+        username: sanitizeUsername(finalName),
+        email: "",
+        favoriteTeam: finalTeam,
+        provider,
+        plan,
           avatar: makeAvatar(finalName),
           joinDate: formatJoinDate(),
         };
         persistMockUser(nextUser);
       },
+      loginDevBypass: ({ name, favoriteTeam }) => {
+        const finalName = name?.trim() || "Torcedor local";
+        const finalTeam = favoriteTeam?.trim() || "Neutro";
+        const nextUser: MockUser = {
+          id: `dev-local-${Date.now()}`,
+          name: finalName,
+          username: sanitizeUsername(finalName),
+          email: "local@arenatikitaka.dev",
+          favoriteTeam: finalTeam,
+          provider: "google",
+          plan: "free",
+          avatar: makeAvatar(finalName),
+          joinDate: formatJoinDate(),
+        };
+
+        setUser(nextUser);
+        localStorage.setItem(DEV_BYPASS_KEY, JSON.stringify(nextUser));
+      },
       logout: () => {
+        localStorage.removeItem(DEV_BYPASS_KEY);
         if (mode === "supabase" && supabase) {
           void supabase.auth.signOut();
           return;
@@ -300,7 +361,11 @@ export const MockAuthProvider = ({ children }: { children: React.ReactNode }) =>
             .from("profiles")
             .update({
               name: updates.name?.trim() || user.name,
-              username: updates.name?.trim() ? sanitizeUsername(updates.name) : user.username,
+              username: updates.username?.trim()
+                ? normalizeNickname(updates.username)
+                : updates.name?.trim()
+                  ? sanitizeUsername(updates.name)
+                  : user.username,
               favorite_team: updates.favoriteTeam?.trim() || user.favoriteTeam,
               plan: updates.plan || user.plan,
               avatar_url: updates.name?.trim() ? makeAvatar(updates.name) : user.avatar,
@@ -314,7 +379,7 @@ export const MockAuthProvider = ({ children }: { children: React.ReactNode }) =>
                 console.error("Erro ao atualizar perfil no Supabase:", error);
                 return;
               }
-              setUser(buildUserFromProfile(data));
+              setUser(buildUserFromProfile(data, user.email));
             });
           return;
         }
@@ -323,7 +388,11 @@ export const MockAuthProvider = ({ children }: { children: React.ReactNode }) =>
         const nextUser = {
           ...user,
           ...updates,
-          username: updates.name ? sanitizeUsername(updates.name) : user.username,
+          username: updates.username
+            ? normalizeNickname(updates.username)
+            : updates.name
+              ? sanitizeUsername(updates.name)
+              : user.username,
           avatar: updates.name ? makeAvatar(updates.name) : user.avatar,
         };
         persistMockUser(nextUser);

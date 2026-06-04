@@ -4,7 +4,12 @@ import { useNavigate } from "react-router-dom";
 import { useMockAuth } from "@/contexts/MockAuthContext";
 import { useTheme } from "next-themes";
 
-export const Header = () => {
+interface HeaderProps {
+  roomMode?: boolean;
+  onRoomMenuClick?: () => void;
+}
+
+export const Header = ({ roomMode = false, onRoomMenuClick }: HeaderProps) => {
   const navigate = useNavigate();
   const { isAuthenticated, user, logout } = useMockAuth();
   const { resolvedTheme, setTheme } = useTheme();
@@ -17,31 +22,35 @@ export const Header = () => {
           className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
           onClick={() => navigate("/")}
         >
-          <h1 className="min-w-0 text-2xl font-bold tracking-tight text-foreground">Arena Tikitaka</h1>
+          <h1 className="min-w-0 text-2xl font-bold tracking-tight text-foreground">Bancada</h1>
         </div>
 
         <nav className="hidden md:flex items-center gap-8">
-          <button
-            onClick={() => navigate("/")}
-            className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-          >
-            Jogos
-          </button>
-          <button
-            onClick={() => navigate("/perfil")}
-            className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors flex items-center gap-2"
-          >
-            <User className="h-4 w-4" />
-            {isAuthenticated ? "Minha conta" : "Perfil"}
-          </button>
-          {isAuthenticated && (
-            <button
-              onClick={() => navigate("/favoritos")}
-              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors flex items-center gap-2"
-            >
-              <Heart className="h-4 w-4" />
-              Favoritos
-            </button>
+          {!roomMode && (
+            <>
+              <button
+                onClick={() => navigate("/")}
+                className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Jogos
+              </button>
+              <button
+                onClick={() => navigate("/perfil")}
+                className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors flex items-center gap-2"
+              >
+                <User className="h-4 w-4" />
+                {isAuthenticated ? "Minha conta" : "Perfil"}
+              </button>
+              {isAuthenticated && (
+                <button
+                  onClick={() => navigate("/favoritos")}
+                  className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors flex items-center gap-2"
+                >
+                  <Heart className="h-4 w-4" />
+                  Favoritos
+                </button>
+              )}
+            </>
           )}
           <Button
             variant="outline"
@@ -53,12 +62,14 @@ export const Header = () => {
           </Button>
           {isAuthenticated ? (
             <div className="flex items-center gap-3">
-              <button
-                onClick={() => navigate("/perfil")}
-                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-              >
-                {user?.name}
-              </button>
+              {!roomMode && (
+                <button
+                  onClick={() => navigate("/perfil")}
+                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  {user?.name}
+                </button>
+              )}
               <Button
                 variant="outline"
                 size="sm"
@@ -85,7 +96,7 @@ export const Header = () => {
         </nav>
 
         <div className="flex items-center gap-2 md:hidden">
-          {isAuthenticated && (
+          {!roomMode && isAuthenticated && (
             <Button
               variant="outline"
               size="icon"
@@ -103,9 +114,20 @@ export const Header = () => {
           >
             {isDark ? <Sun className="h-4 w-4 text-foreground" /> : <Moon className="h-4 w-4 text-foreground" />}
           </Button>
-          <Button variant="ghost" size="icon" className="text-foreground">
-            <Menu className="h-5 w-5" />
-          </Button>
+          {roomMode ? (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-foreground"
+              onClick={onRoomMenuClick}
+            >
+              <Menu className="h-5 w-5" />
+            </Button>
+          ) : (
+            <Button variant="ghost" size="icon" className="text-foreground">
+              <Menu className="h-5 w-5" />
+            </Button>
+          )}
         </div>
       </div>
     </header>
