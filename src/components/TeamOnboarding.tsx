@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, CheckCircle2, Heart, MessageSquare, Shield } from "lucide-react";
+import { ArrowRight, CheckCircle2, MessageSquare, Shield } from "lucide-react";
 
 interface TeamOnboardingProps {
   open: boolean;
@@ -22,10 +22,14 @@ export const TeamOnboarding = ({
 }: TeamOnboardingProps) => {
   const [selectedTeam, setSelectedTeam] = useState<"home" | "away" | "neutral" | null>(null);
 
+  const handleComplete = (team: "home" | "away" | "neutral" | null = selectedTeam) => {
+    onComplete(team || "neutral");
+  };
+
   const teamOptions = [
     { value: "home" as const, label: homeTeam, logo: homeTeamLogo, icon: Shield },
     { value: "away" as const, label: awayTeam, logo: awayTeamLogo, icon: Shield },
-    { value: "neutral" as const, label: "Neutro", logo: null, icon: Heart },
+    { value: "neutral" as const, label: "Neutro", logo: null, icon: null },
   ];
 
   const infoRows = [
@@ -47,7 +51,14 @@ export const TeamOnboarding = ({
   ];
 
   return (
-    <Dialog open={open} onOpenChange={() => {}}>
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen) {
+          handleComplete("neutral");
+        }
+      }}
+    >
       <DialogContent
         className="w-[min(92vw,420px)] border-border bg-background p-5 shadow-[var(--shadow-card)]"
         onInteractOutside={(event) => event.preventDefault()}
@@ -55,7 +66,6 @@ export const TeamOnboarding = ({
         <div className="space-y-4">
           <div className="grid grid-cols-3 gap-2">
             {teamOptions.map((option) => {
-              const Icon = option.icon;
               const isActive = selectedTeam === option.value;
 
               return (
@@ -83,7 +93,9 @@ export const TeamOnboarding = ({
                         isActive ? "bg-foreground/10" : "bg-muted/50"
                       }`}
                     >
-                      <Icon className="h-4 w-4" />
+                      <span className="relative block h-6 w-6 rounded-full bg-slate-500/70">
+                        <span className="absolute left-1/2 top-1/2 h-[2px] w-7 -translate-x-1/2 -translate-y-1/2 -rotate-45 bg-background/90" />
+                      </span>
                     </span>
                   )}
                   <span className="text-sm font-medium leading-tight">{option.label}</span>
@@ -119,7 +131,7 @@ export const TeamOnboarding = ({
           <div className="flex justify-center pt-1">
             <Button
               type="button"
-              onClick={() => selectedTeam && onComplete(selectedTeam)}
+              onClick={() => handleComplete()}
               variant="outline"
               size="icon"
               disabled={!selectedTeam}
