@@ -1,11 +1,10 @@
-import { getMatchesFeed } from "../_lib/matches-read";
-
 export default async function handler(req: any, res: any) {
   if (req.method !== "GET") {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
   try {
+    const { getMatchesFeed } = await import("../_lib/matches-read");
     const sport = ["all", "futebol", "basquete", "volei"].includes(req.query?.sport)
       ? req.query.sport
       : "all";

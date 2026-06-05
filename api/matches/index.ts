@@ -1,11 +1,10 @@
-import { getMatchesByIds, getMatchesFeed } from "../_lib/matches-read";
-
 export default async function handler(req: any, res: any) {
   if (req.method !== "GET") {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
   try {
+    const { getMatchesByIds, getMatchesFeed } = await import("../_lib/matches-read");
     const ids = typeof req.query?.ids === "string" ? req.query.ids.split(",").filter(Boolean) : [];
     if (ids.length > 0) {
       const matches = await getMatchesByIds(ids);

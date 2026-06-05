@@ -1,11 +1,10 @@
-import { getMatchByIdFromDb } from "../_lib/matches-read";
-
 export default async function handler(req: any, res: any) {
   if (req.method !== "GET") {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
   try {
+    const { getMatchByIdFromDb } = await import("../_lib/matches-read");
     const id = req.query?.id || req.params?.id;
     if (!id || typeof id !== "string") {
       return res.status(400).json({ error: "match_id_required" });

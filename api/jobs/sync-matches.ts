@@ -1,5 +1,3 @@
-import { syncLiveMatches, syncMatchesByIds, syncScheduledMatches } from "../_lib/sports-sync";
-
 const isAuthorized = (req: any) => {
   if (process.env.NODE_ENV !== "production") {
     return true;
@@ -23,6 +21,7 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
+    const { syncLiveMatches, syncMatchesByIds, syncScheduledMatches } = await import("../_lib/sports-sync");
     const mode = ["scheduled", "live", "all", "ids"].includes(req.query?.mode)
       ? req.query.mode
       : "scheduled";
