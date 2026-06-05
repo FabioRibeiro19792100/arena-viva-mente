@@ -1,4 +1,4 @@
-import { getMatchesFeed } from "./_lib/matches-read";
+import { getMatchesFeed } from "../_lib/matches-read";
 
 export default async function handler(req: any, res: any) {
   if (req.method !== "GET") {
