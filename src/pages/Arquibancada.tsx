@@ -50,6 +50,7 @@ import { isSupabaseConfigured, supabase } from "@/integrations/supabase/client";
 import { getMatchById, loadMatchById } from "@/lib/runtimeMatches";
 
 const fallbackGame = worldCupMatchMap["wc2026-07"];
+const INITIAL_MESSAGES_LIMIT = 40;
 
 const formatMessageTime = (createdAt: string) =>
   new Intl.DateTimeFormat("pt-BR", {
@@ -131,7 +132,15 @@ const Arquibancada = () => {
     }
 
     try {
-      const nextMessages = await getMatchMessages(activeGame.id);
+      const latestKnownMessage = messagesRef.current[messagesRef.current.length - 1];
+      const nextMessages = await getMatchMessages(
+        activeGame.id,
+        showLoader
+          ? { limit: INITIAL_MESSAGES_LIMIT }
+          : latestKnownMessage
+            ? { after: latestKnownMessage.createdAt }
+            : { limit: INITIAL_MESSAGES_LIMIT },
+      );
       setMessages((current) => mergeMessages(current, nextMessages));
     } catch (error) {
       toast({
@@ -151,13 +160,15 @@ const Arquibancada = () => {
     if (currentStatus !== "live" || isRefreshing || isMessagesLoading) return;
 
     try {
-      const remoteMessages = await getMatchMessages(activeGame.id);
       const currentMessages = messagesRef.current;
-      const currentIds = new Set(currentMessages.map((item) => item.id));
+      const latestKnownMessage = currentMessages[currentMessages.length - 1];
+      const remoteMessages = await getMatchMessages(
+        activeGame.id,
+        latestKnownMessage ? { after: latestKnownMessage.createdAt } : { limit: INITIAL_MESSAGES_LIMIT },
+      );
 
       const unseenMessages = remoteMessages.filter(
         (item) =>
-          !currentIds.has(item.id) &&
           item.userId !== user?.id &&
           !mutedUserIds.includes(item.userId),
       );
@@ -447,7 +458,7 @@ const Arquibancada = () => {
       );
 
       if (!isSupabaseConfigured) {
-        const refreshedMessages = await getMatchMessages(activeGame.id);
+        const refreshedMessages = await getMatchMessages(activeGame.id, { limit: INITIAL_MESSAGES_LIMIT });
         setMessages((current) => mergeMessages(current, refreshedMessages));
       }
     } catch (error) {

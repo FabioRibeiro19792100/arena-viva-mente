@@ -57,6 +57,9 @@ create table if not exists public.messages (
   created_at timestamptz not null default now()
 );
 
+create index if not exists messages_match_id_created_at_idx
+  on public.messages (match_id, created_at);
+
 create table if not exists public.api_feed_cache (
   cache_key text primary key,
   payload jsonb not null,

@@ -15,6 +15,12 @@ export interface MatchMessage {
   createdAt: string;
 }
 
+interface GetMatchMessagesOptions {
+  limit?: number;
+  after?: string | null;
+  before?: string | null;
+}
+
 const LOCAL_TEAM_PREFIX = "arena-viva-mente.match-team";
 const LOCAL_MESSAGES_PREFIX = "arena-viva-mente.match-messages";
 const LOCAL_MUTED_USERS_PREFIX = "arena-viva-mente.match-muted-users";
@@ -33,6 +39,24 @@ const readLocalMessages = (matchId: string): MatchMessage[] => {
   } catch {
     return [];
   }
+};
+
+const filterMessagesWindow = (messages: MatchMessage[], options?: GetMatchMessagesOptions) => {
+  const after = options?.after ? new Date(options.after).getTime() : null;
+  const before = options?.before ? new Date(options.before).getTime() : null;
+
+  let nextMessages = messages.filter((message) => {
+    const createdAt = new Date(message.createdAt).getTime();
+    if (after !== null && createdAt <= after) return false;
+    if (before !== null && createdAt >= before) return false;
+    return true;
+  });
+
+  if (typeof options?.limit === "number" && options.limit > 0) {
+    nextMessages = nextMessages.slice(-options.limit);
+  }
+
+  return nextMessages;
 };
 
 const saveLocalMessages = (matchId: string, messages: MatchMessage[]) => {
@@ -131,18 +155,34 @@ const mapMessageRow = (row: {
   createdAt: row.created_at,
 });
 
-export const getMatchMessages = async (matchId: string): Promise<MatchMessage[]> => {
+export const getMatchMessages = async (
+  matchId: string,
+  options?: GetMatchMessagesOptions,
+): Promise<MatchMessage[]> => {
   if (!isSupabaseConfigured || !supabase || isLocalDevHost()) {
-    return readLocalMessages(matchId);
+    return filterMessagesWindow(readLocalMessages(matchId), options);
   }
 
-  const { data, error } = await supabase
+  let query = supabase
     .from("messages")
     .select(
       "id, user_id, user_name, user_avatar_url, text, team_side, likes_count, dislikes_count, created_at",
     )
-    .eq("match_id", matchId)
-    .order("created_at", { ascending: true });
+    .eq("match_id", matchId);
+
+  if (options?.after) {
+    query = query.gt("created_at", options.after);
+  }
+
+  if (options?.before) {
+    query = query.lt("created_at", options.before);
+  }
+
+  if (typeof options?.limit === "number" && options.limit > 0) {
+    query = query.limit(options.limit);
+  }
+
+  const { data, error } = await query.order("created_at", { ascending: true });
 
   if (error) {
     console.error("Erro ao buscar mensagens no Supabase:", error);
