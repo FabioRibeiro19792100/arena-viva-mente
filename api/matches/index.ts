@@ -1,4 +1,4 @@
-import { getMatchesFeed } from "./_lib/matches-read";
+import { getMatchesByIds, getMatchesFeed } from "../_lib/matches-read";
 
 export default async function handler(req: any, res: any) {
   if (req.method !== "GET") {
@@ -6,6 +6,12 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
+    const ids = typeof req.query?.ids === "string" ? req.query.ids.split(",").filter(Boolean) : [];
+    if (ids.length > 0) {
+      const matches = await getMatchesByIds(ids);
+      return res.status(200).json({ matches, todayMatches: [], apiFeedStatus: null });
+    }
+
     const sport = ["all", "futebol", "basquete", "volei"].includes(req.query?.sport)
       ? req.query.sport
       : "all";
@@ -23,7 +29,7 @@ export default async function handler(req: any, res: any) {
     );
   } catch (error: any) {
     return res.status(500).json({
-      error: "home_feed_failed",
+      error: "matches_read_failed",
       message: error?.message || "Unexpected error",
     });
   }

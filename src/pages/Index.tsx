@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import { Header } from "@/components/Header";
 import { GameCard } from "@/components/GameCard";
 import { Footer } from "@/components/Footer";
-import { getCurrentMatchStatus, parseWorldCupMatchDate, worldCup2026Matches, type WorldCupMatch } from "@/data/worldCup2026";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CalendarDays, Search } from "lucide-react";
@@ -16,72 +15,37 @@ import {
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import {
-  mapApiFixtureToWorldCupMatch,
-  mapApiNbaGameToMatch,
-  mapApiVolleyballGameToMatch,
-  mergeStaticMatchesWithApiFixtures,
-  type ApiFootballFixture,
-  type ApiNbaGame,
-  type ApiVolleyballGame,
-} from "@/lib/apiFootball";
-import { normalizeSearchText, translateTeamLabel } from "@/lib/matchLabels";
+  fetchMatchesFeed,
+  type ApiFeedStatus,
+  type DisplayMatch,
+  type QuickFilterType,
+} from "@/lib/matchesApi";
 import { upsertRuntimeMatches } from "@/lib/runtimeMatches";
 
-type SportType = "futebol" | "basquete" | "volei";
-type DisplayMatch = WorldCupMatch & { sport: SportType };
-type QuickFilterType = "all" | "live" | "soon";
-type ApiFeedStatus = {
-  football: "ok" | "partial" | "offline" | "plan";
-  nba: "ok" | "partial" | "offline" | "limit";
-  volleyball: "ok" | "partial" | "offline" | "limit";
-};
-
-const getSearchableMatchText = (match: DisplayMatch) =>
-  normalizeSearchText(
-    [
-      match.homeTeam,
-      translateTeamLabel(match.homeTeam),
-      match.awayTeam,
-      translateTeamLabel(match.awayTeam),
-      match.stage,
-      match.venue,
-      match.date,
-      match.league,
-    ].join(" "),
-  );
-
-const dedupeMatchesById = (items: DisplayMatch[]) =>
-  Array.from(new Map(items.map((match) => [match.id, match])).values());
-
-const formatApiDate = (date: Date) =>
-  new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/Sao_Paulo",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(date);
-
 const Index = () => {
-  const nbaTestDate = "2026-06-04";
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { toast } = useToast();
   const { user } = useMockAuth();
   const [selectedSport, setSelectedSport] = useState("all");
+  const [selectedLeague, setSelectedLeague] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [quickFilter, setQuickFilter] = useState<QuickFilterType>("all");
   const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
   const [reservedIds, setReservedIds] = useState<string[]>([]);
   const [reservationCounts, setReservationCounts] = useState<Record<string, number>>({});
+  const [isSyncingFeed, setIsSyncingFeed] = useState(false);
+  const [syncTick, setSyncTick] = useState(0);
   const [apiFeedStatus, setApiFeedStatus] = useState<ApiFeedStatus>({
     football: "ok",
     nba: "ok",
     volleyball: "ok",
   });
-  const [matches, setMatches] = useState<DisplayMatch[]>(
-    worldCup2026Matches.map((match) => ({ ...match, sport: "futebol" })),
-  );
+  const [matches, setMatches] = useState<DisplayMatch[]>([]);
   const [todayMatches, setTodayMatches] = useState<DisplayMatch[]>([]);
+  const isLocalhost =
+    typeof window !== "undefined" &&
+    (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
 
   useEffect(() => {
     const quick = searchParams.get("quick");
@@ -131,15 +95,16 @@ const Index = () => {
 
     void (async () => {
       try {
-        const response = await fetch(`/api/feed/home?sport=${selectedSport}&quick=${quickFilter}`);
-        const payload = await response.json();
+        const payload = await fetchMatchesFeed({
+          sport: selectedSport as "all" | "futebol" | "basquete" | "volei",
+          quick: quickFilter,
+          search: searchQuery,
+        });
 
         if (!isActive) return;
 
-        const nextMatches = Array.isArray(payload?.matches) ? (payload.matches as DisplayMatch[]) : [];
-        const nextTodayMatches = Array.isArray(payload?.todayMatches)
-          ? (payload.todayMatches as DisplayMatch[])
-          : [];
+        const nextMatches = Array.isArray(payload?.matches) ? payload.matches : [];
+        const nextTodayMatches = Array.isArray(payload?.todayMatches) ? payload.todayMatches : [];
 
         setMatches(nextMatches);
         setTodayMatches(nextTodayMatches);
@@ -162,80 +127,46 @@ const Index = () => {
     return () => {
       isActive = false;
     };
-  }, [selectedSport, quickFilter]);
+  }, [quickFilter, searchQuery, selectedSport, syncTick]);
 
-  const isMatchStartingSoon = (match: Pick<DisplayMatch, "date" | "startTime" | "status" | "id">) => {
-    const status = getCurrentMatchStatus(match);
-    if (status !== "scheduled") {
-      return false;
-    }
-
-    const kickoff = parseWorldCupMatchDate({ date: match.date, startTime: match.startTime || "" });
-    if (!kickoff) {
-      return false;
-    }
-
-    const now = new Date();
-    const diff = kickoff.getTime() - now.getTime();
-    const sameDay =
-      kickoff.getFullYear() === now.getFullYear() &&
-      kickoff.getMonth() === now.getMonth() &&
-      kickoff.getDate() === now.getDate();
-
-    return diff > 0 && sameDay;
+  const leaguePriority = (league: string) => {
+    if (league === "Copa do Mundo FIFA 2026™") return 0;
+    if (league === "NBA") return 1;
+    if (/nations league/i.test(league)) return 2;
+    return 10;
   };
 
-  const todayMatchIds = useMemo(() => new Set(todayMatches.map((match) => match.id)), [todayMatches]);
-  const allMatches = useMemo(() => [...todayMatches, ...matches], [todayMatches, matches]);
-  const sportScopedMatches = useMemo(
-    () => allMatches.filter((match) => selectedSport === "all" || match.sport === selectedSport),
-    [allMatches, selectedSport],
-  );
-
-  const filteredTodayMatches = useMemo(() => {
-    return todayMatches.filter((match) => {
-      const sportMatch = selectedSport === "all" || match.sport === selectedSport;
-      const quickMatch =
-        quickFilter === "all" ||
-        (quickFilter === "live"
-          ? getCurrentMatchStatus({
-              id: match.id,
-              date: match.date,
-              startTime: match.startTime || "",
-              status: match.status,
-            }) === "live"
-          : isMatchStartingSoon(match));
-      const query = normalizeSearchText(searchQuery);
-      const searchMatch =
-        query === "" || getSearchableMatchText(match).includes(query);
-
-      return sportMatch && quickMatch && searchMatch;
+  const groupMatchesByLeague = (items: DisplayMatch[]) =>
+    Array.from(
+      items.reduce((groups, match) => {
+        const current = groups.get(match.league) || [];
+        current.push(match);
+        groups.set(match.league, current);
+        return groups;
+      }, new Map<string, DisplayMatch[]>()),
+    ).sort(([leagueA], [leagueB]) => {
+      const priorityDelta = leaguePriority(leagueA) - leaguePriority(leagueB);
+      if (priorityDelta !== 0) return priorityDelta;
+      return leagueA.localeCompare(leagueB, "pt-BR");
     });
-  }, [todayMatches, searchQuery, selectedSport, quickFilter]);
 
-  const filteredMatches = useMemo(() => {
-    return matches
-      .filter((match) => !todayMatchIds.has(match.id))
-      .filter((match) => {
-        const sportMatch = selectedSport === "all" || match.sport === selectedSport;
-        const quickMatch =
-          quickFilter === "all" ||
-          (quickFilter === "live"
-            ? getCurrentMatchStatus({
-                id: match.id,
-                date: match.date,
-                startTime: match.startTime || "",
-                status: match.status,
-              }) === "live"
-            : isMatchStartingSoon(match));
-        const query = normalizeSearchText(searchQuery);
-        const searchMatch =
-          query === "" || getSearchableMatchText(match).includes(query);
-
-        return sportMatch && quickMatch && searchMatch;
-      });
-  }, [matches, todayMatchIds, searchQuery, selectedSport, quickFilter]);
-
+  const allMatches = useMemo(() => [...todayMatches, ...matches], [todayMatches, matches]);
+  const availableLeagues = useMemo(
+    () => Array.from(new Set(allMatches.map((match) => match.league))).sort((a, b) => a.localeCompare(b, "pt-BR")),
+    [allMatches],
+  );
+  const filteredTodayMatches = useMemo(
+    () => todayMatches.filter((match) => selectedLeague === "all" || match.league === selectedLeague),
+    [selectedLeague, todayMatches],
+  );
+  const filteredMatches = useMemo(
+    () => matches.filter((match) => selectedLeague === "all" || match.league === selectedLeague),
+    [matches, selectedLeague],
+  );
+  const groupedVisibleMatches = useMemo(
+    () => groupMatchesByLeague([...filteredTodayMatches, ...filteredMatches]),
+    [filteredTodayMatches, filteredMatches],
+  );
   const totalVisibleMatches = filteredTodayMatches.length + filteredMatches.length;
   const apiStatusLabel = (() => {
     if (
@@ -253,6 +184,8 @@ const Index = () => {
           ? "Futebol parcial"
           : apiFeedStatus.football === "plan"
             ? "Futebol indisponível no plano"
+            : apiFeedStatus.football === "suspended"
+              ? "Futebol suspenso"
             : "Futebol offline",
       );
     }
@@ -262,6 +195,8 @@ const Index = () => {
           ? "NBA parcial"
           : apiFeedStatus.nba === "limit"
             ? "NBA no limite diário"
+            : apiFeedStatus.nba === "suspended"
+              ? "NBA suspensa"
             : "NBA offline",
       );
     }
@@ -271,6 +206,8 @@ const Index = () => {
           ? "Vôlei parcial"
           : apiFeedStatus.volleyball === "limit"
             ? "Vôlei no limite diário"
+            : apiFeedStatus.volleyball === "suspended"
+              ? "Vôlei suspenso"
             : "Vôlei offline",
       );
     }
@@ -318,17 +255,20 @@ const Index = () => {
 
   const hasActiveFilters =
     selectedSport !== "all" ||
+    selectedLeague !== "all" ||
     quickFilter !== "all" ||
     searchQuery !== "";
 
   const activeFilterCount = [
     selectedSport !== "all",
+    selectedLeague !== "all",
     quickFilter !== "all",
     searchQuery.trim() !== "",
   ].filter(Boolean).length;
 
   const resetFilters = () => {
     setSelectedSport("all");
+    setSelectedLeague("all");
     setQuickFilter("all");
     setSearchQuery("");
     setSearchParams((current) => {
@@ -350,6 +290,29 @@ const Index = () => {
     });
   };
 
+  const handleManualSync = async () => {
+    try {
+      setIsSyncingFeed(true);
+      const response = await fetch("/api/jobs/sync-matches?mode=live");
+      if (!response.ok) {
+        throw new Error("sync_failed");
+      }
+      setSyncTick((value) => value + 1);
+      toast({
+        title: "Ao vivo sincronizado",
+        description: "Os jogos ao vivo foram atualizados com os dados mais recentes do servidor.",
+      });
+    } catch {
+      toast({
+        title: "Não foi possível sincronizar",
+        description: "Tenta de novo em alguns instantes.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSyncingFeed(false);
+    }
+  };
+
   const getChipLabel = (type: "sport" | "league" | "team" | "date") => {
     if (type === "sport") {
       if (selectedSport === "all") return "Esporte";
@@ -358,24 +321,24 @@ const Index = () => {
       return "Vôlei";
     }
 
+    if (type === "league") {
+      return selectedLeague === "all" ? "Campeonato" : selectedLeague;
+    }
+
     return "Esporte";
   };
 
-  const groupMatchesByLeague = (items: DisplayMatch[]) =>
-    Array.from(
-      items.reduce((groups, match) => {
-        const current = groups.get(match.league) || [];
-        current.push(match);
-        groups.set(match.league, current);
-        return groups;
-      }, new Map<string, DisplayMatch[]>()),
-    );
+  useEffect(() => {
+    if (selectedLeague !== "all" && !availableLeagues.includes(selectedLeague)) {
+      setSelectedLeague("all");
+    }
+  }, [availableLeagues, selectedLeague]);
 
   return (
     <div className="min-h-screen bg-background text-foreground">
       <Header />
 
-      <section className="relative py-12 md:py-16">
+      <section className="relative py-6 md:py-8">
         <div className="container px-6">
           <div className="mb-6 flex flex-wrap items-center gap-3">
             <button
@@ -430,6 +393,20 @@ const Index = () => {
                   </SelectContent>
                 </Select>
 
+                <Select value={selectedLeague} onValueChange={setSelectedLeague}>
+                  <SelectTrigger className="h-11 w-full shrink-0 border-border bg-card text-xs sm:w-[220px]">
+                    <SelectValue>{getChipLabel("league")}</SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos campeonatos</SelectItem>
+                    {availableLeagues.map((league) => (
+                      <SelectItem key={league} value={league}>
+                        {league}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
                 <div className="relative min-w-0 flex-1">
                   <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
@@ -459,14 +436,27 @@ const Index = () => {
                   )}
                 </div>
 
-                {hasActiveFilters && (
-                  <button
-                    onClick={resetFilters}
-                    className="text-sm text-muted-foreground transition-colors hover:text-foreground lg:hidden"
-                  >
-                    Limpar filtros
-                  </button>
-                )}
+                <div className="flex items-center gap-4">
+                  {isLocalhost && (
+                    <button
+                      type="button"
+                      onClick={handleManualSync}
+                      disabled={isSyncingFeed}
+                      className="text-sm text-muted-foreground underline underline-offset-4 transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {isSyncingFeed ? "Sincronizando..." : "Sincronizar agora"}
+                    </button>
+                  )}
+
+                  {hasActiveFilters && (
+                    <button
+                      onClick={resetFilters}
+                      className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+                    >
+                      Limpar filtros
+                    </button>
+                  )}
+                </div>
               </div>
 
               {totalVisibleMatches === 0 ? (
@@ -475,30 +465,28 @@ const Index = () => {
                 </div>
               ) : (
                 <div className="space-y-12">
-                  {[...groupMatchesByLeague(filteredTodayMatches), ...groupMatchesByLeague(filteredMatches)].map(
-                    ([league, leagueMatches]) => (
-                      <section key={league} className="space-y-5">
-                        <div className="space-y-1">
-                          <h2 className="text-2xl font-semibold text-foreground">{league}</h2>
-                        </div>
-                        <div className="grid grid-cols-1 gap-8 md:grid-cols-2 xl:grid-cols-4">
-                          {leagueMatches.map((game) => (
-                            <GameCard
-                              key={game.id}
-                              {...game}
-                              startTime={game.startTime}
-                              hasRoom={true}
-                              isFavorite={favoriteIds.includes(game.id)}
-                              isReserved={reservedIds.includes(game.id)}
-                              reservationCount={reservationCounts[game.id] || 0}
-                              onToggleFavorite={handleToggleFavorite}
-                              onReserveMatch={handleReserveMatch}
-                            />
-                          ))}
-                        </div>
-                      </section>
-                    ),
-                  )}
+                  {groupedVisibleMatches.map(([league, leagueMatches]) => (
+                    <section key={league} className="space-y-5">
+                      <div className="space-y-1">
+                        <h2 className="text-2xl font-semibold text-foreground">{league}</h2>
+                      </div>
+                      <div className="grid grid-cols-1 gap-8 md:grid-cols-2 xl:grid-cols-4">
+                        {leagueMatches.map((game) => (
+                          <GameCard
+                            key={game.id}
+                            {...game}
+                            startTime={game.startTime}
+                            hasRoom={true}
+                            isFavorite={favoriteIds.includes(game.id)}
+                            isReserved={reservedIds.includes(game.id)}
+                            reservationCount={reservationCounts[game.id] || 0}
+                            onToggleFavorite={handleToggleFavorite}
+                            onReserveMatch={handleReserveMatch}
+                          />
+                        ))}
+                      </div>
+                    </section>
+                  ))}
                 </div>
               )}
           </div>

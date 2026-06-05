@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useMockAuth } from "@/contexts/MockAuthContext";
 import {
@@ -7,7 +7,7 @@ import {
   parseWorldCupMatchDate,
 } from "@/data/worldCup2026";
 import { getProductState } from "@/lib/productState";
-import { getMatchById } from "@/lib/runtimeMatches";
+import { getMatchById, hydrateRuntimeMatchesByIds } from "@/lib/runtimeMatches";
 
 const ALERT_WINDOW_MS = 15 * 60 * 1000;
 const ALERT_STORAGE_KEY = "bancada.reservation-reminders.sent";
@@ -34,6 +34,7 @@ export const ReservationReminderManager = () => {
   const { user } = useMockAuth();
   const { toast } = useToast();
   const [reservedMatchIds, setReservedMatchIds] = useState<string[]>([]);
+  const [reservedMatches, setReservedMatches] = useState<NonNullable<ReturnType<typeof getMatchById>>[]>([]);
   const sentAlertsRef = useRef<Record<string, true>>(readSentAlerts());
 
   useEffect(() => {
@@ -62,13 +63,27 @@ export const ReservationReminderManager = () => {
     };
   }, [user]);
 
-  const reservedMatches = useMemo(
-    () =>
-      reservedMatchIds
-        .map((matchId) => getMatchById(matchId))
-        .filter(Boolean),
-    [reservedMatchIds],
-  );
+  useEffect(() => {
+    if (reservedMatchIds.length === 0) {
+      setReservedMatches([]);
+      return;
+    }
+
+    let isActive = true;
+
+    void (async () => {
+      await hydrateRuntimeMatchesByIds(reservedMatchIds);
+      if (isActive) {
+        setReservedMatches(
+          reservedMatchIds.map((matchId) => getMatchById(matchId)).filter(Boolean),
+        );
+      }
+    })();
+
+    return () => {
+      isActive = false;
+    };
+  }, [reservedMatchIds]);
 
   useEffect(() => {
     if (!user || reservedMatches.length === 0 || typeof window === "undefined") {

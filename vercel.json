@@ -1,4 +1,10 @@
 {
+  "crons": [
+    {
+      "path": "/api/jobs/sync-matches?mode=scheduled",
+      "schedule": "0 6 * * *"
+    }
+  ],
   "rewrites": [
     {
       "source": "/api/(.*)",

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, CheckCircle2, MessageSquare, Shield } from "lucide-react";
+import { toProxiedAssetUrl } from "@/lib/media";
 
 interface TeamOnboardingProps {
   open: boolean;
@@ -82,7 +83,7 @@ export const TeamOnboarding = ({
                   {option.logo ? (
                     <span className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-full transition-all">
                       <img
-                        src={option.logo}
+                        src={toProxiedAssetUrl(option.logo)}
                         alt={option.label}
                         className="h-full w-full object-cover"
                       />

@@ -47,7 +47,7 @@ import {
   type TeamSide,
 } from "@/lib/arquibancada";
 import { isSupabaseConfigured, supabase } from "@/integrations/supabase/client";
-import { getMatchById } from "@/lib/runtimeMatches";
+import { getMatchById, loadMatchById } from "@/lib/runtimeMatches";
 
 const fallbackGame = worldCupMatchMap["wc2026-07"];
 
@@ -97,10 +97,29 @@ const Arquibancada = () => {
   const feedWrapperRef = useRef<HTMLDivElement>(null);
   const touchStartYRef = useRef<number | null>(null);
   const messagesRef = useRef<MatchMessage[]>([]);
-  const game = getMatchById(id) || fallbackGame;
-  const currentStatus = getCurrentMatchStatus(game);
-  const statusLabel = getMatchStatusLabel(game);
-  const hasPostGameSummary = isSummaryAvailableForMatch(game);
+  const [game, setGame] = useState(() => getMatchById(id) || (id?.startsWith("api-") ? null : fallbackGame));
+  const isLoadingGame = !game && Boolean(id?.startsWith("api-"));
+  const activeGame = game || fallbackGame;
+  const currentStatus = getCurrentMatchStatus(activeGame);
+  const statusLabel = getMatchStatusLabel(activeGame);
+  const hasPostGameSummary = isSummaryAvailableForMatch(activeGame);
+
+  useEffect(() => {
+    let isActive = true;
+
+    void (async () => {
+      const nextMatch = await loadMatchById(id);
+      if (isActive && nextMatch) {
+        setGame(nextMatch);
+      } else if (isActive && !id?.startsWith("api-")) {
+        setGame(fallbackGame);
+      }
+    })();
+
+    return () => {
+      isActive = false;
+    };
+  }, [id]);
 
   const refreshMessages = async ({ showLoader = false }: { showLoader?: boolean } = {}) => {
     if (currentStatus !== "live") return;
@@ -112,7 +131,7 @@ const Arquibancada = () => {
     }
 
     try {
-      const nextMessages = await getMatchMessages(game.id);
+      const nextMessages = await getMatchMessages(activeGame.id);
       setMessages((current) => mergeMessages(current, nextMessages));
     } catch (error) {
       toast({
@@ -132,7 +151,7 @@ const Arquibancada = () => {
     if (currentStatus !== "live" || isRefreshing || isMessagesLoading) return;
 
     try {
-      const remoteMessages = await getMatchMessages(game.id);
+      const remoteMessages = await getMatchMessages(activeGame.id);
       const currentMessages = messagesRef.current;
       const currentIds = new Set(currentMessages.map((item) => item.id));
 
@@ -156,11 +175,13 @@ const Arquibancada = () => {
   }, [messages]);
 
   useEffect(() => {
+    if (isLoadingGame) return;
     if (!user) return;
-    void addHistoryEntry(user.id, game.id, "arquibancada");
-  }, [game.id, user]);
+    void addHistoryEntry(user.id, activeGame.id, "arquibancada");
+  }, [activeGame.id, isLoadingGame, user]);
 
   useEffect(() => {
+    if (isLoadingGame) return;
     if (!user) {
       setMutedUserIds([]);
       return;
@@ -169,7 +190,7 @@ const Arquibancada = () => {
     let isActive = true;
 
     void (async () => {
-      const nextMutedUsers = await getMutedUsers(user.id, game.id);
+      const nextMutedUsers = await getMutedUsers(user.id, activeGame.id);
       if (isActive) {
         setMutedUserIds(nextMutedUsers);
       }
@@ -178,12 +199,13 @@ const Arquibancada = () => {
     return () => {
       isActive = false;
     };
-  }, [game.id, user]);
+  }, [activeGame.id, isLoadingGame, user]);
 
   useEffect(() => {
+    if (isLoadingGame) return;
     let isActive = true;
 
-    if (game.apiSource && game.apiSource !== "football") {
+    if (activeGame.apiSource && activeGame.apiSource !== "football") {
       setInsights(null);
       setIsInsightsLoading(false);
       return;
@@ -193,7 +215,7 @@ const Arquibancada = () => {
 
     void (async () => {
       try {
-        const nextInsights = await fetchFootballMatchInsights(game);
+        const nextInsights = await fetchFootballMatchInsights(activeGame.id);
         if (!isActive) return;
         setInsights(nextInsights);
       } catch {
@@ -209,17 +231,10 @@ const Arquibancada = () => {
     return () => {
       isActive = false;
     };
-  }, [
-    game.id,
-    game.apiSource,
-    game.apiFixtureId,
-    game.apiHomeTeamId,
-    game.apiAwayTeamId,
-    game.apiLeagueId,
-    game.apiSeason,
-  ]);
+  }, [activeGame.id, activeGame.apiSource, isLoadingGame]);
 
   useEffect(() => {
+    if (isLoadingGame) return;
     if (!user) return;
     if (currentStatus !== "live") {
       setShowOnboarding(false);
@@ -229,7 +244,7 @@ const Arquibancada = () => {
     let isActive = true;
 
     void (async () => {
-      const savedTeam = await getMatchPreference(user.id, game.id);
+      const savedTeam = await getMatchPreference(user.id, activeGame.id);
       if (!isActive) return;
 
       if (savedTeam) {
@@ -243,9 +258,10 @@ const Arquibancada = () => {
     return () => {
       isActive = false;
     };
-  }, [currentStatus, game.id, user]);
+  }, [activeGame.id, currentStatus, isLoadingGame, user]);
 
   useEffect(() => {
+    if (isLoadingGame) return;
     if (currentStatus !== "live") {
       setMessages([]);
       setIsMessagesLoading(false);
@@ -254,22 +270,23 @@ const Arquibancada = () => {
     }
 
     void refreshMessages({ showLoader: true });
-  }, [currentStatus, game.id]);
+  }, [activeGame.id, currentStatus, isLoadingGame]);
 
   useEffect(() => {
+    if (isLoadingGame) return;
     if (currentStatus !== "live" || !isSupabaseConfigured || !supabase) {
       return;
     }
 
     const channel = supabase
-      .channel(`match-messages-indicator-${game.id}`)
+      .channel(`match-messages-indicator-${activeGame.id}`)
       .on(
         "postgres_changes",
         {
           event: "INSERT",
           schema: "public",
           table: "messages",
-          filter: `match_id=eq.${game.id}`,
+          filter: `match_id=eq.${activeGame.id}`,
         },
         (payload) => {
           const row = payload.new as { id: string; user_id: string };
@@ -286,9 +303,10 @@ const Arquibancada = () => {
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [currentStatus, game.id, user?.id]);
+  }, [activeGame.id, currentStatus, isLoadingGame, user?.id]);
 
   useEffect(() => {
+    if (isLoadingGame) return;
     if (currentStatus !== "live") {
       return;
     }
@@ -300,9 +318,10 @@ const Arquibancada = () => {
     return () => {
       window.clearInterval(interval);
     };
-  }, [currentStatus, game.id, isMessagesLoading, isRefreshing, user?.id]);
+  }, [activeGame.id, currentStatus, isLoadingGame, isMessagesLoading, isRefreshing, user?.id]);
 
   useEffect(() => {
+    if (isLoadingGame) return;
     if (currentStatus !== "live") return;
 
     const handleVisibilityChange = () => {
@@ -318,7 +337,7 @@ const Arquibancada = () => {
       window.removeEventListener("focus", handleVisibilityChange);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [currentStatus, game.id, isMessagesLoading, isRefreshing, user?.id]);
+  }, [activeGame.id, currentStatus, isLoadingGame, isMessagesLoading, isRefreshing, user?.id]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -414,7 +433,7 @@ const Arquibancada = () => {
       setCooldown(3);
 
       const sentMessage = await sendMatchMessage({
-        matchId: game.id,
+        matchId: activeGame.id,
         user,
         text: trimmedMessage,
         teamSide: currentUserTeam,
@@ -428,7 +447,7 @@ const Arquibancada = () => {
       );
 
       if (!isSupabaseConfigured) {
-        const refreshedMessages = await getMatchMessages(game.id);
+        const refreshedMessages = await getMatchMessages(activeGame.id);
         setMessages((current) => mergeMessages(current, refreshedMessages));
       }
     } catch (error) {
@@ -481,7 +500,7 @@ const Arquibancada = () => {
     if (!user) return;
 
     void (async () => {
-      await saveMatchPreference(user.id, game.id, team);
+      await saveMatchPreference(user.id, activeGame.id, team);
       setCurrentUserTeam(team);
       setShowOnboarding(false);
     })();
@@ -489,10 +508,10 @@ const Arquibancada = () => {
 
   const getTeamIdentity = (team: string) => {
     if (team === "homeTeam" || team === "home") {
-      return { label: game.homeTeam, logo: game.homeTeamLogo, tone: "home" as const };
+      return { label: activeGame.homeTeam, logo: activeGame.homeTeamLogo, tone: "home" as const };
     }
     if (team === "awayTeam" || team === "away") {
-      return { label: game.awayTeam, logo: game.awayTeamLogo, tone: "away" as const };
+      return { label: activeGame.awayTeam, logo: activeGame.awayTeamLogo, tone: "away" as const };
     }
     return { label: "Neutro", logo: null, tone: "neutral" as const };
   };
@@ -507,11 +526,22 @@ const Arquibancada = () => {
     (msg) => activeTeamFilters.includes(msg.teamSide) && !mutedUserIds.includes(msg.userId),
   );
 
+  if (isLoadingGame) {
+    return (
+      <div className="min-h-screen bg-background text-foreground">
+        <Header />
+        <div className="container mx-auto flex min-h-[60vh] items-center justify-center px-6">
+          <p className="text-sm text-muted-foreground">Carregando sala...</p>
+        </div>
+      </div>
+    );
+  }
+
   const handleToggleMutedUser = (mutedUserId: string, userName: string) => {
     if (!user || mutedUserId === user.id) return;
 
     void (async () => {
-      const nextMutedUsers = await toggleMutedUser(user.id, game.id, mutedUserId);
+      const nextMutedUsers = await toggleMutedUser(user.id, activeGame.id, mutedUserId);
       const didMute = nextMutedUsers.includes(mutedUserId);
       setMutedUserIds(nextMutedUsers);
       setPendingMessageCount(0);
@@ -839,10 +869,10 @@ const Arquibancada = () => {
         <TeamOnboarding
           open={showOnboarding}
           onComplete={handleOnboardingComplete}
-          homeTeam={game.homeTeam}
-          awayTeam={game.awayTeam}
-          homeTeamLogo={game.homeTeamLogo}
-          awayTeamLogo={game.awayTeamLogo}
+          homeTeam={activeGame.homeTeam}
+          awayTeam={activeGame.awayTeam}
+          homeTeamLogo={activeGame.homeTeamLogo}
+          awayTeamLogo={activeGame.awayTeamLogo}
         />
       )}
 
@@ -867,11 +897,11 @@ const Arquibancada = () => {
               </div>
 
               <div className="flex flex-wrap gap-3">
-                <Button onClick={() => navigate(`/booking/${game.id}`)}>
+                <Button onClick={() => navigate(`/booking/${activeGame.id}`)}>
                   {currentStatus === "scheduled" ? "Reservar sala" : "Ver partida"}
                 </Button>
                 {currentStatus === "ended" && hasPostGameSummary && (
-                  <Button variant="outline" onClick={() => navigate(`/resumo/${game.id}`)}>
+                  <Button variant="outline" onClick={() => navigate(`/resumo/${activeGame.id}`)}>
                     Ver highlights
                   </Button>
                 )}
@@ -900,8 +930,8 @@ const Arquibancada = () => {
                 {[
                   {
                     value: "home" as const,
-                    label: game.homeTeam,
-                    logo: game.homeTeamLogo,
+                    label: activeGame.homeTeam,
+                    logo: activeGame.homeTeamLogo,
                   },
                   {
                     value: "neutral" as const,
@@ -910,8 +940,8 @@ const Arquibancada = () => {
                   },
                   {
                     value: "away" as const,
-                    label: game.awayTeam,
-                    logo: game.awayTeamLogo,
+                    label: activeGame.awayTeam,
+                    logo: activeGame.awayTeamLogo,
                   },
                 ].map((option) => {
                   const isActive = activeTeamFilters.includes(option.value);

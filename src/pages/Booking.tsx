@@ -17,7 +17,7 @@ import {
 } from "@/data/worldCup2026";
 import { useMockAuth } from "@/contexts/MockAuthContext";
 import { addHistoryEntry, addReservation, getProductState, removeReservation } from "@/lib/productState";
-import { getMatchById } from "@/lib/runtimeMatches";
+import { getMatchById, loadMatchById } from "@/lib/runtimeMatches";
 
 const fallbackMatch = worldCupMatchMap["wc2026-07"];
 
@@ -26,11 +26,12 @@ const Booking = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user } = useMockAuth();
-  const game = getMatchById(id) || fallbackMatch;
-  const hasPostGameSummary = isSummaryAvailableForMatch(game);
-  const currentStatus = getCurrentMatchStatus(game);
-  const availableSpots = getMatchAvailableSpots(game);
-  const kickoff = parseWorldCupMatchDate(game);
+  const [game, setGame] = useState(() => getMatchById(id) || (id?.startsWith("api-") ? null : fallbackMatch));
+  const activeGame = game || fallbackMatch;
+  const hasPostGameSummary = isSummaryAvailableForMatch(activeGame);
+  const currentStatus = getCurrentMatchStatus(activeGame);
+  const availableSpots = getMatchAvailableSpots(activeGame);
+  const kickoff = parseWorldCupMatchDate(activeGame);
   const [countdown, setCountdown] = useState(() => {
     if (!kickoff) return 0;
     return Math.max(0, Math.floor((kickoff.getTime() - Date.now()) / 1000));
@@ -38,6 +39,21 @@ const Booking = () => {
   const [isBooking, setIsBooking] = useState(false);
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
   const [isReserved, setIsReserved] = useState(false);
+
+  useEffect(() => {
+    let isActive = true;
+
+    void (async () => {
+      const nextMatch = await loadMatchById(id);
+      if (isActive && nextMatch) {
+        setGame(nextMatch);
+      }
+    })();
+
+    return () => {
+      isActive = false;
+    };
+  }, [id]);
 
   useEffect(() => {
     if (!kickoff || currentStatus !== "scheduled") {
@@ -55,11 +71,11 @@ const Booking = () => {
   useEffect(() => {
     if (!user) return;
     void (async () => {
-      await addHistoryEntry(user.id, game.id, "booking");
+      await addHistoryEntry(user.id, activeGame.id, "booking");
       const state = await getProductState(user.id);
-      setIsReserved(state.reservations.some((reservation) => reservation.matchId === game.id));
+      setIsReserved(state.reservations.some((reservation) => reservation.matchId === activeGame.id));
     })();
-  }, [game.id, user]);
+  }, [activeGame.id, user]);
 
   const formatTime = (seconds: number) => {
     const hours = Math.floor(seconds / 3600);
@@ -74,7 +90,7 @@ const Booking = () => {
 
     setTimeout(() => {
       void (async () => {
-        await addReservation(user.id, game.id);
+        await addReservation(user.id, activeGame.id);
         setIsReserved(true);
         setIsBooking(false);
         setShowSuccessDialog(true);
@@ -89,14 +105,14 @@ const Booking = () => {
   const handleContinueToArquibancada = () => {
     setShowSuccessDialog(false);
     if (currentStatus === "live") {
-      navigate(`/arquibancada/${game.id}`);
+      navigate(`/arquibancada/${activeGame.id}`);
     }
   };
 
   const handleCancelReservation = () => {
     if (!user) return;
     void (async () => {
-      await removeReservation(user.id, game.id);
+      await removeReservation(user.id, activeGame.id);
       setIsReserved(false);
       toast({
         title: "Reserva cancelada",
@@ -104,6 +120,18 @@ const Booking = () => {
       });
     })();
   };
+
+  if (!game && id?.startsWith("api-")) {
+    return (
+      <div className="min-h-screen bg-background text-foreground">
+        <Header />
+        <div className="container mx-auto flex min-h-[60vh] items-center justify-center px-6">
+          <p className="text-sm text-muted-foreground">Carregando jogo...</p>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -114,29 +142,29 @@ const Booking = () => {
           <div className="bg-gradient-to-br from-primary/5 via-background to-muted/80 p-8">
             <div className="mb-6 flex justify-center">
               <span className="border border-border/80 bg-background/60 px-3 py-1 text-[11px] font-medium tracking-[0.08em] text-muted-foreground">
-                {game.league}
+                {activeGame.league}
               </span>
             </div>
 
             <div className="flex items-center justify-center gap-8">
               <div className="flex flex-col items-center gap-3">
-                <img src={game.homeTeamLogo} alt={game.homeTeam} className="h-20 w-20 object-contain" />
-                <span className="font-bold text-foreground">{game.homeTeam}</span>
+                <img src={activeGame.homeTeamLogo} alt={activeGame.homeTeam} className="h-20 w-20 object-contain" />
+                <span className="font-bold text-foreground">{activeGame.homeTeam}</span>
               </div>
 
               <div className="text-3xl font-bold text-muted-foreground">VS</div>
 
               <div className="flex flex-col items-center gap-3">
-                <img src={game.awayTeamLogo} alt={game.awayTeam} className="h-20 w-20 object-contain" />
-                <span className="font-bold text-foreground">{game.awayTeam}</span>
+                <img src={activeGame.awayTeamLogo} alt={activeGame.awayTeam} className="h-20 w-20 object-contain" />
+                <span className="font-bold text-foreground">{activeGame.awayTeam}</span>
               </div>
             </div>
 
             <p className="mt-6 text-center text-lg font-semibold text-foreground">
-              {game.date} às {formatBrasiliaTime(game.startTime)}
+              {activeGame.date} às {formatBrasiliaTime(activeGame.startTime)}
             </p>
             <p className="mt-2 text-center text-sm text-muted-foreground">
-              {game.stage} • {game.venue}
+              {activeGame.stage} • {activeGame.venue}
             </p>
           </div>
 
@@ -166,7 +194,7 @@ const Booking = () => {
               <Button
                 variant="outline"
                 className="h-12 w-full"
-                onClick={() => navigate(`/resumo/${game.id}`)}
+                onClick={() => navigate(`/resumo/${activeGame.id}`)}
               >
                 Ver highlights do jogo
               </Button>
@@ -219,7 +247,7 @@ const Booking = () => {
               Sala reservada
             </DialogTitle>
             <DialogDescription>
-              Sua reserva para {game.homeTeam} x {game.awayTeam} já está salva.
+              Sua reserva para {activeGame.homeTeam} x {activeGame.awayTeam} já está salva.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">

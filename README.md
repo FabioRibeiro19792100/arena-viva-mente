@@ -1,73 +1,99 @@
-# Welcome to your Lovable project
+# Bancada
 
-## Project info
+Aplicação web para acompanhar eventos esportivos, reservar salas e participar da conversa ao vivo.
 
-**URL**: https://lovable.dev/projects/4d4b341f-62cd-42ad-a192-0781a96d1edf
+## Stack
 
-## How can I edit this code?
+- Vite
+- React
+- TypeScript
+- Tailwind
+- Supabase
+- Vercel
 
-There are several ways of editing your application.
+## Modelo atual de dados esportivos
 
-**Use Lovable**
+O projeto foi refatorado para um modelo **server-first com persistência**.
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/4d4b341f-62cd-42ad-a192-0781a96d1edf) and start prompting.
+### Regras principais
 
-Changes made via Lovable will be committed automatically to this repo.
+- o frontend **não chama** a API esportiva externa
+- o backend é o único responsável por consultar a API-Sports
+- os jogos são persistidos no Supabase
+- o frontend lê apenas:
+  - `/api/matches`
+  - `/api/matches/:id`
+  - `/api/matches/:id/insights`
+- atualização de dados acontece por job agendado
 
-**Use your preferred IDE**
+### Tabelas relevantes
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+Definidas em [supabase/schema.sql](/Users/fabioribeiro/Documents/ArquiDigital/arena-viva-mente/supabase/schema.sql):
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+- `sports_matches`
+- `sports_sync_status`
+- `match_insights_cache`
 
-Follow these steps:
+## Jobs agendados
+
+Configurados em [vercel.json](/Users/fabioribeiro/Documents/ArquiDigital/arena-viva-mente/vercel.json):
+
+- `scheduled`: `0 6 * * *`
+  - atualiza agenda e próximos jogos `1x por dia`
+
+Isso significa que **não existe request externo por usuário**.  
+Quem sincroniza é o servidor, em intervalos centrais.
+
+No momento, o sync de `ao vivo` não roda por cron.
+
+- em produção: fica desativado
+- em localhost: pode ser disparado manualmente pelo botão `Sincronizar agora`
+
+## Endpoints internos
+
+- `/api/matches`
+- `/api/matches/:id`
+- `/api/matches/:id/insights`
+- `/api/jobs/sync-matches`
+- `/api/assets/logo`
+
+## Variáveis de ambiente
+
+Exemplo em [.env.example](/Users/fabioribeiro/Documents/ArquiDigital/arena-viva-mente/.env.example).
+
+As principais para o backend:
+
+- `SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `API_SPORTS_KEY`
+- `CRON_SECRET`
+
+As variáveis públicas do frontend:
+
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_ANON_KEY`
+
+## Desenvolvimento local
 
 ```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+npm install
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+Servidor local:
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+- [http://localhost:8080](http://localhost:8080)
 
-**Use GitHub Codespaces**
+No localhost, a home expõe um atalho `Sincronizar agora` para disparar manualmente o job e recarregar o feed persistido.
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+## Fluxo resumido
 
-## What technologies are used for this project?
+1. o job consulta futebol, NBA e vôlei no backend
+2. o backend normaliza e grava em `sports_matches`
+3. a home e as outras telas leem do banco via `/api/matches`
+4. favoritos, reservas e salas reidratam jogos pelo mesmo backend
 
-This project is built with:
+## Observações
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/4d4b341f-62cd-42ad-a192-0781a96d1edf) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+- se uma fonte externa cair, o frontend continua lendo o último snapshot persistido
+- logos e bandeiras passam por `/api/assets/logo` para reduzir falhas de host externo no navegador

@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
@@ -11,14 +11,14 @@ import matchLive from "@/assets/match-live.jpg";
 import { isSummaryAvailableForMatch, worldCupMatchMap, worldCupSummaries } from "@/data/worldCup2026";
 import { useMockAuth } from "@/contexts/MockAuthContext";
 import { addHistoryEntry } from "@/lib/productState";
-import { getMatchById } from "@/lib/runtimeMatches";
+import { getMatchById, loadMatchById } from "@/lib/runtimeMatches";
 
 const Resumo = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user } = useMockAuth();
-  const runtimeMatch = getMatchById(id);
+  const [runtimeMatch, setRuntimeMatch] = useState(() => getMatchById(id));
   const selectedSummary =
     worldCupSummaries.find((item) => item.id === id) ||
     (runtimeMatch
@@ -36,6 +36,21 @@ const Resumo = () => {
       : worldCupSummaries[0]);
   const selectedMatch = runtimeMatch || worldCupMatchMap[selectedSummary.id] || worldCupMatchMap["wc2026-07"];
   const isSummaryAvailable = isSummaryAvailableForMatch(selectedMatch);
+
+  useEffect(() => {
+    let isActive = true;
+
+    void (async () => {
+      const nextMatch = await loadMatchById(id);
+      if (isActive && nextMatch) {
+        setRuntimeMatch(nextMatch);
+      }
+    })();
+
+    return () => {
+      isActive = false;
+    };
+  }, [id]);
 
   useEffect(() => {
     if (!user || !isSummaryAvailable) return;
@@ -116,6 +131,18 @@ const Resumo = () => {
       description: "Compartilhe esse resumo com sua torcida.",
     });
   };
+
+  if (!runtimeMatch && id?.startsWith("api-")) {
+    return (
+      <div className="min-h-screen bg-background text-foreground">
+        <Header />
+        <div className="container mx-auto flex min-h-[60vh] items-center justify-center px-6">
+          <p className="text-sm text-muted-foreground">Carregando resumo...</p>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
 
   if (!isSummaryAvailable) {
     return (

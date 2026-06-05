@@ -248,13 +248,13 @@ const testMatch: WorldCupMatch = {
 };
 
 const officialWorldCupMatches: WorldCupMatch[] = rawMatches.map(
-  ([id, stage, homeTeam, awayTeam, date, startTime, venue, statusLabel], index) => ({
+  ([id, stage, homeTeam, awayTeam, date, startTime, venue, statusLabel]) => ({
     id,
     homeTeam,
     awayTeam,
     league: "Copa do Mundo FIFA 2026™",
     stage,
-    status: index === 0 ? "live" : "scheduled",
+    status: "scheduled",
     statusLabel,
     date,
     startTime,

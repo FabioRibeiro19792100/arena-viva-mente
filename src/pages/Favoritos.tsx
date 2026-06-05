@@ -96,7 +96,7 @@ const Favoritos = () => {
                   key={game.id}
                   {...game}
                   startTime={game.startTime}
-                  hasRoom={game.id.startsWith("wc2026")}
+                  hasRoom={true}
                   isFavorite={productState.favorites.includes(game.id)}
                   isReserved={productState.reservations.some((reservation) => reservation.matchId === game.id)}
                   reservationCount={reservationCounts[game.id] || 0}

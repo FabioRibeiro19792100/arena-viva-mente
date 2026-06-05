@@ -65,6 +65,60 @@ create table if not exists public.api_feed_cache (
   expires_at timestamptz not null
 );
 
+create table if not exists public.sports_matches (
+  id text primary key,
+  provider text not null check (provider in ('internal', 'football', 'nba', 'volleyball')),
+  provider_match_id text,
+  sport text not null check (sport in ('futebol', 'basquete', 'volei')),
+  league_name text not null,
+  country_name text,
+  stage text not null,
+  home_team text not null,
+  away_team text not null,
+  home_logo text,
+  away_logo text,
+  starts_at timestamptz not null,
+  timezone text not null default 'America/Sao_Paulo',
+  status text not null check (status in ('scheduled', 'live', 'ended')),
+  status_detail text,
+  home_score integer,
+  away_score integer,
+  live_clock text,
+  venue text,
+  city text,
+  has_room boolean not null default false,
+  league_external_id integer,
+  season integer,
+  home_team_external_id integer,
+  away_team_external_id integer,
+  raw_payload jsonb,
+  last_synced_at timestamptz not null default now(),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (provider, provider_match_id)
+);
+
+create index if not exists sports_matches_sport_starts_at_idx
+  on public.sports_matches (sport, starts_at);
+
+create index if not exists sports_matches_status_starts_at_idx
+  on public.sports_matches (status, starts_at);
+
+create table if not exists public.sports_sync_status (
+  sport text primary key check (sport in ('futebol', 'basquete', 'volei')),
+  mode text not null check (mode in ('scheduled', 'live', 'manual')),
+  status text not null check (status in ('ok', 'partial', 'offline', 'plan', 'limit', 'suspended')),
+  message text,
+  last_synced_at timestamptz not null default now()
+);
+
+create table if not exists public.match_insights_cache (
+  match_id text primary key references public.sports_matches(id) on delete cascade,
+  payload jsonb not null,
+  fetched_at timestamptz not null default now(),
+  expires_at timestamptz not null
+);
+
 alter table public.profiles enable row level security;
 alter table public.favorites enable row level security;
 alter table public.reservations enable row level security;

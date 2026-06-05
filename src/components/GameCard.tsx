@@ -10,6 +10,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { CheckCheck, Heart, Share2, Sparkles, Ticket } from "lucide-react";
 import { translateTeamLabel } from "@/lib/matchLabels";
+import { toProxiedAssetUrl } from "@/lib/media";
 
 const isPlaceholderTeam = (team: string) =>
   /^Winner Match /i.test(team) ||
@@ -70,9 +71,10 @@ const TeamMark = ({
 
   return (
     <img
-      src={src}
+      src={toProxiedAssetUrl(src)}
       alt={alt}
       className="h-16 w-auto max-w-[88px] object-contain drop-shadow-sm sm:h-20 sm:max-w-[104px]"
+      loading="lazy"
       onError={() => setHasImageError(true)}
     />
   );

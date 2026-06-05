@@ -1,5 +1,5 @@
-import type { MatchStatus, WorldCupMatch } from "@/data/worldCup2026";
-import { normalizeSearchText, translateTeamLabel } from "@/lib/matchLabels";
+import type { MatchStatus, WorldCupMatch } from "../data/worldCup2026";
+import { normalizeSearchText, translateTeamLabel } from "./matchLabels";
 
 export interface ApiFootballFixture {
   fixture: {
@@ -183,6 +183,68 @@ const nationalTeamFlags: Record<string, string> = {
   Israel: flag("il"),
   Denmark: flag("dk"),
   Congo: flag("cg"),
+  Ukraine: flag("ua"),
+  Iceland: flag("is"),
+  Slovenia: flag("si"),
+  Montenegro: flag("me"),
+  Wales: flag("gb-wls"),
+  Poland: flag("pl"),
+  Italy: flag("it"),
+  Serbia: flag("rs"),
+  Georgia: flag("ge"),
+  Bahrain: flag("bh"),
+  Belarus: flag("by"),
+  Syria: flag("sy"),
+  Greece: flag("gr"),
+  Finland: flag("fi"),
+  Slovakia: flag("sk"),
+  Hungary: flag("hu"),
+  Romania: flag("ro"),
+  Latvia: flag("lv"),
+};
+
+const normalizeNationalTeamName = (teamName: string) =>
+  teamName
+    .replace(/\s+\((?:W|Women)\)$/i, "")
+    .replace(/\s+W$/i, "")
+    .replace(/\s+Women$/i, "")
+    .replace(/\s+U\d{2}$/i, "")
+    .replace(/\s+Olympic$/i, "")
+    .trim();
+
+const nbaLogo = (slug: string) => `https://a.espncdn.com/i/teamlogos/nba/500/scoreboard/${slug}.png`;
+
+const nbaTeamLogos: Record<string, string> = {
+  "Atlanta Hawks": nbaLogo("atl"),
+  "Boston Celtics": nbaLogo("bos"),
+  "Brooklyn Nets": nbaLogo("bkn"),
+  "Charlotte Hornets": nbaLogo("cha"),
+  "Chicago Bulls": nbaLogo("chi"),
+  "Cleveland Cavaliers": nbaLogo("cle"),
+  "Dallas Mavericks": nbaLogo("dal"),
+  "Denver Nuggets": nbaLogo("den"),
+  "Detroit Pistons": nbaLogo("det"),
+  "Golden State Warriors": nbaLogo("gs"),
+  "Houston Rockets": nbaLogo("hou"),
+  "Indiana Pacers": nbaLogo("ind"),
+  "LA Clippers": nbaLogo("lac"),
+  "Los Angeles Lakers": nbaLogo("lal"),
+  "Memphis Grizzlies": nbaLogo("mem"),
+  "Miami Heat": nbaLogo("mia"),
+  "Milwaukee Bucks": nbaLogo("mil"),
+  "Minnesota Timberwolves": nbaLogo("min"),
+  "New Orleans Pelicans": nbaLogo("no"),
+  "New York Knicks": nbaLogo("ny"),
+  "Oklahoma City Thunder": nbaLogo("okc"),
+  "Orlando Magic": nbaLogo("orl"),
+  "Philadelphia 76ers": nbaLogo("phi"),
+  "Phoenix Suns": nbaLogo("phx"),
+  "Portland Trail Blazers": nbaLogo("por"),
+  "Sacramento Kings": nbaLogo("sac"),
+  "San Antonio Spurs": nbaLogo("sa"),
+  "Toronto Raptors": nbaLogo("tor"),
+  "Utah Jazz": nbaLogo("utah"),
+  "Washington Wizards": nbaLogo("wsh"),
 };
 
 const formatPtBrDate = (value: string) =>
@@ -222,7 +284,7 @@ const buildNbaVenue = (game: ApiNbaGame) => {
   return parts.join(", ");
 };
 
-const mapApiStatus = (shortStatus: string): MatchStatus => {
+export const mapApiStatus = (shortStatus: string): MatchStatus => {
   const normalized = shortStatus.toUpperCase();
 
   if (["FT", "AET", "PEN", "CANC", "PST", "ABD", "AWD", "WO"].includes(normalized)) {
@@ -236,7 +298,7 @@ const mapApiStatus = (shortStatus: string): MatchStatus => {
   return "live";
 };
 
-const buildFootballLiveDetail = (fixture: ApiFootballFixture, status: MatchStatus) => {
+export const buildFootballLiveDetail = (fixture: ApiFootballFixture, status: MatchStatus) => {
   if (status !== "live") return undefined;
 
   const elapsed = fixture.fixture.status.elapsed;
@@ -247,7 +309,7 @@ const buildFootballLiveDetail = (fixture: ApiFootballFixture, status: MatchStatu
   return fixture.fixture.status.long || undefined;
 };
 
-const buildNbaLiveDetail = (game: ApiNbaGame, status: MatchStatus) => {
+export const buildNbaLiveDetail = (game: ApiNbaGame, status: MatchStatus) => {
   if (status !== "live") return undefined;
 
   const currentPeriod = typeof game.periods?.current === "number" ? game.periods.current : null;
@@ -267,10 +329,28 @@ const buildNbaLiveDetail = (game: ApiNbaGame, status: MatchStatus) => {
 const buildFixtureKey = (homeTeam: string, awayTeam: string, date: string) =>
   `${normalizeSearchText(homeTeam)}::${normalizeSearchText(awayTeam)}::${formatPtBrDate(date)}`;
 
-const resolveFootballVisual = (teamName: string, fallbackLogo: string) =>
-  nationalTeamFlags[teamName] || fallbackLogo;
+export const resolveFootballVisual = (teamName: string, fallbackLogo: string) =>
+  nationalTeamFlags[normalizeNationalTeamName(teamName)] || fallbackLogo;
 
-const buildFootballLeagueLabel = (fixture: ApiFootballFixture) => {
+export const resolveNationalTeamVisual = (teamName: string, fallbackLogo: string) =>
+  nationalTeamFlags[normalizeNationalTeamName(teamName)] || fallbackLogo;
+
+export const resolveNbaVisual = (teamName: string, fallbackLogo: string) =>
+  nbaTeamLogos[teamName] || fallbackLogo;
+
+export const buildFootballLeagueLabel = (leagueName?: string | null, country?: string | null) => {
+  const trimmedLeagueName = leagueName?.trim();
+  const trimmedCountry = country?.trim();
+  const countryLabel = trimmedCountry ? translateTeamLabel(trimmedCountry) : "";
+
+  if (!trimmedLeagueName) return "";
+  if (!trimmedCountry || trimmedCountry.toLowerCase() === "world") return trimmedLeagueName;
+  if (trimmedLeagueName.toLowerCase().includes(`(${trimmedCountry.toLowerCase()})`)) return trimmedLeagueName;
+
+  return `${trimmedLeagueName} (${countryLabel || trimmedCountry})`;
+};
+
+const buildFootballLeagueLabelFromFixture = (fixture: ApiFootballFixture) => {
   const leagueName = fixture.league.name?.trim();
   const country = fixture.league.country?.trim();
   const countryLabel = country ? translateTeamLabel(country) : "";
@@ -294,6 +374,45 @@ const buildVolleyballLeagueLabel = (game: ApiVolleyballGame) => {
   return `${leagueName} (${countryLabel || country})`;
 };
 
+export const mapNbaStatus = (statusLong: string, statusShort: number | string): MatchStatus => {
+  const shortStatus = String(statusShort);
+
+  return shortStatus === "1"
+    ? "scheduled"
+    : shortStatus === "3" || shortStatus === "4" || shortStatus === "5" || shortStatus === "6"
+      ? "ended"
+      : statusLong.toLowerCase().includes("finished")
+        ? "ended"
+        : "live";
+};
+
+export const mapVolleyballStatus = (
+  shortStatus?: string | null,
+  _longStatus?: string | null,
+): MatchStatus => {
+  const normalized = String(shortStatus || "").toUpperCase();
+
+  if (normalized === "NS" || normalized === "TBD") {
+    return "scheduled";
+  }
+
+  if (["FT", "AET", "PEN", "CANC", "PST", "ABD", "AWD", "WO"].includes(normalized)) {
+    return "ended";
+  }
+
+  return "live";
+};
+
+export const buildVolleyballLiveDetail = (game: ApiVolleyballGame, status: MatchStatus) => {
+  if (status !== "live") return undefined;
+
+  if (typeof game.status?.elapsed === "number" && Number.isFinite(game.status.elapsed)) {
+    return `${game.status.elapsed}'`;
+  }
+
+  return game.status?.long || undefined;
+};
+
 export const mapApiFixtureToWorldCupMatch = (fixture: ApiFootballFixture): WorldCupMatch => {
   const venue = buildVenue(fixture);
   const formattedDate = capitalizeMonth(formatPtBrDate(fixture.fixture.date));
@@ -304,7 +423,7 @@ export const mapApiFixtureToWorldCupMatch = (fixture: ApiFootballFixture): World
     id: `api-football-${fixture.fixture.id}`,
     homeTeam: fixture.teams.home.name,
     awayTeam: fixture.teams.away.name,
-    league: buildFootballLeagueLabel(fixture),
+    league: buildFootballLeagueLabelFromFixture(fixture),
     stage: fixture.league.round,
     status,
     statusLabel: fixture.fixture.status.long,
@@ -326,13 +445,7 @@ export const mapApiFixtureToWorldCupMatch = (fixture: ApiFootballFixture): World
 };
 
 export const mapApiNbaGameToMatch = (game: ApiNbaGame): WorldCupMatch => {
-  const shortStatus = String(game.status.short);
-  const status: MatchStatus =
-    shortStatus === "1"
-      ? "scheduled"
-      : shortStatus === "3" || shortStatus === "4" || shortStatus === "5" || shortStatus === "6"
-        ? "ended"
-        : "live";
+  const status = mapNbaStatus(game.status.long, game.status.short);
 
   return {
     id: `api-nba-${game.id}`,
@@ -357,19 +470,8 @@ export const mapApiNbaGameToMatch = (game: ApiNbaGame): WorldCupMatch => {
 export const mapApiVolleyballGameToMatch = (game: ApiVolleyballGame): WorldCupMatch => {
   const rawDate = game.date || "";
   const rawStatus = game.status;
-  const shortStatus = String(rawStatus?.short || "").toUpperCase();
-  const status: MatchStatus =
-    shortStatus === "NS" || shortStatus === "TBD"
-      ? "scheduled"
-      : ["FT", "AET", "PEN", "CANC", "PST", "ABD", "AWD", "WO"].includes(shortStatus)
-        ? "ended"
-        : "live";
-  const liveDetail =
-    status === "live"
-      ? typeof rawStatus?.elapsed === "number" && Number.isFinite(rawStatus.elapsed)
-        ? `${rawStatus.elapsed}'`
-        : rawStatus?.long || undefined
-      : undefined;
+  const status = mapVolleyballStatus(rawStatus?.short, rawStatus?.long);
+  const liveDetail = buildVolleyballLiveDetail(game, status);
 
   return {
     id: `api-volleyball-${game.id}`,
@@ -426,7 +528,7 @@ export const mergeStaticMatchesWithApiFixtures = (
 
     return {
       ...match,
-      league: buildFootballLeagueLabel(fixture) || match.league,
+      league: buildFootballLeagueLabelFromFixture(fixture) || match.league,
       stage: fixture.league.round || match.stage,
       status,
       statusLabel: fixture.fixture.status.long || match.statusLabel,
