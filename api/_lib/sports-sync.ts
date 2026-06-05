@@ -71,6 +71,33 @@ const upsertMatches = async (rows: SportsMatchRow[]) => {
   }
 };
 
+const clearStaleLiveMatches = async (
+  provider: "football" | "nba" | "volleyball",
+  activeIds: string[],
+) => {
+  const admin = getSupabaseAdmin();
+
+  let query = admin
+    .from("sports_matches")
+    .update({
+      status: "ended",
+      status_detail: "Finalizado",
+      live_clock: null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("provider", provider)
+    .eq("status", "live");
+
+  if (activeIds.length > 0) {
+    query = query.not("id", "in", `(${activeIds.map((id) => `"${id}"`).join(",")})`);
+  }
+
+  const { error } = await query;
+  if (error) {
+    throw error;
+  }
+};
+
 const syncStatusPriority: Record<SyncStatus, number> = {
   ok: 6,
   partial: 5,
@@ -158,6 +185,10 @@ const syncFootballLive = async (mode: SyncMode) => {
     : [];
 
   await upsertMatches(rows);
+  await clearStaleLiveMatches(
+    "football",
+    rows.map((row) => row.id),
+  );
 
   if (payload?.errors?.plan) {
     await updateSyncStatus("futebol", mode, "plan", String(payload.errors.plan));
@@ -206,6 +237,10 @@ const syncNbaLive = async (mode: SyncMode) => {
   const rows = Array.isArray(payload?.response) ? (payload.response as ApiNbaGame[]).map(buildNbaMatchRow) : [];
 
   await upsertMatches(rows);
+  await clearStaleLiveMatches(
+    "nba",
+    rows.map((row) => row.id),
+  );
 
   if (payload?.errors?.requests) {
     await updateSyncStatus("basquete", mode, "limit", String(payload.errors.requests));
@@ -260,6 +295,10 @@ const syncVolleyballLive = async (mode: SyncMode) => {
     : [];
 
   await upsertMatches(rows);
+  await clearStaleLiveMatches(
+    "volleyball",
+    rows.map((row) => row.id),
+  );
 
   if (payload?.errors?.access) {
     await updateSyncStatus("volei", mode, "suspended", String(payload.errors.access));
