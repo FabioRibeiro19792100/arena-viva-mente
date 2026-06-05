@@ -4,7 +4,7 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
-    const { getMatchesFeed } = await import("../_lib/matches-read");
+    const { getMatchesFeed } = await import("../_lib/matches-read.js");
     const sport = ["all", "futebol", "basquete", "volei"].includes(req.query?.sport)
       ? req.query.sport
       : "all";

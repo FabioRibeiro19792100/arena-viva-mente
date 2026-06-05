@@ -3,7 +3,7 @@ import {
   type MatchStatus,
   worldCup2026Matches,
   type WorldCupMatch,
-} from "../../src/data/worldCup2026";
+} from "../../src/data/worldCup2026.js";
 import {
   buildFootballLeagueLabel,
   buildFootballLiveDetail,
@@ -15,8 +15,10 @@ import {
   type ApiFootballFixture,
   type ApiNbaGame,
   type ApiVolleyballGame,
-} from "../../src/lib/apiFootball";
-import { normalizeSearchText } from "../../src/lib/matchLabels";
+} from "../../src/lib/apiFootball.js";
+import {
+  normalizeSearchText,
+} from "../../src/lib/matchLabels.js";
 
 export type SportType = "futebol" | "basquete" | "volei";
 export type SyncStatus = "ok" | "partial" | "offline" | "plan" | "limit" | "suspended";

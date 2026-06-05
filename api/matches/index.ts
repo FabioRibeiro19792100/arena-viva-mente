@@ -4,7 +4,7 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
-    const { getMatchesByIds, getMatchesFeed } = await import("../_lib/matches-read");
+    const { getMatchesByIds, getMatchesFeed } = await import("../_lib/matches-read.js");
     const ids = typeof req.query?.ids === "string" ? req.query.ids.split(",").filter(Boolean) : [];
     if (ids.length > 0) {
       const matches = await getMatchesByIds(ids);

@@ -1,4 +1,4 @@
-import { getSupabaseAdmin } from "./supabase-admin";
+import { getSupabaseAdmin } from "./supabase-admin.js";
 import {
   dedupeDisplayMatches,
   mapSportsMatchRowToDisplayMatch,
@@ -7,10 +7,10 @@ import {
   type SportType,
   type SyncStatus,
   type SportsMatchRow,
-} from "./sports-matches";
-import { ensureStaticMatchesSeeded } from "./sports-sync";
-import { syncMatchesByIds } from "./sports-sync";
-import { normalizeSearchText } from "../../src/lib/matchLabels";
+} from "./sports-matches.js";
+import { ensureStaticMatchesSeeded } from "./sports-sync.js";
+import { syncMatchesByIds } from "./sports-sync.js";
+import { normalizeSearchText } from "../../src/lib/matchLabels.js";
 
 type QuickFilterType = "all" | "live" | "soon";
 

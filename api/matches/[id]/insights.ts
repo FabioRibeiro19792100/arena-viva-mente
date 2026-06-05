@@ -4,7 +4,7 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
-    const { getMatchInsights } = await import("../../_lib/match-insights-cache");
+    const { getMatchInsights } = await import("../../_lib/match-insights-cache.js");
     const id = req.query?.id || req.params?.id;
     if (!id || typeof id !== "string") {
       return res.status(400).json({ error: "match_id_required" });

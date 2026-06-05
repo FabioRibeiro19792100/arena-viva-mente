@@ -1,5 +1,5 @@
-import { getSupabaseAdmin } from "./supabase-admin";
-import { getMatchByIdFromDb } from "./matches-read";
+import { getSupabaseAdmin } from "./supabase-admin.js";
+import { getMatchByIdFromDb } from "./matches-read.js";
 
 const FOOTBALL_BASE_URL = "https://v3.football.api-sports.io";
 const TTL_MS = 5 * 60 * 1000;

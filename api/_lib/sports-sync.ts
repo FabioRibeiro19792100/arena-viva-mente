@@ -1,4 +1,4 @@
-import { getSupabaseAdmin } from "./supabase-admin";
+import { getSupabaseAdmin } from "./supabase-admin.js";
 import {
   buildFootballMatchRow,
   buildNbaMatchRow,
@@ -7,8 +7,8 @@ import {
   type SportType,
   type SportsMatchRow,
   type SyncStatus,
-} from "./sports-matches";
-import type { ApiFootballFixture, ApiNbaGame, ApiVolleyballGame } from "../../src/lib/apiFootball";
+} from "./sports-matches.js";
+import type { ApiFootballFixture, ApiNbaGame, ApiVolleyballGame } from "../../src/lib/apiFootball.js";
 
 type SyncMode = "scheduled" | "live" | "manual";
 

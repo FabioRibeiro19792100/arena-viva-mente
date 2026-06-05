@@ -1,4 +1,4 @@
-import { getSupabaseAdmin } from "../_lib/supabase-admin";
+import { getSupabaseAdmin } from "../_lib/supabase-admin.js";
 
 const ALLOWED_HOSTS = new Set([
   "media.api-sports.io",

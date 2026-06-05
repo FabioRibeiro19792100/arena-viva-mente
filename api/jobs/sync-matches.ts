@@ -21,7 +21,7 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
-    const { syncLiveMatches, syncMatchesByIds, syncScheduledMatches } = await import("../_lib/sports-sync");
+    const { syncLiveMatches, syncMatchesByIds, syncScheduledMatches } = await import("../_lib/sports-sync.js");
     const mode = ["scheduled", "live", "all", "ids"].includes(req.query?.mode)
       ? req.query.mode
       : "scheduled";
