@@ -6,6 +6,12 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
 import {
   AlertTriangle,
@@ -16,6 +22,8 @@ import {
   RefreshCw,
   Send,
   Shield,
+  Volume2,
+  VolumeX,
 } from "lucide-react";
 import { TeamOnboarding } from "@/components/TeamOnboarding";
 import {
@@ -30,9 +38,11 @@ import { addHistoryEntry } from "@/lib/productState";
 import { fetchFootballMatchInsights, type MatchInsightsPayload } from "@/lib/matchInsights";
 import {
   getMatchMessages,
+  getMutedUsers,
   getMatchPreference,
   saveMatchPreference,
   sendMatchMessage,
+  toggleMutedUser,
   type MatchMessage,
   type TeamSide,
 } from "@/lib/arquibancada";
@@ -82,6 +92,7 @@ const Arquibancada = () => {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [pendingMessageCount, setPendingMessageCount] = useState(0);
   const [pullDistance, setPullDistance] = useState(0);
+  const [mutedUserIds, setMutedUserIds] = useState<string[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const feedWrapperRef = useRef<HTMLDivElement>(null);
   const touchStartYRef = useRef<number | null>(null);
@@ -126,7 +137,10 @@ const Arquibancada = () => {
       const currentIds = new Set(currentMessages.map((item) => item.id));
 
       const unseenMessages = remoteMessages.filter(
-        (item) => !currentIds.has(item.id) && item.userId !== user?.id,
+        (item) =>
+          !currentIds.has(item.id) &&
+          item.userId !== user?.id &&
+          !mutedUserIds.includes(item.userId),
       );
 
       if (unseenMessages.length > 0) {
@@ -144,6 +158,26 @@ const Arquibancada = () => {
   useEffect(() => {
     if (!user) return;
     void addHistoryEntry(user.id, game.id, "arquibancada");
+  }, [game.id, user]);
+
+  useEffect(() => {
+    if (!user) {
+      setMutedUserIds([]);
+      return;
+    }
+
+    let isActive = true;
+
+    void (async () => {
+      const nextMutedUsers = await getMutedUsers(user.id, game.id);
+      if (isActive) {
+        setMutedUserIds(nextMutedUsers);
+      }
+    })();
+
+    return () => {
+      isActive = false;
+    };
   }, [game.id, user]);
 
   useEffect(() => {
@@ -469,35 +503,29 @@ const Arquibancada = () => {
     );
   };
 
-  const filteredMessages = messages.filter((msg) => activeTeamFilters.includes(msg.teamSide));
+  const filteredMessages = messages.filter(
+    (msg) => activeTeamFilters.includes(msg.teamSide) && !mutedUserIds.includes(msg.userId),
+  );
+
+  const handleToggleMutedUser = (mutedUserId: string, userName: string) => {
+    if (!user || mutedUserId === user.id) return;
+
+    void (async () => {
+      const nextMutedUsers = await toggleMutedUser(user.id, game.id, mutedUserId);
+      const didMute = nextMutedUsers.includes(mutedUserId);
+      setMutedUserIds(nextMutedUsers);
+      setPendingMessageCount(0);
+      toast({
+        title: didMute ? "Comentários silenciados" : "Comentários reativados",
+        description: didMute
+          ? `Você não verá mais as mensagens de ${userName} nesta sala.`
+          : `As mensagens de ${userName} voltaram a aparecer nesta sala.`,
+      });
+    })();
+  };
 
   const sidePanel = (
     <div className="space-y-4">
-      <Card className="border-border/80 bg-card/90 shadow-[var(--shadow-card)] backdrop-blur-sm">
-        <CardContent className="p-4 space-y-3">
-          <div>
-            <p className="text-base font-semibold text-foreground">
-              {game.homeTeam} x {game.awayTeam}
-            </p>
-            <p className="mt-1 text-sm text-muted-foreground">{game.stage}</p>
-          </div>
-          <div className="space-y-2 text-sm text-muted-foreground">
-            <div className="flex items-start gap-2">
-              <CalendarDays className="h-4 w-4 mt-0.5 shrink-0" />
-              <span>{game.date} • {formatBrasiliaTime(game.startTime)}</span>
-            </div>
-            <div className="flex items-start gap-2">
-              <MapPin className="h-4 w-4 mt-0.5 shrink-0" />
-              <span>{game.venue}</span>
-            </div>
-            <div className="flex items-start gap-2">
-              <Shield className="h-4 w-4 mt-0.5 shrink-0" />
-              <span>Moderação ativa da sala</span>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
       {(isInsightsLoading || insights) && (
         <Card className="border-border/80 bg-card/90 shadow-[var(--shadow-card)] backdrop-blur-sm">
           <CardContent className="space-y-3 p-4">
@@ -949,10 +977,13 @@ const Arquibancada = () => {
                 </div>
               ) : filteredMessages.length === 0 ? (
                 <div className="px-4 py-10 text-center text-sm text-muted-foreground">
-                  Ainda nao ha mensagens nesta partida. Puxe a primeira leitura da sala.
+                  {messages.length > 0
+                    ? "Nenhum comentário visível com os filtros atuais."
+                    : "Ainda nao ha mensagens nesta partida. Puxe a primeira leitura da sala."}
                 </div>
               ) : filteredMessages.map((msg, index) => {
                 const teamIdentity = getTeamIdentity(msg.teamSide);
+                const isMuted = mutedUserIds.includes(msg.userId);
 
                 return (
                   <div
@@ -995,9 +1026,30 @@ const Arquibancada = () => {
                           </div>
 
                           <div className="flex shrink-0 items-center self-start">
-                            <Button variant="ghost" size="sm" className="h-8 w-8 shrink-0 p-0">
-                              <Heart className="h-4 w-4 text-muted-foreground" />
-                            </Button>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="sm" className="h-8 w-8 shrink-0 p-0">
+                                  <Heart className="h-4 w-4 text-muted-foreground" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                {msg.userId !== user?.id && (
+                                  <DropdownMenuItem onClick={() => handleToggleMutedUser(msg.userId, msg.userName)}>
+                                    {isMuted ? (
+                                      <>
+                                        <Volume2 className="mr-2 h-4 w-4" />
+                                        Reativar {msg.userName}
+                                      </>
+                                    ) : (
+                                      <>
+                                        <VolumeX className="mr-2 h-4 w-4" />
+                                        Silenciar {msg.userName}
+                                      </>
+                                    )}
+                                  </DropdownMenuItem>
+                                )}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                           </div>
                         </div>
                       </div>

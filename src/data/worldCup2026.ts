@@ -20,7 +20,7 @@ export interface WorldCupMatch {
   homeScore?: number;
   awayScore?: number;
   liveDetail?: string;
-  apiSource?: "football" | "nba";
+  apiSource?: "football" | "nba" | "volleyball";
   apiFixtureId?: number;
   apiLeagueId?: number;
   apiSeason?: number;

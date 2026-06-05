@@ -1,4 +1,4 @@
-const API_FOOTBALL_BASE_URL = "https://v3.football.api-sports.io";
+const API_VOLLEYBALL_BASE_URL = "https://v1.volleyball.api-sports.io";
 
 const buildQuery = (input: Record<string, string | number | undefined>) => {
   const search = new URLSearchParams();
@@ -24,28 +24,26 @@ export default async function handler(req: any, res: any) {
 
   const {
     id,
+    date,
+    live,
     league,
     season,
-    live,
     team,
-    date,
-    round,
-    timezone = "America/Sao_Paulo",
+    country,
   } = req.query ?? {};
 
   const query = buildQuery({
     id,
+    date,
+    live,
     league,
     season,
-    live,
     team,
-    date,
-    round,
-    timezone,
+    country,
   });
 
   try {
-    const response = await fetch(`${API_FOOTBALL_BASE_URL}/fixtures?${query}`, {
+    const response = await fetch(`${API_VOLLEYBALL_BASE_URL}/games?${query}`, {
       headers: {
         "x-apisports-key": apiKey,
       },
@@ -55,7 +53,7 @@ export default async function handler(req: any, res: any) {
 
     if (!response.ok) {
       return res.status(response.status).json({
-        error: "API-Football request failed",
+        error: "API-Volleyball request failed",
         details: payload,
       });
     }
@@ -63,7 +61,7 @@ export default async function handler(req: any, res: any) {
     return res.status(200).json(payload);
   } catch (error) {
     return res.status(500).json({
-      error: "Unexpected API-Football proxy error",
+      error: "Unexpected API-Volleyball proxy error",
       details: error instanceof Error ? error.message : "unknown_error",
     });
   }

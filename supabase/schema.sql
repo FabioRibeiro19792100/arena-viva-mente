@@ -57,6 +57,14 @@ create table if not exists public.messages (
   created_at timestamptz not null default now()
 );
 
+create table if not exists public.api_feed_cache (
+  cache_key text primary key,
+  payload jsonb not null,
+  source text not null,
+  fetched_at timestamptz not null default now(),
+  expires_at timestamptz not null
+);
+
 alter table public.profiles enable row level security;
 alter table public.favorites enable row level security;
 alter table public.reservations enable row level security;

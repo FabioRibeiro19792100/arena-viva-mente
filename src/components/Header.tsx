@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { Heart, LogOut, Menu, Moon, Sun, User } from "lucide-react";
+import { Heart, LogOut, Menu, Moon, Sun, Ticket, User } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useMockAuth } from "@/contexts/MockAuthContext";
 import { useTheme } from "next-themes";
@@ -33,22 +33,18 @@ export const Header = ({ roomMode = false, onRoomMenuClick }: HeaderProps) => {
           <h1 className="min-w-0 text-2xl font-bold tracking-tight text-foreground">Bancada</h1>
         </div>
 
-        <nav className="hidden md:flex items-center gap-8">
+        <nav className="hidden md:flex items-center gap-6">
           {!roomMode && (
             <>
-              <button
-                onClick={() => navigate("/")}
-                className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-              >
-                Jogos
-              </button>
-              <button
-                onClick={() => navigate("/perfil")}
-                className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors flex items-center gap-2"
-              >
-                <User className="h-4 w-4" />
-                {isAuthenticated ? "Minha conta" : "Perfil"}
-              </button>
+              {isAuthenticated && (
+                <button
+                  onClick={() => navigate("/reservas")}
+                  className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors flex items-center gap-2"
+                >
+                  <Ticket className="h-4 w-4" />
+                  Reservas
+                </button>
+              )}
               {isAuthenticated && (
                 <button
                   onClick={() => navigate("/favoritos")}
@@ -73,9 +69,10 @@ export const Header = ({ roomMode = false, onRoomMenuClick }: HeaderProps) => {
               {!roomMode && (
                 <button
                   onClick={() => navigate("/perfil")}
-                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                  className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
                 >
-                  {user?.name}
+                  <User className="h-4 w-4" />
+                  {user?.name || "Conta"}
                 </button>
               )}
               <Button

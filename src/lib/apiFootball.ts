@@ -84,6 +84,49 @@ export interface ApiNbaGame {
   };
 }
 
+export interface ApiVolleyballGame {
+  id?: number;
+  date?: string;
+  time?: string;
+  timestamp?: number;
+  timezone?: string;
+  status?: {
+    short?: string;
+    long?: string;
+    elapsed?: number | null;
+  };
+  league?: {
+    id?: number;
+    name?: string;
+    country?: string | null;
+    round?: string;
+    season?: number;
+    type?: string;
+    logo?: string;
+  };
+  country?: {
+    name?: string;
+    code?: string | null;
+    flag?: string | null;
+  };
+  teams?: {
+    home?: {
+      id?: number;
+      name?: string;
+      logo?: string;
+    };
+    away?: {
+      id?: number;
+      name?: string;
+      logo?: string;
+    };
+  };
+  scores?: {
+    home?: number | null;
+    away?: number | null;
+  };
+}
+
 const flag = (code: string) => `https://flagcdn.com/w160/${code}.png`;
 
 const nationalTeamFlags: Record<string, string> = {
@@ -239,6 +282,18 @@ const buildFootballLeagueLabel = (fixture: ApiFootballFixture) => {
   return `${leagueName} (${countryLabel || country})`;
 };
 
+const buildVolleyballLeagueLabel = (game: ApiVolleyballGame) => {
+  const leagueName = game.league?.name?.trim();
+  const country = game.league?.country?.trim() || game.country?.name?.trim();
+  const countryLabel = country ? translateTeamLabel(country) : "";
+
+  if (!leagueName) return "Vôlei";
+  if (!country || country.toLowerCase() === "world") return leagueName;
+  if (leagueName.toLowerCase().includes(`(${country.toLowerCase()})`)) return leagueName;
+
+  return `${leagueName} (${countryLabel || country})`;
+};
+
 export const mapApiFixtureToWorldCupMatch = (fixture: ApiFootballFixture): WorldCupMatch => {
   const venue = buildVenue(fixture);
   const formattedDate = capitalizeMonth(formatPtBrDate(fixture.fixture.date));
@@ -296,6 +351,43 @@ export const mapApiNbaGameToMatch = (game: ApiNbaGame): WorldCupMatch => {
     awayScore: game.scores.visitors.points ?? undefined,
     liveDetail: buildNbaLiveDetail(game, status),
     apiSource: "nba",
+  };
+};
+
+export const mapApiVolleyballGameToMatch = (game: ApiVolleyballGame): WorldCupMatch => {
+  const rawDate = game.date || "";
+  const rawStatus = game.status;
+  const shortStatus = String(rawStatus?.short || "").toUpperCase();
+  const status: MatchStatus =
+    shortStatus === "NS" || shortStatus === "TBD"
+      ? "scheduled"
+      : ["FT", "AET", "PEN", "CANC", "PST", "ABD", "AWD", "WO"].includes(shortStatus)
+        ? "ended"
+        : "live";
+  const liveDetail =
+    status === "live"
+      ? typeof rawStatus?.elapsed === "number" && Number.isFinite(rawStatus.elapsed)
+        ? `${rawStatus.elapsed}'`
+        : rawStatus?.long || undefined
+      : undefined;
+
+  return {
+    id: `api-volleyball-${game.id}`,
+    homeTeam: game.teams?.home?.name || "Mandante",
+    awayTeam: game.teams?.away?.name || "Visitante",
+    league: buildVolleyballLeagueLabel(game),
+    stage: game.league?.round || game.league?.name || "Vôlei",
+    status,
+    statusLabel: rawStatus?.long || "",
+    date: capitalizeMonth(formatPtBrDate(rawDate)),
+    startTime: formatPtBrTime(rawDate),
+    venue: "",
+    homeTeamLogo: game.teams?.home?.logo || "",
+    awayTeamLogo: game.teams?.away?.logo || "",
+    homeScore: game.scores?.home ?? undefined,
+    awayScore: game.scores?.away ?? undefined,
+    liveDetail,
+    apiSource: "volleyball",
   };
 };
 

@@ -12,7 +12,7 @@ import {
   toggleFavoriteMatch,
   type ProductState,
 } from "@/lib/productState";
-import { getMatchById } from "@/lib/runtimeMatches";
+import { getMatchById, hydrateRuntimeMatchesByIds } from "@/lib/runtimeMatches";
 
 const Reservas = () => {
   const navigate = useNavigate();
@@ -23,6 +23,7 @@ const Reservas = () => {
     history: [],
   });
   const [reservationCounts, setReservationCounts] = useState<Record<string, number>>({});
+  const [resolvedMatches, setResolvedMatches] = useState(() => [] as NonNullable<ReturnType<typeof getMatchById>>[]);
 
   useEffect(() => {
     if (!user) return;
@@ -35,15 +36,21 @@ const Reservas = () => {
     const reservedIds = productState.reservations.map((reservation) => reservation.matchId);
     if (reservedIds.length === 0) {
       setReservationCounts({});
+      setResolvedMatches([]);
       return;
     }
 
     let isActive = true;
 
     void (async () => {
+      await hydrateRuntimeMatchesByIds(reservedIds);
       const counts = await getMatchReservationCounts(reservedIds);
+      const matches = reservedIds
+        .map((matchId) => getMatchById(matchId))
+        .filter(Boolean);
       if (isActive) {
         setReservationCounts(counts);
+        setResolvedMatches(matches);
       }
     })();
 
@@ -53,10 +60,6 @@ const Reservas = () => {
   }, [productState.reservations]);
 
   if (!user) return null;
-
-  const reservedMatches = productState.reservations
-    .map((reservation) => getMatchById(reservation.matchId))
-    .filter(Boolean);
 
   const refreshState = async () => {
     setProductState(await getProductState(user.id));
@@ -80,7 +83,7 @@ const Reservas = () => {
             </Button>
           </div>
 
-          {reservedMatches.length === 0 ? (
+          {resolvedMatches.length === 0 ? (
             <div className="border border-border bg-card p-8 text-center">
               <p className="text-sm text-muted-foreground">
                 Você ainda não reservou nenhuma sala.
@@ -88,7 +91,7 @@ const Reservas = () => {
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
-              {reservedMatches.map((game) => (
+              {resolvedMatches.map((game) => (
                 <GameCard
                   key={game.id}
                   {...game}

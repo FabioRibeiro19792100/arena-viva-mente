@@ -18,16 +18,23 @@ import { useToast } from "@/hooks/use-toast";
 import {
   mapApiFixtureToWorldCupMatch,
   mapApiNbaGameToMatch,
+  mapApiVolleyballGameToMatch,
   mergeStaticMatchesWithApiFixtures,
   type ApiFootballFixture,
   type ApiNbaGame,
+  type ApiVolleyballGame,
 } from "@/lib/apiFootball";
 import { normalizeSearchText, translateTeamLabel } from "@/lib/matchLabels";
 import { upsertRuntimeMatches } from "@/lib/runtimeMatches";
 
-type SportType = "futebol" | "basquete";
+type SportType = "futebol" | "basquete" | "volei";
 type DisplayMatch = WorldCupMatch & { sport: SportType };
 type QuickFilterType = "all" | "live" | "soon";
+type ApiFeedStatus = {
+  football: "ok" | "partial" | "offline" | "plan";
+  nba: "ok" | "partial" | "offline" | "limit";
+  volleyball: "ok" | "partial" | "offline" | "limit";
+};
 
 const getSearchableMatchText = (match: DisplayMatch) =>
   normalizeSearchText(
@@ -43,6 +50,17 @@ const getSearchableMatchText = (match: DisplayMatch) =>
     ].join(" "),
   );
 
+const dedupeMatchesById = (items: DisplayMatch[]) =>
+  Array.from(new Map(items.map((match) => [match.id, match])).values());
+
+const formatApiDate = (date: Date) =>
+  new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Sao_Paulo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date);
+
 const Index = () => {
   const nbaTestDate = "2026-06-04";
   const navigate = useNavigate();
@@ -50,14 +68,16 @@ const Index = () => {
   const { toast } = useToast();
   const { user } = useMockAuth();
   const [selectedSport, setSelectedSport] = useState("all");
-  const [selectedLeague, setSelectedLeague] = useState("all");
-  const [selectedTeam, setSelectedTeam] = useState("all");
-  const [selectedDate, setSelectedDate] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [quickFilter, setQuickFilter] = useState<QuickFilterType>("all");
   const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
   const [reservedIds, setReservedIds] = useState<string[]>([]);
   const [reservationCounts, setReservationCounts] = useState<Record<string, number>>({});
+  const [apiFeedStatus, setApiFeedStatus] = useState<ApiFeedStatus>({
+    football: "ok",
+    nba: "ok",
+    volleyball: "ok",
+  });
   const [matches, setMatches] = useState<DisplayMatch[]>(
     worldCup2026Matches.map((match) => ({ ...match, sport: "futebol" })),
   );
@@ -111,83 +131,38 @@ const Index = () => {
 
     void (async () => {
       try {
-        const today = new Intl.DateTimeFormat("en-CA", {
-          timeZone: "America/Sao_Paulo",
-          year: "numeric",
-          month: "2-digit",
-          day: "2-digit",
-        }).format(new Date());
+        const response = await fetch(`/api/feed/home?sport=${selectedSport}&quick=${quickFilter}`);
+        const payload = await response.json();
 
-        const [worldCupResponse, todayFootballResponse, todayNbaResponse] = await Promise.all([
-          fetch("/api/football/fixtures?league=1&season=2026"),
-          fetch(`/api/football/fixtures?date=${today}&timezone=America/Sao_Paulo`),
-          fetch(`/api/nba/games?date=${nbaTestDate}`),
-        ]);
+        if (!isActive) return;
 
-        if (!isActive) {
-          return;
-        }
+        const nextMatches = Array.isArray(payload?.matches) ? (payload.matches as DisplayMatch[]) : [];
+        const nextTodayMatches = Array.isArray(payload?.todayMatches)
+          ? (payload.todayMatches as DisplayMatch[])
+          : [];
 
-        if (worldCupResponse.ok) {
-          const payload = await worldCupResponse.json();
-          const fixtures = Array.isArray(payload?.response)
-            ? (payload.response as ApiFootballFixture[])
-            : [];
+        setMatches(nextMatches);
+        setTodayMatches(nextTodayMatches);
+        upsertRuntimeMatches([...nextMatches, ...nextTodayMatches]);
 
-          if (fixtures.length > 0) {
-            const mergedWorldCupMatches = mergeStaticMatchesWithApiFixtures(worldCup2026Matches, fixtures).map((match) => ({
-              ...match,
-              sport: "futebol" as const,
-            }));
-
-            setMatches(mergedWorldCupMatches);
-            upsertRuntimeMatches(mergedWorldCupMatches);
-          }
-        }
-
-        const nextTodayMatches: DisplayMatch[] = [];
-
-        if (todayFootballResponse.ok) {
-          const payload = await todayFootballResponse.json();
-          const todayFixtures = Array.isArray(payload?.response)
-            ? (payload.response as ApiFootballFixture[])
-            : [];
-
-          nextTodayMatches.push(
-            ...todayFixtures.map((fixture) => ({
-              ...mapApiFixtureToWorldCupMatch(fixture),
-              sport: "futebol" as const,
-            })),
-          );
-        }
-
-        if (todayNbaResponse.ok) {
-          const payload = await todayNbaResponse.json();
-          const todayGames = Array.isArray(payload?.response)
-            ? (payload.response as ApiNbaGame[])
-            : [];
-
-          nextTodayMatches.push(
-            ...todayGames.map((game) => ({
-              ...mapApiNbaGameToMatch(game),
-              sport: "basquete" as const,
-            })),
-          );
-        }
-
-        if (nextTodayMatches.length > 0) {
-          setTodayMatches(nextTodayMatches);
-          upsertRuntimeMatches(nextTodayMatches);
+        if (payload?.apiFeedStatus) {
+          setApiFeedStatus(payload.apiFeedStatus as ApiFeedStatus);
         }
       } catch {
-        // Keep static fallback silently when the proxy is unavailable locally.
+        if (isActive) {
+          setApiFeedStatus({
+            football: "offline",
+            nba: "offline",
+            volleyball: "offline",
+          });
+        }
       }
     })();
 
     return () => {
       isActive = false;
     };
-  }, []);
+  }, [selectedSport, quickFilter]);
 
   const isMatchStartingSoon = (match: Pick<DisplayMatch, "date" | "startTime" | "status" | "id">) => {
     const status = getCurrentMatchStatus(match);
@@ -200,8 +175,14 @@ const Index = () => {
       return false;
     }
 
-    const diff = kickoff.getTime() - Date.now();
-    return diff > 0 && diff <= 2 * 60 * 60 * 1000;
+    const now = new Date();
+    const diff = kickoff.getTime() - now.getTime();
+    const sameDay =
+      kickoff.getFullYear() === now.getFullYear() &&
+      kickoff.getMonth() === now.getMonth() &&
+      kickoff.getDate() === now.getDate();
+
+    return diff > 0 && sameDay;
   };
 
   const todayMatchIds = useMemo(() => new Set(todayMatches.map((match) => match.id)), [todayMatches]);
@@ -214,12 +195,6 @@ const Index = () => {
   const filteredTodayMatches = useMemo(() => {
     return todayMatches.filter((match) => {
       const sportMatch = selectedSport === "all" || match.sport === selectedSport;
-      const leagueMatch = selectedLeague === "all" || match.league === selectedLeague;
-      const teamMatch =
-        selectedTeam === "all" ||
-        match.homeTeam === selectedTeam ||
-        match.awayTeam === selectedTeam;
-      const dateMatch = selectedDate === "all" || match.date === selectedDate;
       const quickMatch =
         quickFilter === "all" ||
         (quickFilter === "live"
@@ -234,40 +209,74 @@ const Index = () => {
       const searchMatch =
         query === "" || getSearchableMatchText(match).includes(query);
 
-      return sportMatch && leagueMatch && teamMatch && dateMatch && quickMatch && searchMatch;
+      return sportMatch && quickMatch && searchMatch;
     });
-  }, [todayMatches, searchQuery, selectedDate, selectedLeague, selectedSport, selectedTeam, quickFilter]);
+  }, [todayMatches, searchQuery, selectedSport, quickFilter]);
 
   const filteredMatches = useMemo(() => {
     return matches
       .filter((match) => !todayMatchIds.has(match.id))
       .filter((match) => {
         const sportMatch = selectedSport === "all" || match.sport === selectedSport;
-        const leagueMatch = selectedLeague === "all" || match.league === selectedLeague;
-        const teamMatch =
-          selectedTeam === "all" ||
-          match.homeTeam === selectedTeam ||
-          match.awayTeam === selectedTeam;
-      const dateMatch = selectedDate === "all" || match.date === selectedDate;
-      const quickMatch =
-        quickFilter === "all" ||
-        (quickFilter === "live"
-          ? getCurrentMatchStatus({
-              id: match.id,
-              date: match.date,
-              startTime: match.startTime || "",
-              status: match.status,
-            }) === "live"
-          : isMatchStartingSoon(match));
+        const quickMatch =
+          quickFilter === "all" ||
+          (quickFilter === "live"
+            ? getCurrentMatchStatus({
+                id: match.id,
+                date: match.date,
+                startTime: match.startTime || "",
+                status: match.status,
+              }) === "live"
+            : isMatchStartingSoon(match));
         const query = normalizeSearchText(searchQuery);
         const searchMatch =
           query === "" || getSearchableMatchText(match).includes(query);
 
-        return sportMatch && leagueMatch && teamMatch && dateMatch && quickMatch && searchMatch;
+        return sportMatch && quickMatch && searchMatch;
       });
-  }, [matches, todayMatchIds, searchQuery, selectedDate, selectedLeague, selectedSport, selectedTeam, quickFilter]);
+  }, [matches, todayMatchIds, searchQuery, selectedSport, quickFilter]);
 
   const totalVisibleMatches = filteredTodayMatches.length + filteredMatches.length;
+  const apiStatusLabel = (() => {
+    if (
+      apiFeedStatus.football === "ok" &&
+      apiFeedStatus.nba === "ok" &&
+      apiFeedStatus.volleyball === "ok"
+    ) {
+      return null;
+    }
+
+    const parts: string[] = [];
+    if (apiFeedStatus.football !== "ok") {
+      parts.push(
+        apiFeedStatus.football === "partial"
+          ? "Futebol parcial"
+          : apiFeedStatus.football === "plan"
+            ? "Futebol indisponível no plano"
+            : "Futebol offline",
+      );
+    }
+    if (apiFeedStatus.nba !== "ok") {
+      parts.push(
+        apiFeedStatus.nba === "partial"
+          ? "NBA parcial"
+          : apiFeedStatus.nba === "limit"
+            ? "NBA no limite diário"
+            : "NBA offline",
+      );
+    }
+    if (apiFeedStatus.volleyball !== "ok") {
+      parts.push(
+        apiFeedStatus.volleyball === "partial"
+          ? "Vôlei parcial"
+          : apiFeedStatus.volleyball === "limit"
+            ? "Vôlei no limite diário"
+            : "Vôlei offline",
+      );
+    }
+
+    return parts.join(" • ");
+  })();
 
   const handleToggleFavorite = (matchId: string) => {
     if (!user) {
@@ -307,48 +316,19 @@ const Index = () => {
     })();
   };
 
-  const leagueOptions = useMemo(
-    () => Array.from(new Set(sportScopedMatches.map((match) => match.league))).sort((a, b) => a.localeCompare(b)),
-    [sportScopedMatches],
-  );
-
-  const teamOptions = useMemo(
-    () =>
-      Array.from(
-        new Set(
-          sportScopedMatches.flatMap((match) => [match.homeTeam, match.awayTeam]),
-        ),
-      ).sort((a, b) => a.localeCompare(b)),
-    [sportScopedMatches],
-  );
-
-  const dateOptions = useMemo(
-    () => Array.from(new Set(sportScopedMatches.map((match) => match.date))),
-    [sportScopedMatches],
-  );
-
   const hasActiveFilters =
     selectedSport !== "all" ||
-    selectedLeague !== "all" ||
-    selectedTeam !== "all" ||
-    selectedDate !== "all" ||
     quickFilter !== "all" ||
     searchQuery !== "";
 
   const activeFilterCount = [
     selectedSport !== "all",
-    selectedLeague !== "all",
-    selectedTeam !== "all",
-    selectedDate !== "all",
     quickFilter !== "all",
     searchQuery.trim() !== "",
   ].filter(Boolean).length;
 
   const resetFilters = () => {
     setSelectedSport("all");
-    setSelectedLeague("all");
-    setSelectedTeam("all");
-    setSelectedDate("all");
     setQuickFilter("all");
     setSearchQuery("");
     setSearchParams((current) => {
@@ -372,18 +352,13 @@ const Index = () => {
 
   const getChipLabel = (type: "sport" | "league" | "team" | "date") => {
     if (type === "sport") {
-      return selectedSport === "all" ? "Esporte" : selectedSport === "futebol" ? "Futebol" : "Basquete";
+      if (selectedSport === "all") return "Esporte";
+      if (selectedSport === "futebol") return "Futebol";
+      if (selectedSport === "basquete") return "Basquete";
+      return "Vôlei";
     }
 
-    if (type === "league") {
-      return selectedLeague === "all" ? "Campeonato" : selectedLeague;
-    }
-
-    if (type === "team") {
-      return selectedTeam === "all" ? "Time" : translateTeamLabel(selectedTeam);
-    }
-
-    return selectedDate === "all" ? "Data" : selectedDate;
+    return "Esporte";
   };
 
   const groupMatchesByLeague = (items: DisplayMatch[]) =>
@@ -396,24 +371,6 @@ const Index = () => {
       }, new Map<string, DisplayMatch[]>()),
     );
 
-  useEffect(() => {
-    if (selectedLeague !== "all" && !leagueOptions.includes(selectedLeague)) {
-      setSelectedLeague("all");
-    }
-  }, [leagueOptions, selectedLeague]);
-
-  useEffect(() => {
-    if (selectedTeam !== "all" && !teamOptions.includes(selectedTeam)) {
-      setSelectedTeam("all");
-    }
-  }, [teamOptions, selectedTeam]);
-
-  useEffect(() => {
-    if (selectedDate !== "all" && !dateOptions.includes(selectedDate)) {
-      setSelectedDate("all");
-    }
-  }, [dateOptions, selectedDate]);
-
   return (
     <div className="min-h-screen bg-background text-foreground">
       <Header />
@@ -421,6 +378,17 @@ const Index = () => {
       <section className="relative py-12 md:py-16">
         <div className="container px-6">
           <div className="mb-6 flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={resetFilters}
+              className={`inline-flex items-center gap-2 text-sm underline underline-offset-4 transition-colors ${
+                quickFilter === "all"
+                  ? "font-semibold text-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Todos
+            </button>
             <button
               type="button"
               onClick={() => toggleQuickFilter("live")}
@@ -447,184 +415,48 @@ const Index = () => {
             </button>
           </div>
 
-          <div className="mb-8 lg:hidden">
-            <div className="space-y-3 lg:hidden">
-              <div className="relative">
-                <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Buscar por seleção, campeonato ou data"
-                  className="h-11 border-border bg-card pl-11 placeholder:text-muted-foreground"
-                />
-              </div>
+          <div className="mb-8">
+            <div className="space-y-3">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch">
+                <Select value={selectedSport} onValueChange={setSelectedSport}>
+                  <SelectTrigger className="h-11 w-full shrink-0 border-border bg-card text-xs sm:w-[152px]">
+                    <SelectValue>{getChipLabel("sport")}</SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos esportes</SelectItem>
+                    <SelectItem value="futebol">Futebol</SelectItem>
+                    <SelectItem value="basquete">Basquete</SelectItem>
+                    <SelectItem value="volei">Vôlei</SelectItem>
+                  </SelectContent>
+                </Select>
 
-              <div className="-mx-6 overflow-x-auto px-6 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                <div className="flex w-max items-center gap-2">
-                  <Select value={selectedSport} onValueChange={setSelectedSport}>
-                    <SelectTrigger className="h-9 min-w-fit whitespace-nowrap border-border bg-card px-3 text-xs">
-                      <SelectValue>{getChipLabel("sport")}</SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todos esportes</SelectItem>
-                      <SelectItem value="futebol">Futebol</SelectItem>
-                      <SelectItem value="basquete">Basquete</SelectItem>
-                    </SelectContent>
-                  </Select>
-
-                  <Select value={selectedLeague} onValueChange={setSelectedLeague}>
-                    <SelectTrigger className="h-9 min-w-fit whitespace-nowrap border-border bg-card px-3 text-xs">
-                      <SelectValue>{getChipLabel("league")}</SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todos campeonatos</SelectItem>
-                      {leagueOptions.map((league) => (
-                        <SelectItem key={league} value={league}>
-                          {league}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-
-                  <Select value={selectedTeam} onValueChange={setSelectedTeam}>
-                    <SelectTrigger className="h-9 min-w-fit whitespace-nowrap border-border bg-card px-3 text-xs">
-                      <SelectValue>{getChipLabel("team")}</SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todos times</SelectItem>
-                      {teamOptions.map((team) => (
-                        <SelectItem key={team} value={team}>
-                          {translateTeamLabel(team)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-
-                  <Select value={selectedDate} onValueChange={setSelectedDate}>
-                    <SelectTrigger className="h-9 min-w-fit whitespace-nowrap border-border bg-card px-3 text-xs">
-                      <SelectValue>{getChipLabel("date")}</SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todas datas</SelectItem>
-                      {dateOptions.map((date) => (
-                        <SelectItem key={date} value={date}>
-                          {date}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-
-                  {hasActiveFilters && (
-                    <button
-                      type="button"
-                      onClick={resetFilters}
-                      className="inline-flex h-9 items-center whitespace-nowrap border border-border px-3 text-xs text-muted-foreground transition-colors hover:text-foreground"
-                    >
-                      Limpar
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-
-          </div>
-
-          <div className="lg:grid lg:grid-cols-[260px_minmax(0,1fr)] lg:gap-10">
-            <aside className="hidden lg:block">
-              <div className="sticky top-24 space-y-4 border-r border-border pr-8">
-                <div className="relative">
+                <div className="relative min-w-0 flex-1">
                   <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Buscar por seleção, campeonato ou data"
+                    placeholder="Buscar o que você quiser"
                     className="h-11 border-border bg-card pl-11 placeholder:text-muted-foreground"
                   />
                 </div>
-
-                <div className="space-y-2">
-                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">Esporte</p>
-                  <Select value={selectedSport} onValueChange={setSelectedSport}>
-                    <SelectTrigger className="h-11 border-border bg-card">
-                      <SelectValue placeholder="Esporte" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todos esportes</SelectItem>
-                      <SelectItem value="futebol">Futebol</SelectItem>
-                      <SelectItem value="basquete">Basquete</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">Campeonato</p>
-                  <Select value={selectedLeague} onValueChange={setSelectedLeague}>
-                    <SelectTrigger className="h-11 border-border bg-card">
-                      <SelectValue placeholder="Campeonato" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todos campeonatos</SelectItem>
-                      {leagueOptions.map((league) => (
-                        <SelectItem key={league} value={league}>
-                          {league}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">Time</p>
-                  <Select value={selectedTeam} onValueChange={setSelectedTeam}>
-                    <SelectTrigger className="h-11 border-border bg-card">
-                      <SelectValue placeholder="Time" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todos times</SelectItem>
-                      {teamOptions.map((team) => (
-                        <SelectItem key={team} value={team}>
-                          {translateTeamLabel(team)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">Data</p>
-                  <Select value={selectedDate} onValueChange={setSelectedDate}>
-                    <SelectTrigger className="h-11 border-border bg-card">
-                      <SelectValue placeholder="Data" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todas datas</SelectItem>
-                      {dateOptions.map((date) => (
-                        <SelectItem key={date} value={date}>
-                          {date}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {hasActiveFilters && (
-                  <button
-                    onClick={resetFilters}
-                    className="text-sm text-muted-foreground transition-colors hover:text-foreground"
-                  >
-                    Limpar filtros
-                  </button>
-                )}
               </div>
-            </aside>
+            </div>
+          </div>
 
-            <div>
+          <div>
               <div className="mb-10 flex flex-wrap items-center justify-between gap-4">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <CalendarDays className="h-4 w-4" />
-                  <span>
-                    {totalVisibleMatches} {totalVisibleMatches === 1 ? "evento encontrado" : "eventos encontrados"}
-                  </span>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <CalendarDays className="h-4 w-4" />
+                    <span>
+                      {totalVisibleMatches} {totalVisibleMatches === 1 ? "evento encontrado" : "eventos encontrados"}
+                    </span>
+                  </div>
+                  {apiStatusLabel && (
+                    <p className="text-xs text-muted-foreground">
+                      {apiStatusLabel}
+                    </p>
+                  )}
                 </div>
 
                 {hasActiveFilters && (
@@ -649,7 +481,7 @@ const Index = () => {
                         <div className="space-y-1">
                           <h2 className="text-2xl font-semibold text-foreground">{league}</h2>
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+                        <div className="grid grid-cols-1 gap-8 md:grid-cols-2 xl:grid-cols-4">
                           {leagueMatches.map((game) => (
                             <GameCard
                               key={game.id}
@@ -669,7 +501,6 @@ const Index = () => {
                   )}
                 </div>
               )}
-            </div>
           </div>
         </div>
       </section>

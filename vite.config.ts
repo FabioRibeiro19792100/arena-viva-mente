@@ -34,6 +34,16 @@ export default defineConfig(({ mode }) => {
                 });
               },
             },
+            "/api/volleyball": {
+              target: "https://v1.volleyball.api-sports.io",
+              changeOrigin: true,
+              rewrite: (requestPath) => requestPath.replace(/^\/api\/volleyball/, ""),
+              configure: (proxy) => {
+                proxy.on("proxyReq", (proxyReq) => {
+                  proxyReq.setHeader("x-apisports-key", apiSportsKey);
+                });
+              },
+            },
           }
         : undefined,
     },

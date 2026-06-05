@@ -12,7 +12,7 @@ import {
   toggleFavoriteMatch,
   type ProductState,
 } from "@/lib/productState";
-import { getMatchById } from "@/lib/runtimeMatches";
+import { getMatchById, hydrateRuntimeMatchesByIds } from "@/lib/runtimeMatches";
 
 const Favoritos = () => {
   const navigate = useNavigate();
@@ -23,6 +23,7 @@ const Favoritos = () => {
     history: [],
   });
   const [reservationCounts, setReservationCounts] = useState<Record<string, number>>({});
+  const [resolvedMatches, setResolvedMatches] = useState(() => [] as NonNullable<ReturnType<typeof getMatchById>>[]);
 
   useEffect(() => {
     if (!user) return;
@@ -35,15 +36,21 @@ const Favoritos = () => {
     const favoriteIds = productState.favorites;
     if (favoriteIds.length === 0) {
       setReservationCounts({});
+      setResolvedMatches([]);
       return;
     }
 
     let isActive = true;
 
     void (async () => {
+      await hydrateRuntimeMatchesByIds(favoriteIds);
       const counts = await getMatchReservationCounts(favoriteIds);
+      const matches = favoriteIds
+        .map((matchId) => getMatchById(matchId))
+        .filter(Boolean);
       if (isActive) {
         setReservationCounts(counts);
+        setResolvedMatches(matches);
       }
     })();
 
@@ -53,10 +60,6 @@ const Favoritos = () => {
   }, [productState.favorites]);
 
   if (!user) return null;
-
-  const favoriteMatches = productState.favorites
-    .map((matchId) => getMatchById(matchId))
-    .filter(Boolean);
 
   const refreshState = async () => {
     setProductState(await getProductState(user.id));
@@ -80,7 +83,7 @@ const Favoritos = () => {
             </Button>
           </div>
 
-          {favoriteMatches.length === 0 ? (
+          {resolvedMatches.length === 0 ? (
             <div className="border border-border bg-card p-8 text-center">
               <p className="text-sm text-muted-foreground">
                 Você ainda não marcou nenhum jogo como favorito.
@@ -88,7 +91,7 @@ const Favoritos = () => {
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
-              {favoriteMatches.map((game) => (
+              {resolvedMatches.map((game) => (
                 <GameCard
                   key={game.id}
                   {...game}
