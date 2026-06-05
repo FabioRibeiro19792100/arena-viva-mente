@@ -1,5 +1,5 @@
-import type { MatchStatus, WorldCupMatch } from "../data/worldCup2026";
-import { normalizeSearchText, translateTeamLabel } from "./matchLabels";
+import type { MatchStatus, WorldCupMatch } from "../data/worldCup2026.js";
+import { normalizeSearchText, translateTeamLabel } from "./matchLabels.js";
 
 export interface ApiFootballFixture {
   fixture: {
