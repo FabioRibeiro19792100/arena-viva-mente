@@ -18,14 +18,12 @@ export default async function handler(req: any, res: any) {
       ? req.query.quick
       : "all";
     const search = typeof req.query?.search === "string" ? req.query.search : "";
-    const debug = req.query?.debug === "1";
 
     return res.status(200).json(
       await getMatchesFeed({
         sport,
         quick,
         search,
-        debug,
       }),
     );
   } catch (error: any) {

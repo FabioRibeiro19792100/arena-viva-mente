@@ -8,6 +8,8 @@ import {
   buildFootballLeagueLabel,
   buildFootballLiveDetail,
   buildNbaLiveDetail,
+  resolveFootballVisual,
+  resolveNbaVisual,
   buildVolleyballLiveDetail,
   mapApiStatus,
   mapNbaStatus,
@@ -195,8 +197,8 @@ export const buildNbaMatchRow = (game: ApiNbaGame): SportsMatchRow => {
     stage: typeof game.stage === "string" ? game.stage : `Stage ${game.stage ?? "NBA"}`,
     home_team: game.teams.home.name,
     away_team: game.teams.visitors.name,
-    home_logo: game.teams.home.logo || null,
-    away_logo: game.teams.visitors.logo || null,
+    home_logo: resolveNbaVisual(game.teams.home.name, game.teams.home.logo || "") || null,
+    away_logo: resolveNbaVisual(game.teams.visitors.name, game.teams.visitors.logo || "") || null,
     starts_at: game.date.start,
     timezone: "America/Sao_Paulo",
     status,
@@ -270,8 +272,18 @@ export const mapSportsMatchRowToDisplayMatch = (row: SportsMatchRow): DisplayMat
     row.venue && row.city && !row.venue.includes(row.city)
       ? `${row.venue}, ${row.city}`
       : row.venue || row.city || "",
-  homeTeamLogo: row.home_logo || "",
-  awayTeamLogo: row.away_logo || "",
+  homeTeamLogo:
+    row.sport === "basquete"
+      ? resolveNbaVisual(row.home_team, row.home_logo || "")
+      : row.sport === "futebol"
+        ? resolveFootballVisual(row.home_team, row.home_logo || "")
+        : row.home_logo || "",
+  awayTeamLogo:
+    row.sport === "basquete"
+      ? resolveNbaVisual(row.away_team, row.away_logo || "")
+      : row.sport === "futebol"
+        ? resolveFootballVisual(row.away_team, row.away_logo || "")
+        : row.away_logo || "",
   homeScore: row.home_score ?? undefined,
   awayScore: row.away_score ?? undefined,
   liveDetail: row.live_clock || undefined,

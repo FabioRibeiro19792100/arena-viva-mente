@@ -121,8 +121,7 @@ export const getMatchesFeed = async (input: {
   sport: "all" | SportType;
   quick: QuickFilterType;
   search: string;
-  debug?: boolean;
-}): Promise<MatchesFeedPayload & { debug?: Record<string, unknown> }> => {
+}): Promise<MatchesFeedPayload> => {
   await ensureStaticMatchesSeeded();
   await ensureScheduledMatchesFresh();
 
@@ -182,34 +181,10 @@ export const getMatchesFeed = async (input: {
   });
   const todayIds = new Set(todayMatches.map((match) => match.id));
 
-  const payload = {
+  return {
     matches: filteredMatches.filter((match) => !todayIds.has(match.id)),
     todayMatches,
     apiFeedStatus: await readSyncStatuses(),
-  };
-
-  if (!input.debug) {
-    return payload;
-  }
-
-  return {
-    ...payload,
-    debug: {
-      quick: input.quick,
-      sport: input.sport,
-      totalRowsFromQuery: (data || []).length,
-      rowsAfterDateFilter: rows.length,
-      filteredMatches: filteredMatches.length,
-      todayMatches: todayMatches.length,
-      liveRowsAfterDateFilter: rows.filter((row) => row.status === "live").length,
-      sameDayRowsAfterDateFilter: rows.filter((row) => isSameBrasiliaDay(row.starts_at)).length,
-      sampleIds: rows.slice(0, 12).map((row) => ({
-        id: row.id,
-        sport: row.sport,
-        status: row.status,
-        starts_at: row.starts_at,
-      })),
-    },
   };
 };
 

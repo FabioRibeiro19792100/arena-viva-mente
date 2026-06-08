@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, CheckCircle2, MessageSquare, Shield } from "lucide-react";
-import { toProxiedAssetUrl } from "@/lib/media";
+import { isApiSportsMediaUrl, toProxiedAssetUrl } from "@/lib/media";
 
 interface TeamOnboardingProps {
   open: boolean;
@@ -22,6 +22,7 @@ export const TeamOnboarding = ({
   awayTeamLogo,
 }: TeamOnboardingProps) => {
   const [selectedTeam, setSelectedTeam] = useState<"home" | "away" | "neutral" | null>(null);
+  const [imageOverrides, setImageOverrides] = useState<Record<string, string>>({});
 
   const handleComplete = (team: "home" | "away" | "neutral" | null = selectedTeam) => {
     onComplete(team || "neutral");
@@ -83,9 +84,18 @@ export const TeamOnboarding = ({
                   {option.logo ? (
                     <span className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-full transition-all">
                       <img
-                        src={toProxiedAssetUrl(option.logo)}
+                        src={imageOverrides[option.value] || toProxiedAssetUrl(option.logo)}
                         alt={option.label}
                         className="h-full w-full object-cover"
+                        referrerPolicy="no-referrer"
+                        onError={() => {
+                          if (option.logo && isApiSportsMediaUrl(option.logo) && !imageOverrides[option.value]) {
+                            setImageOverrides((current) => ({
+                              ...current,
+                              [option.value]: option.logo,
+                            }));
+                          }
+                        }}
                       />
                     </span>
                   ) : (
