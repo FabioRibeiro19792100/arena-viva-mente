@@ -26,6 +26,16 @@ const formatBrasiliaDay = (value: string) =>
 const isSameBrasiliaDay = (value: string) => formatBrasiliaDay(value) === formatBrasiliaDay(new Date().toISOString());
 const isTodayOrFutureBrasiliaDay = (value: string) =>
   formatBrasiliaDay(value) >= formatBrasiliaDay(new Date().toISOString());
+const getBrasiliaDayStartIso = () => {
+  const day = formatBrasiliaDay(new Date().toISOString());
+  return `${day}T00:00:00-03:00`;
+};
+const getBrasiliaNextDayStartIso = () => {
+  const next = new Date();
+  next.setDate(next.getDate() + 1);
+  const day = formatBrasiliaDay(next.toISOString());
+  return `${day}T00:00:00-03:00`;
+};
 
 const SCHEDULED_SYNC_LOCK_TTL_MS = 10 * 60 * 1000;
 const SCHEDULED_SYNC_LOCK_KEY = `scheduled-sync-lock:${formatBrasiliaDay(new Date().toISOString())}`;
@@ -111,12 +121,19 @@ export const getMatchesFeed = async (input: {
   sport: "all" | SportType;
   quick: QuickFilterType;
   search: string;
-}): Promise<MatchesFeedPayload> => {
+  debug?: boolean;
+}): Promise<MatchesFeedPayload & { debug?: Record<string, unknown> }> => {
   await ensureStaticMatchesSeeded();
   await ensureScheduledMatchesFresh();
 
   const admin = getSupabaseAdmin();
-  let query = admin.from("sports_matches").select("*").order("starts_at", { ascending: true });
+  const brasliaDayStartIso = getBrasiliaDayStartIso();
+  const nextBrasiliaDayStartIso = getBrasiliaNextDayStartIso();
+  let query = admin
+    .from("sports_matches")
+    .select("*")
+    .or(`status.eq.live,starts_at.gte.${brasliaDayStartIso}`)
+    .order("starts_at", { ascending: true });
 
   if (input.sport !== "all") {
     query = query.eq("sport", input.sport);
@@ -124,6 +141,13 @@ export const getMatchesFeed = async (input: {
 
   if (input.quick === "live") {
     query = query.eq("status", "live");
+  }
+
+  if (input.quick === "soon") {
+    query = query
+      .eq("status", "scheduled")
+      .gte("starts_at", brasliaDayStartIso)
+      .lt("starts_at", nextBrasiliaDayStartIso);
   }
 
   const { data, error } = await query;
@@ -149,7 +173,7 @@ export const getMatchesFeed = async (input: {
       return true;
     }
 
-    return matchesSearchText(match).includes(normalizedSearch);
+    return matchesSearchText(match, row).includes(normalizedSearch);
   });
 
   const todayMatches = filteredMatches.filter((match) => {
@@ -158,10 +182,34 @@ export const getMatchesFeed = async (input: {
   });
   const todayIds = new Set(todayMatches.map((match) => match.id));
 
-  return {
+  const payload = {
     matches: filteredMatches.filter((match) => !todayIds.has(match.id)),
     todayMatches,
     apiFeedStatus: await readSyncStatuses(),
+  };
+
+  if (!input.debug) {
+    return payload;
+  }
+
+  return {
+    ...payload,
+    debug: {
+      quick: input.quick,
+      sport: input.sport,
+      totalRowsFromQuery: (data || []).length,
+      rowsAfterDateFilter: rows.length,
+      filteredMatches: filteredMatches.length,
+      todayMatches: todayMatches.length,
+      liveRowsAfterDateFilter: rows.filter((row) => row.status === "live").length,
+      sameDayRowsAfterDateFilter: rows.filter((row) => isSameBrasiliaDay(row.starts_at)).length,
+      sampleIds: rows.slice(0, 12).map((row) => ({
+        id: row.id,
+        sport: row.sport,
+        status: row.status,
+        starts_at: row.starts_at,
+      })),
+    },
   };
 };
 

@@ -18,6 +18,7 @@ import {
 } from "../../src/lib/apiFootball.js";
 import {
   normalizeSearchText,
+  translateTeamLabel,
 } from "../../src/lib/matchLabels.js";
 
 export type SportType = "futebol" | "basquete" | "volei";
@@ -93,6 +94,21 @@ const inferCityFromVenue = (venue?: string) => {
   const parts = venue.split(",").map((part) => part.trim()).filter(Boolean);
   return parts.length > 1 ? parts[parts.length - 1] : null;
 };
+
+const localizeKnownLabel = (value?: string | null) => {
+  const trimmed = value?.trim() || "";
+  return trimmed ? translateTeamLabel(trimmed) : trimmed;
+};
+
+const buildSearchVariants = (...values: Array<string | null | undefined>) =>
+  values
+    .flatMap((value) => {
+      const trimmed = value?.trim() || "";
+      if (!trimmed) return [];
+      const localized = localizeKnownLabel(trimmed);
+      return localized && localized !== trimmed ? [trimmed, localized] : [trimmed];
+    })
+    .join(" ");
 
 const statusLabelFromStatus = (status: MatchStatus) => {
   if (status === "live") return "Ao vivo";
@@ -242,8 +258,8 @@ export const buildVolleyballMatchRow = (game: ApiVolleyballGame): SportsMatchRow
 
 export const mapSportsMatchRowToDisplayMatch = (row: SportsMatchRow): DisplayMatch => ({
   id: row.id,
-  homeTeam: row.home_team,
-  awayTeam: row.away_team,
+  homeTeam: localizeKnownLabel(row.home_team) || row.home_team,
+  awayTeam: localizeKnownLabel(row.away_team) || row.away_team,
   league: row.league_name,
   stage: row.stage,
   status: row.status,
@@ -276,7 +292,14 @@ export const mapSportsMatchRowToDisplayMatch = (row: SportsMatchRow): DisplayMat
 export const dedupeDisplayMatches = (matches: DisplayMatch[]) =>
   Array.from(new Map(matches.map((match) => [match.id, match])).values());
 
-export const matchesSearchText = (match: DisplayMatch) =>
+export const matchesSearchText = (match: DisplayMatch, row?: SportsMatchRow) =>
   normalizeSearchText(
-    [match.homeTeam, match.awayTeam, match.league, match.stage, match.venue, match.date].join(" "),
+    [
+      buildSearchVariants(match.homeTeam, row?.home_team),
+      buildSearchVariants(match.awayTeam, row?.away_team),
+      buildSearchVariants(match.league, row?.league_name, row?.country_name),
+      buildSearchVariants(match.stage, row?.stage),
+      buildSearchVariants(match.venue, row?.venue, row?.city),
+      match.date,
+    ].join(" "),
   );
