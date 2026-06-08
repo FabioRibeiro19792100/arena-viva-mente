@@ -1106,15 +1106,27 @@ const Arquibancada = () => {
                 type="button"
                 onClick={() => void refreshMessages()}
                 disabled={isMessagesLoading || isRefreshing}
-                className="inline-flex items-center gap-2 text-xs text-muted-foreground transition-colors hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
+                className={`inline-flex items-center gap-2 text-xs transition-colors disabled:pointer-events-none disabled:opacity-50 ${
+                  pendingMessageCount > 0
+                    ? "rounded-full border border-primary/25 bg-primary/10 px-3 py-1.5 text-foreground shadow-[0_0_0_1px_rgba(34,197,94,0.08)] hover:bg-primary/15"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
               >
                 <RefreshCw className={`h-3.5 w-3.5 ${isRefreshing ? "animate-spin" : ""}`} />
-                <span>Atualizar</span>
-                {pendingMessageCount > 0 && (
+                {pendingMessageCount > 0 ? (
                   <>
-                    <span className="h-2 w-2 rounded-full bg-primary" aria-hidden="true" />
-                    <span>{pendingMessageCount}</span>
+                    <span className="relative flex h-2.5 w-2.5">
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary/55 opacity-75" />
+                      <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-primary" aria-hidden="true" />
+                    </span>
+                    <span>
+                      {pendingMessageCount === 1
+                        ? "1 nova mensagem"
+                        : `${pendingMessageCount} novas mensagens`}
+                    </span>
                   </>
+                ) : (
+                  <span>Atualizar</span>
                 )}
               </button>
             </div>

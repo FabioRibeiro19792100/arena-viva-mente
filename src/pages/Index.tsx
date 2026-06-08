@@ -340,7 +340,87 @@ const Index = () => {
 
       <section className="relative py-6 md:py-8">
         <div className="container px-6">
-          <div className="mb-6 flex flex-wrap items-center gap-3">
+          <div className="md:hidden sticky top-20 z-30 -mx-6 mb-5 border-b border-border/80 bg-background/92 px-6 py-3 backdrop-blur-xl">
+            <div className="space-y-3">
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  onClick={resetFilters}
+                  className={`inline-flex items-center gap-2 text-sm underline underline-offset-4 transition-colors ${
+                    quickFilter === "all"
+                      ? "font-semibold text-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Todos
+                </button>
+                <button
+                  type="button"
+                  onClick={() => toggleQuickFilter("live")}
+                  className={`inline-flex items-center gap-2 text-sm underline underline-offset-4 transition-colors ${
+                    quickFilter === "live"
+                      ? "font-semibold text-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                  Ao vivo agora
+                </button>
+                <button
+                  type="button"
+                  onClick={() => toggleQuickFilter("soon")}
+                  className={`inline-flex items-center gap-2 text-sm underline underline-offset-4 transition-colors ${
+                    quickFilter === "soon"
+                      ? "font-semibold text-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <span className="h-2 w-2 rounded-full bg-amber-500" />
+                  Em breve
+                </button>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <Select value={selectedSport} onValueChange={setSelectedSport}>
+                  <SelectTrigger className="h-10 w-full border-border bg-card text-xs">
+                    <SelectValue>{getChipLabel("sport")}</SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos esportes</SelectItem>
+                    <SelectItem value="futebol">Futebol</SelectItem>
+                    <SelectItem value="basquete">Basquete</SelectItem>
+                    <SelectItem value="volei">Vôlei</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Select value={selectedLeague} onValueChange={setSelectedLeague}>
+                  <SelectTrigger className="h-10 w-full border-border bg-card text-xs">
+                    <SelectValue>{getChipLabel("league")}</SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos campeonatos</SelectItem>
+                    {availableLeagues.map((league) => (
+                      <SelectItem key={league} value={league}>
+                        {league}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="relative min-w-0">
+                <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Buscar o que você quiser"
+                  className="h-10 border-border bg-card pl-11 placeholder:text-muted-foreground"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="hidden md:flex mb-6 flex-wrap items-center gap-3">
             <button
               type="button"
               onClick={resetFilters}
@@ -378,7 +458,7 @@ const Index = () => {
             </button>
           </div>
 
-          <div className="mb-8">
+          <div className="hidden md:block mb-8">
             <div className="space-y-3">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch">
                 <Select value={selectedSport} onValueChange={setSelectedSport}>
@@ -421,7 +501,7 @@ const Index = () => {
           </div>
 
           <div>
-              <div className="mb-10 flex flex-wrap items-center justify-between gap-4">
+              <div className="mb-6 md:mb-10 flex flex-wrap items-center justify-between gap-4">
                 <div className="space-y-1">
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <CalendarDays className="h-4 w-4" />

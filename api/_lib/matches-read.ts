@@ -9,6 +9,7 @@ import {
   type SportsMatchRow,
 } from "./sports-matches.js";
 import { ensureStaticMatchesSeeded } from "./sports-sync.js";
+import { syncScheduledMatches } from "./sports-sync.js";
 import { syncMatchesByIds } from "./sports-sync.js";
 import { normalizeSearchText } from "../../src/lib/matchLabels.js";
 
@@ -23,6 +24,11 @@ const formatBrasiliaDay = (value: string) =>
   }).format(new Date(value));
 
 const isSameBrasiliaDay = (value: string) => formatBrasiliaDay(value) === formatBrasiliaDay(new Date().toISOString());
+const isTodayOrFutureBrasiliaDay = (value: string) =>
+  formatBrasiliaDay(value) >= formatBrasiliaDay(new Date().toISOString());
+
+const SCHEDULED_SYNC_LOCK_TTL_MS = 10 * 60 * 1000;
+const SCHEDULED_SYNC_LOCK_KEY = `scheduled-sync-lock:${formatBrasiliaDay(new Date().toISOString())}`;
 
 const syncStatusPriority: Record<SyncStatus, number> = {
   ok: 6,
@@ -54,12 +60,60 @@ const readSyncStatuses = async () => {
   } as MatchesFeedPayload["apiFeedStatus"];
 };
 
+const ensureScheduledMatchesFresh = async () => {
+  const admin = getSupabaseAdmin();
+  const today = formatBrasiliaDay(new Date().toISOString());
+
+  const { data: statuses } = await admin
+    .from("sports_sync_status")
+    .select("sport, mode, last_synced_at")
+    .eq("mode", "scheduled");
+
+  const scheduledBySport = new Map(
+    (statuses || []).map((item) => [String(item.sport), String(item.last_synced_at || "")]),
+  );
+  const sportsToCheck = ["futebol", "basquete", "volei"];
+  const isFresh = sportsToCheck.every((sport) => {
+    const lastSyncedAt = scheduledBySport.get(sport);
+    return lastSyncedAt ? formatBrasiliaDay(lastSyncedAt) === today : false;
+  });
+
+  if (isFresh) {
+    return;
+  }
+
+  const { data: lockEntry } = await admin
+    .from("api_feed_cache")
+    .select("expires_at")
+    .eq("cache_key", SCHEDULED_SYNC_LOCK_KEY)
+    .maybeSingle();
+
+  if (lockEntry?.expires_at && new Date(lockEntry.expires_at).getTime() > Date.now()) {
+    return;
+  }
+
+  await admin.from("api_feed_cache").upsert({
+    cache_key: SCHEDULED_SYNC_LOCK_KEY,
+    payload: { kind: "scheduled-sync-lock", day: today },
+    source: "matches-read",
+    fetched_at: new Date().toISOString(),
+    expires_at: new Date(Date.now() + SCHEDULED_SYNC_LOCK_TTL_MS).toISOString(),
+  });
+
+  try {
+    await syncScheduledMatches();
+  } catch {
+    // If the scheduled sync fails, we still want to serve the last persisted snapshot.
+  }
+};
+
 export const getMatchesFeed = async (input: {
   sport: "all" | SportType;
   quick: QuickFilterType;
   search: string;
 }): Promise<MatchesFeedPayload> => {
   await ensureStaticMatchesSeeded();
+  await ensureScheduledMatchesFresh();
 
   const admin = getSupabaseAdmin();
   let query = admin.from("sports_matches").select("*").order("starts_at", { ascending: true });
@@ -77,7 +131,9 @@ export const getMatchesFeed = async (input: {
     throw error;
   }
 
-  const rows = (data || []) as SportsMatchRow[];
+  const rows = ((data || []) as SportsMatchRow[]).filter(
+    (row) => row.status === "live" || isTodayOrFutureBrasiliaDay(row.starts_at),
+  );
   const rowsById = new Map(rows.map((row) => [row.id, row]));
 
   const normalizedSearch = normalizeSearchText(input.search);
