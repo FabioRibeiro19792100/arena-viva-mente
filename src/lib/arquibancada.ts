@@ -24,6 +24,7 @@ interface GetMatchMessagesOptions {
 const LOCAL_TEAM_PREFIX = "arena-viva-mente.match-team";
 const LOCAL_MESSAGES_PREFIX = "arena-viva-mente.match-messages";
 const LOCAL_MUTED_USERS_PREFIX = "arena-viva-mente.match-muted-users";
+const LOCAL_FAVORITE_MESSAGES_PREFIX = "arena-viva-mente.match-favorite-messages";
 const isLocalDevHost = () =>
   typeof window !== "undefined" &&
   (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
@@ -31,6 +32,8 @@ const isLocalDevHost = () =>
 const teamKey = (userId: string, matchId: string) => `${LOCAL_TEAM_PREFIX}.${userId}.${matchId}`;
 const messagesKey = (matchId: string) => `${LOCAL_MESSAGES_PREFIX}.${matchId}`;
 const mutedUsersKey = (userId: string, matchId: string) => `${LOCAL_MUTED_USERS_PREFIX}.${userId}.${matchId}`;
+const favoriteMessagesKey = (userId: string, matchId: string) =>
+  `${LOCAL_FAVORITE_MESSAGES_PREFIX}.${userId}.${matchId}`;
 
 const readLocalMessages = (matchId: string): MatchMessage[] => {
   try {
@@ -74,6 +77,19 @@ const readLocalMutedUsers = (userId: string, matchId: string): string[] => {
 
 const saveLocalMutedUsers = (userId: string, matchId: string, mutedUserIds: string[]) => {
   localStorage.setItem(mutedUsersKey(userId, matchId), JSON.stringify(mutedUserIds));
+};
+
+const readLocalFavoriteMessages = (userId: string, matchId: string): string[] => {
+  try {
+    const stored = localStorage.getItem(favoriteMessagesKey(userId, matchId));
+    return stored ? (JSON.parse(stored) as string[]) : [];
+  } catch {
+    return [];
+  }
+};
+
+const saveLocalFavoriteMessages = (userId: string, matchId: string, messageIds: string[]) => {
+  localStorage.setItem(favoriteMessagesKey(userId, matchId), JSON.stringify(messageIds));
 };
 
 export const getMatchPreference = async (userId: string, matchId: string): Promise<TeamSide | null> => {
@@ -131,6 +147,24 @@ export const toggleMutedUser = async (
 
   saveLocalMutedUsers(userId, matchId, nextMutedUsers);
   return nextMutedUsers;
+};
+
+export const getFavoriteMessages = async (userId: string, matchId: string): Promise<string[]> => {
+  return readLocalFavoriteMessages(userId, matchId);
+};
+
+export const toggleFavoriteMessage = async (
+  userId: string,
+  matchId: string,
+  messageId: string,
+): Promise<string[]> => {
+  const currentFavoriteMessages = readLocalFavoriteMessages(userId, matchId);
+  const nextFavoriteMessages = currentFavoriteMessages.includes(messageId)
+    ? currentFavoriteMessages.filter((id) => id !== messageId)
+    : [...currentFavoriteMessages, messageId];
+
+  saveLocalFavoriteMessages(userId, matchId, nextFavoriteMessages);
+  return nextFavoriteMessages;
 };
 
 const mapMessageRow = (row: {

@@ -19,6 +19,7 @@ import {
   Filter,
   Heart,
   MapPin,
+  MoreHorizontal,
   RefreshCw,
   Send,
   Shield,
@@ -37,11 +38,13 @@ import { useMockAuth } from "@/contexts/MockAuthContext";
 import { addHistoryEntry } from "@/lib/productState";
 import { fetchFootballMatchInsights, type MatchInsightsPayload } from "@/lib/matchInsights";
 import {
+  getFavoriteMessages,
   getMatchMessages,
   getMutedUsers,
   getMatchPreference,
   saveMatchPreference,
   sendMatchMessage,
+  toggleFavoriteMessage,
   toggleMutedUser,
   type MatchMessage,
   type TeamSide,
@@ -94,10 +97,12 @@ const Arquibancada = () => {
   const [pendingMessageCount, setPendingMessageCount] = useState(0);
   const [pullDistance, setPullDistance] = useState(0);
   const [mutedUserIds, setMutedUserIds] = useState<string[]>([]);
+  const [favoriteMessageIds, setFavoriteMessageIds] = useState<string[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const feedWrapperRef = useRef<HTMLDivElement>(null);
   const touchStartYRef = useRef<number | null>(null);
   const messagesRef = useRef<MatchMessage[]>([]);
+  const shouldAutoScrollRef = useRef(true);
   const [game, setGame] = useState(() => getMatchById(id) || (id?.startsWith("api-") ? null : fallbackGame));
   const isLoadingGame = !game && Boolean(id?.startsWith("api-"));
   const activeGame = game || fallbackGame;
@@ -141,6 +146,7 @@ const Arquibancada = () => {
             ? { after: latestKnownMessage.createdAt }
             : { limit: INITIAL_MESSAGES_LIMIT },
       );
+      shouldAutoScrollRef.current = showLoader;
       setMessages((current) => mergeMessages(current, nextMessages));
     } catch (error) {
       toast({
@@ -195,15 +201,20 @@ const Arquibancada = () => {
     if (isLoadingGame) return;
     if (!user) {
       setMutedUserIds([]);
+      setFavoriteMessageIds([]);
       return;
     }
 
     let isActive = true;
 
     void (async () => {
-      const nextMutedUsers = await getMutedUsers(user.id, activeGame.id);
+      const [nextMutedUsers, nextFavoriteMessages] = await Promise.all([
+        getMutedUsers(user.id, activeGame.id),
+        getFavoriteMessages(user.id, activeGame.id),
+      ]);
       if (isActive) {
         setMutedUserIds(nextMutedUsers);
+        setFavoriteMessageIds(nextFavoriteMessages);
       }
     })();
 
@@ -351,7 +362,12 @@ const Arquibancada = () => {
   }, [activeGame.id, currentStatus, isLoadingGame, isMessagesLoading, isRefreshing, user?.id]);
 
   useEffect(() => {
+    if (!shouldAutoScrollRef.current) {
+      return;
+    }
+
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    shouldAutoScrollRef.current = false;
   }, [messages]);
 
   useEffect(() => {
@@ -439,6 +455,7 @@ const Arquibancada = () => {
         createdAt: new Date().toISOString(),
       };
 
+      shouldAutoScrollRef.current = true;
       setMessages((current) => mergeMessages(current, [optimisticMessage]));
       setMessage("");
       setCooldown(3);
@@ -561,6 +578,22 @@ const Arquibancada = () => {
         description: didMute
           ? `Você não verá mais as mensagens de ${userName} nesta sala.`
           : `As mensagens de ${userName} voltaram a aparecer nesta sala.`,
+      });
+    })();
+  };
+
+  const handleToggleFavoriteMessage = (messageId: string) => {
+    if (!user) return;
+
+    void (async () => {
+      const nextFavoriteMessages = await toggleFavoriteMessage(user.id, activeGame.id, messageId);
+      const isNowFavorite = nextFavoriteMessages.includes(messageId);
+      setFavoriteMessageIds(nextFavoriteMessages);
+      toast({
+        title: isNowFavorite ? "Comentário favoritado" : "Favorito removido",
+        description: isNowFavorite
+          ? "Esse comentário foi salvo para você nesta sala."
+          : "Esse comentário deixou de estar nos seus favoritos desta sala.",
       });
     })();
   };
@@ -1025,6 +1058,7 @@ const Arquibancada = () => {
               ) : filteredMessages.map((msg, index) => {
                 const teamIdentity = getTeamIdentity(msg.teamSide);
                 const isMuted = mutedUserIds.includes(msg.userId);
+                const isFavoriteMessage = favoriteMessageIds.includes(msg.id);
 
                 return (
                   <div
@@ -1067,10 +1101,22 @@ const Arquibancada = () => {
                           </div>
 
                           <div className="flex shrink-0 items-center self-start">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 shrink-0 p-0"
+                              onClick={() => handleToggleFavoriteMessage(msg.id)}
+                            >
+                              <Heart
+                                className={`h-4 w-4 ${
+                                  isFavoriteMessage ? "fill-primary text-primary" : "text-muted-foreground"
+                                }`}
+                              />
+                            </Button>
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
                                 <Button variant="ghost" size="sm" className="h-8 w-8 shrink-0 p-0">
-                                  <Heart className="h-4 w-4 text-muted-foreground" />
+                                  <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
