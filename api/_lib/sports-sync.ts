@@ -72,6 +72,9 @@ const upsertMatches = async (rows: SportsMatchRow[]) => {
   }
 };
 
+const dedupeMatchRows = (rows: SportsMatchRow[]) =>
+  Array.from(new Map(rows.map((row) => [row.id, row])).values());
+
 const clearStaleLiveMatches = async (
   provider: "football" | "nba" | "volleyball",
   activeIds: string[],
@@ -159,8 +162,12 @@ export const ensureStaticMatchesSeeded = async () => {
 
 const syncFootballScheduled = async (mode: SyncMode) => {
   const today = formatApiDate(new Date());
-  const [worldCupPayload, todayPayload] = await Promise.allSettled([
+  const [worldCupPayload, worldCupRoundOnePayload, todayPayload] = await Promise.allSettled([
     fetchApiJson(FOOTBALL_BASE_URL, "/fixtures?league=1&season=2026"),
+    fetchApiJson(
+      FOOTBALL_BASE_URL,
+      "/fixtures?league=1&season=2026&round=Group%20Stage%20-%201&timezone=America/Sao_Paulo",
+    ),
     fetchApiJson(FOOTBALL_BASE_URL, `/fixtures?date=${today}&timezone=America/Sao_Paulo`),
   ]);
 
@@ -170,26 +177,47 @@ const syncFootballScheduled = async (mode: SyncMode) => {
     rows.push(...(worldCupPayload.value.response as ApiFootballFixture[]).map(buildFootballMatchRow));
   }
 
+  if (
+    worldCupRoundOnePayload.status === "fulfilled" &&
+    Array.isArray(worldCupRoundOnePayload.value?.response)
+  ) {
+    rows.push(
+      ...(worldCupRoundOnePayload.value.response as ApiFootballFixture[]).map(buildFootballMatchRow),
+    );
+  }
+
   if (todayPayload.status === "fulfilled" && Array.isArray(todayPayload.value?.response)) {
     rows.push(...(todayPayload.value.response as ApiFootballFixture[]).map(buildFootballMatchRow));
   }
 
-  await upsertMatches(rows);
+  const dedupedRows = dedupeMatchRows(rows);
 
-  if (worldCupPayload.status === "fulfilled" && worldCupPayload.value?.errors?.plan) {
-    await updateSyncStatus("futebol", mode, "plan", String(worldCupPayload.value.errors.plan));
-    return { sport: "futebol" as const, status: "plan" as SyncStatus, upserted: rows.length };
+  await upsertMatches(dedupedRows);
+
+  const hasWorldCupPlanError =
+    (worldCupPayload.status === "fulfilled" && worldCupPayload.value?.errors?.plan) ||
+    (worldCupRoundOnePayload.status === "fulfilled" && worldCupRoundOnePayload.value?.errors?.plan);
+  const worldCupPlanMessage =
+    (worldCupPayload.status === "fulfilled" && worldCupPayload.value?.errors?.plan) ||
+    (worldCupRoundOnePayload.status === "fulfilled" && worldCupRoundOnePayload.value?.errors?.plan) ||
+    "World Cup indisponível no plano atual";
+
+  if (hasWorldCupPlanError && dedupedRows.length === 0) {
+    await updateSyncStatus("futebol", mode, "plan", String(worldCupPlanMessage));
+    return { sport: "futebol" as const, status: "plan" as SyncStatus, upserted: dedupedRows.length };
   }
 
   const status: SyncStatus =
-    rows.length > 0
-      ? worldCupPayload.status === "fulfilled" && todayPayload.status === "fulfilled"
+    dedupedRows.length > 0
+      ? worldCupPayload.status === "fulfilled" &&
+        worldCupRoundOnePayload.status === "fulfilled" &&
+        todayPayload.status === "fulfilled"
         ? "ok"
         : "partial"
       : "offline";
 
   await updateSyncStatus("futebol", mode, status);
-  return { sport: "futebol" as const, status, upserted: rows.length };
+  return { sport: "futebol" as const, status, upserted: dedupedRows.length };
 };
 
 const syncFootballLive = async (mode: SyncMode) => {
