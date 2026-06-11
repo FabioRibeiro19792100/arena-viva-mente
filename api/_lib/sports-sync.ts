@@ -8,6 +8,7 @@ import {
   type SportsMatchRow,
   type SyncStatus,
 } from "./sports-matches.js";
+import { worldCup2026Matches } from "../../src/data/worldCup2026.js";
 import type { ApiFootballFixture, ApiNbaGame, ApiVolleyballGame } from "../../src/lib/apiFootball.js";
 
 type SyncMode = "scheduled" | "live" | "manual";
@@ -140,6 +141,19 @@ const updateSyncStatus = async (
 };
 
 export const ensureStaticMatchesSeeded = async () => {
+  const admin = getSupabaseAdmin();
+  const allowedStaticIds = worldCup2026Matches.map((match) => match.id);
+
+  let cleanupQuery = admin
+    .from("sports_matches")
+    .delete()
+    .eq("provider", "internal");
+
+  if (allowedStaticIds.length > 0) {
+    cleanupQuery = cleanupQuery.not("id", "in", `(${allowedStaticIds.map((id) => `"${id}"`).join(",")})`);
+  }
+
+  await cleanupQuery;
   await upsertMatches(buildStaticMatchRows());
 };
 
