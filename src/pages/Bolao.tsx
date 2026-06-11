@@ -40,11 +40,8 @@ const normalizeLabel = (value: string) =>
     .toLowerCase();
 
 const isApiWorldCupMatch = (match: DisplayMatch) => {
-  const league = normalizeLabel(match.league);
-  return (
-    match.apiSource === "football" &&
-    (league.includes("world cup") || league.includes("copa do mundo"))
-  );
+  const league = normalizeLabel(match.league).replace(/\s+/g, " ").trim();
+  return match.apiSource === "football" && (league === "world cup" || league === "copa do mundo");
 };
 
 const TeamMark = ({ name, logo }: { name: string; logo: string }) => {
@@ -102,7 +99,7 @@ const Bolao = () => {
         sport: "futebol",
         quick: "all",
         search: "",
-        league: "Copa do Mundo",
+        league: "World Cup",
         includePast: true,
       });
       const resolvedMatches = [...feed.todayMatches, ...feed.matches].filter(

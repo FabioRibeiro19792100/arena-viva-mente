@@ -24,6 +24,7 @@ import { normalizeSearchText } from "@/lib/matchLabels";
 import { upsertRuntimeMatches } from "@/lib/runtimeMatches";
 
 const Index = () => {
+  const worldCupShortcutLeague = "__world_cup__";
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { toast } = useToast();
@@ -130,8 +131,13 @@ const Index = () => {
     };
   }, [syncTick]);
 
+  const isWorldCupLeague = (league: string) => {
+    const normalizedLeague = normalizeSearchText(league);
+    return normalizedLeague.includes("world cup") || normalizedLeague.includes("copa do mundo");
+  };
+
   const leaguePriority = (league: string) => {
-    if (league === "Copa do Mundo FIFA 2026™") return 0;
+    if (isWorldCupLeague(league)) return 0;
     if (league === "NBA") return 1;
     if (/nations league/i.test(league)) return 2;
     return 10;
@@ -187,7 +193,18 @@ const Index = () => {
           return false;
         }
 
-        if (selectedLeague !== "all" && match.league !== selectedLeague) {
+        if (
+          selectedLeague === worldCupShortcutLeague &&
+          !isWorldCupLeague(match.league)
+        ) {
+          return false;
+        }
+
+        if (
+          selectedLeague !== "all" &&
+          selectedLeague !== worldCupShortcutLeague &&
+          match.league !== selectedLeague
+        ) {
           return false;
         }
 
@@ -339,6 +356,19 @@ const Index = () => {
     });
   };
 
+  const toggleWorldCupShortcut = () => {
+    const isActive = selectedSport === "futebol" && selectedLeague === worldCupShortcutLeague;
+
+    if (isActive) {
+      setSelectedSport("all");
+      setSelectedLeague("all");
+      return;
+    }
+
+    setSelectedSport("futebol");
+    setSelectedLeague(worldCupShortcutLeague);
+  };
+
   const handleManualSync = async () => {
     try {
       setIsSyncingFeed(true);
@@ -371,17 +401,23 @@ const Index = () => {
     }
 
     if (type === "league") {
-      return selectedLeague === "all" ? "Campeonato" : selectedLeague;
+      if (selectedLeague === "all") return "Campeonato";
+      if (selectedLeague === worldCupShortcutLeague) return "World Cup";
+      return selectedLeague;
     }
 
     return "Esporte";
   };
 
   useEffect(() => {
-    if (selectedLeague !== "all" && !availableLeagues.includes(selectedLeague)) {
+    if (
+      selectedLeague !== "all" &&
+      selectedLeague !== worldCupShortcutLeague &&
+      !availableLeagues.includes(selectedLeague)
+    ) {
       setSelectedLeague("all");
     }
-  }, [availableLeagues, selectedLeague]);
+  }, [availableLeagues, selectedLeague, worldCupShortcutLeague]);
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -427,6 +463,17 @@ const Index = () => {
                   <span className="h-2 w-2 rounded-full bg-amber-500" />
                   Em breve
                 </button>
+                <button
+                  type="button"
+                  onClick={toggleWorldCupShortcut}
+                  className={`inline-flex items-center gap-2 text-sm underline underline-offset-4 transition-colors ${
+                    selectedSport === "futebol" && selectedLeague === worldCupShortcutLeague
+                      ? "font-semibold text-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Copa do Mundo
+                </button>
               </div>
 
               <div className="grid grid-cols-2 gap-2">
@@ -442,7 +489,7 @@ const Index = () => {
                   </SelectContent>
                 </Select>
 
-                <Select value={selectedLeague} onValueChange={setSelectedLeague}>
+                <Select value={selectedLeague === worldCupShortcutLeague ? "all" : selectedLeague} onValueChange={setSelectedLeague}>
                   <SelectTrigger className="h-10 w-full border-border bg-card text-xs">
                     <SelectValue>{getChipLabel("league")}</SelectValue>
                   </SelectTrigger>
@@ -505,6 +552,17 @@ const Index = () => {
               <span className="h-2 w-2 rounded-full bg-amber-500" />
               Em breve
             </button>
+            <button
+              type="button"
+              onClick={toggleWorldCupShortcut}
+              className={`inline-flex items-center gap-2 text-sm underline underline-offset-4 transition-colors ${
+                selectedSport === "futebol" && selectedLeague === worldCupShortcutLeague
+                  ? "font-semibold text-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Copa do Mundo
+            </button>
           </div>
 
           <div className="hidden md:block mb-8">
@@ -522,7 +580,7 @@ const Index = () => {
                   </SelectContent>
                 </Select>
 
-                <Select value={selectedLeague} onValueChange={setSelectedLeague}>
+                <Select value={selectedLeague === worldCupShortcutLeague ? "all" : selectedLeague} onValueChange={setSelectedLeague}>
                   <SelectTrigger className="h-11 w-full shrink-0 border-border bg-card text-xs sm:w-[220px]">
                     <SelectValue>{getChipLabel("league")}</SelectValue>
                   </SelectTrigger>
