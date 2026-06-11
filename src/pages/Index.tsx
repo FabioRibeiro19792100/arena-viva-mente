@@ -20,8 +20,10 @@ import {
   type DisplayMatch,
   type QuickFilterType,
 } from "@/lib/matchesApi";
+import { fetchWorldCupPoolMatches } from "@/lib/worldCupPoolApi";
 import { normalizeSearchText } from "@/lib/matchLabels";
 import { upsertRuntimeMatches } from "@/lib/runtimeMatches";
+import { getCurrentMatchStatus } from "@/data/worldCup2026";
 
 const Index = () => {
   const worldCupShortcutLeague = "__world_cup__";
@@ -45,6 +47,7 @@ const Index = () => {
   });
   const [feedMatches, setFeedMatches] = useState<DisplayMatch[]>([]);
   const [feedTodayMatches, setFeedTodayMatches] = useState<DisplayMatch[]>([]);
+  const [worldCupMatches, setWorldCupMatches] = useState<DisplayMatch[]>([]);
   const isLocalhost =
     typeof window !== "undefined" &&
     (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
@@ -97,11 +100,14 @@ const Index = () => {
 
     void (async () => {
       try {
-        const payload = await fetchMatchesFeed({
-          sport: "all",
-          quick: "all",
-          search: "",
-        });
+        const [payload, worldCupPool] = await Promise.all([
+          fetchMatchesFeed({
+            sport: "all",
+            quick: "all",
+            search: "",
+          }),
+          fetchWorldCupPoolMatches().catch(() => []),
+        ]);
 
         if (!isActive) return;
 
@@ -110,6 +116,7 @@ const Index = () => {
 
         setFeedMatches(nextMatches);
         setFeedTodayMatches(nextTodayMatches);
+        setWorldCupMatches(worldCupPool as DisplayMatch[]);
         upsertRuntimeMatches([...nextMatches, ...nextTodayMatches]);
 
         if (payload?.apiFeedStatus) {
@@ -173,8 +180,21 @@ const Index = () => {
   const normalizedSearch = useMemo(() => normalizeSearchText(searchQuery), [searchQuery]);
 
   const todayMatchIds = useMemo(() => new Set(feedTodayMatches.map((match) => match.id)), [feedTodayMatches]);
+  const worldCupMatchIds = useMemo(() => new Set(worldCupMatches.map((match) => match.id)), [worldCupMatches]);
 
   const quickFilteredMatches = useMemo(() => {
+    if (selectedLeague === worldCupShortcutLeague) {
+      if (quickFilter === "live") {
+        return worldCupMatches.filter((match) => getCurrentMatchStatus(match) === "live");
+      }
+
+      if (quickFilter === "soon") {
+        return worldCupMatches.filter((match) => getCurrentMatchStatus(match) === "scheduled");
+      }
+
+      return worldCupMatches;
+    }
+
     if (quickFilter === "live") {
       return feedTodayMatches.filter((match) => match.status === "live");
     }
@@ -184,7 +204,7 @@ const Index = () => {
     }
 
     return [...feedTodayMatches, ...feedMatches];
-  }, [feedMatches, feedTodayMatches, quickFilter]);
+  }, [feedMatches, feedTodayMatches, quickFilter, selectedLeague, worldCupMatches]);
 
   const fullyFilteredMatches = useMemo(
     () =>
@@ -222,12 +242,22 @@ const Index = () => {
   );
 
   const filteredTodayMatches = useMemo(
-    () => (quickFilter === "all" ? fullyFilteredMatches.filter((match) => todayMatchIds.has(match.id)) : fullyFilteredMatches),
-    [fullyFilteredMatches, quickFilter, todayMatchIds],
+    () =>
+      selectedLeague === worldCupShortcutLeague
+        ? fullyFilteredMatches
+        : quickFilter === "all"
+          ? fullyFilteredMatches.filter((match) => todayMatchIds.has(match.id))
+          : fullyFilteredMatches,
+    [fullyFilteredMatches, quickFilter, selectedLeague, todayMatchIds],
   );
   const filteredMatches = useMemo(
-    () => (quickFilter === "all" ? fullyFilteredMatches.filter((match) => !todayMatchIds.has(match.id)) : []),
-    [fullyFilteredMatches, quickFilter, todayMatchIds],
+    () =>
+      selectedLeague === worldCupShortcutLeague
+        ? []
+        : quickFilter === "all"
+          ? fullyFilteredMatches.filter((match) => !todayMatchIds.has(match.id) && !worldCupMatchIds.has(match.id))
+          : [],
+    [fullyFilteredMatches, quickFilter, selectedLeague, todayMatchIds, worldCupMatchIds],
   );
   const groupedVisibleMatches = useMemo(
     () => groupMatchesByLeague([...filteredTodayMatches, ...filteredMatches]),
