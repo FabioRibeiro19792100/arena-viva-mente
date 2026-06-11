@@ -32,7 +32,6 @@ import {
   getCurrentMatchStatus,
   getMatchStatusLabel,
   isSummaryAvailableForMatch,
-  worldCupMatchMap,
 } from "@/data/worldCup2026";
 import { useMockAuth } from "@/contexts/MockAuthContext";
 import { addHistoryEntry } from "@/lib/productState";
@@ -52,7 +51,6 @@ import {
 import { isSupabaseConfigured, supabase } from "@/integrations/supabase/client";
 import { getMatchById, loadMatchById } from "@/lib/runtimeMatches";
 
-const fallbackGame = worldCupMatchMap["wc2026-07"];
 const INITIAL_MESSAGES_LIMIT = 40;
 
 const formatMessageTime = (createdAt: string) =>
@@ -103,12 +101,13 @@ const Arquibancada = () => {
   const touchStartYRef = useRef<number | null>(null);
   const messagesRef = useRef<MatchMessage[]>([]);
   const shouldAutoScrollRef = useRef(true);
-  const [game, setGame] = useState(() => getMatchById(id) || (id?.startsWith("api-") ? null : fallbackGame));
-  const isLoadingGame = !game && Boolean(id?.startsWith("api-"));
-  const activeGame = game || fallbackGame;
-  const currentStatus = getCurrentMatchStatus(activeGame);
-  const statusLabel = getMatchStatusLabel(activeGame);
-  const hasPostGameSummary = isSummaryAvailableForMatch(activeGame);
+  const [game, setGame] = useState(() => getMatchById(id));
+  const [hasResolvedGame, setHasResolvedGame] = useState(false);
+  const activeGame = game;
+  const isLoadingGame = !hasResolvedGame && !activeGame;
+  const currentStatus = activeGame ? getCurrentMatchStatus(activeGame) : "scheduled";
+  const statusLabel = activeGame ? getMatchStatusLabel(activeGame) : "Reserva disponível";
+  const hasPostGameSummary = activeGame ? isSummaryAvailableForMatch(activeGame) : false;
 
   useEffect(() => {
     let isActive = true;
@@ -117,9 +116,10 @@ const Arquibancada = () => {
       const nextMatch = await loadMatchById(id);
       if (isActive && nextMatch) {
         setGame(nextMatch);
-      } else if (isActive && !id?.startsWith("api-")) {
-        setGame(fallbackGame);
+      } else if (isActive) {
+        setGame(null);
       }
+      if (isActive) setHasResolvedGame(true);
     })();
 
     return () => {
@@ -192,13 +192,12 @@ const Arquibancada = () => {
   }, [messages]);
 
   useEffect(() => {
-    if (isLoadingGame) return;
-    if (!user) return;
+    if (isLoadingGame || !activeGame || !user) return;
     void addHistoryEntry(user.id, activeGame.id, "arquibancada");
-  }, [activeGame.id, isLoadingGame, user]);
+  }, [activeGame?.id, isLoadingGame, user]);
 
   useEffect(() => {
-    if (isLoadingGame) return;
+    if (isLoadingGame || !activeGame) return;
     if (!user) {
       setMutedUserIds([]);
       setFavoriteMessageIds([]);
@@ -221,10 +220,10 @@ const Arquibancada = () => {
     return () => {
       isActive = false;
     };
-  }, [activeGame.id, isLoadingGame, user]);
+  }, [activeGame?.id, isLoadingGame, user]);
 
   useEffect(() => {
-    if (isLoadingGame) return;
+    if (isLoadingGame || !activeGame) return;
     let isActive = true;
 
     if (activeGame.apiSource && activeGame.apiSource !== "football") {
@@ -253,10 +252,10 @@ const Arquibancada = () => {
     return () => {
       isActive = false;
     };
-  }, [activeGame.id, activeGame.apiSource, isLoadingGame]);
+  }, [activeGame?.id, activeGame?.apiSource, isLoadingGame]);
 
   useEffect(() => {
-    if (isLoadingGame) return;
+    if (isLoadingGame || !activeGame) return;
     if (!user) return;
     if (currentStatus !== "live") {
       setShowOnboarding(false);
@@ -280,10 +279,10 @@ const Arquibancada = () => {
     return () => {
       isActive = false;
     };
-  }, [activeGame.id, currentStatus, isLoadingGame, user]);
+  }, [activeGame?.id, currentStatus, isLoadingGame, user]);
 
   useEffect(() => {
-    if (isLoadingGame) return;
+    if (isLoadingGame || !activeGame) return;
     if (currentStatus !== "live") {
       setMessages([]);
       setIsMessagesLoading(false);
@@ -292,10 +291,10 @@ const Arquibancada = () => {
     }
 
     void refreshMessages({ showLoader: true });
-  }, [activeGame.id, currentStatus, isLoadingGame]);
+  }, [activeGame?.id, currentStatus, isLoadingGame]);
 
   useEffect(() => {
-    if (isLoadingGame) return;
+    if (isLoadingGame || !activeGame) return;
     if (currentStatus !== "live" || !isSupabaseConfigured || !supabase) {
       return;
     }
@@ -325,10 +324,10 @@ const Arquibancada = () => {
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [activeGame.id, currentStatus, isLoadingGame, user?.id]);
+  }, [activeGame?.id, currentStatus, isLoadingGame, user?.id]);
 
   useEffect(() => {
-    if (isLoadingGame) return;
+    if (isLoadingGame || !activeGame) return;
     if (currentStatus !== "live") {
       return;
     }
@@ -340,10 +339,10 @@ const Arquibancada = () => {
     return () => {
       window.clearInterval(interval);
     };
-  }, [activeGame.id, currentStatus, isLoadingGame, isMessagesLoading, isRefreshing, user?.id]);
+  }, [activeGame?.id, currentStatus, isLoadingGame, isMessagesLoading, isRefreshing, user?.id]);
 
   useEffect(() => {
-    if (isLoadingGame) return;
+    if (isLoadingGame || !activeGame) return;
     if (currentStatus !== "live") return;
 
     const handleVisibilityChange = () => {
@@ -359,7 +358,7 @@ const Arquibancada = () => {
       window.removeEventListener("focus", handleVisibilityChange);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [activeGame.id, currentStatus, isLoadingGame, isMessagesLoading, isRefreshing, user?.id]);
+  }, [activeGame?.id, currentStatus, isLoadingGame, isMessagesLoading, isRefreshing, user?.id]);
 
   useEffect(() => {
     if (!shouldAutoScrollRef.current) {
@@ -525,7 +524,7 @@ const Arquibancada = () => {
   };
 
   const handleOnboardingComplete = (team: "home" | "away" | "neutral") => {
-    if (!user) return;
+    if (!user || !activeGame) return;
 
     void (async () => {
       await saveMatchPreference(user.id, activeGame.id, team);
@@ -535,6 +534,9 @@ const Arquibancada = () => {
   };
 
   const getTeamIdentity = (team: string) => {
+    if (!activeGame) {
+      return { label: "Neutro", logo: null, tone: "neutral" as const };
+    }
     if (team === "homeTeam" || team === "home") {
       return { label: activeGame.homeTeam, logo: activeGame.homeTeamLogo, tone: "home" as const };
     }
@@ -560,6 +562,18 @@ const Arquibancada = () => {
         <Header />
         <div className="container mx-auto flex min-h-[60vh] items-center justify-center px-6">
           <p className="text-sm text-muted-foreground">Carregando sala...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!activeGame) {
+    return (
+      <div className="min-h-screen bg-background text-foreground">
+        <Header />
+        <div className="container mx-auto flex min-h-[60vh] flex-col items-center justify-center gap-4 px-6">
+          <p className="text-sm text-muted-foreground">Essa sala não está disponível agora.</p>
+          <Button variant="outline" onClick={() => navigate("/")}>Voltar para jogos</Button>
         </div>
       </div>
     );

@@ -1,7 +1,6 @@
 import {
   parseWorldCupMatchDate,
   type MatchStatus,
-  worldCup2026Matches,
   type WorldCupMatch,
 } from "../../src/data/worldCup2026.js";
 import {
@@ -119,35 +118,7 @@ const statusLabelFromStatus = (status: MatchStatus) => {
 };
 
 export const buildStaticMatchRows = () =>
-  worldCup2026Matches.map<SportsMatchRow>((match) => ({
-    id: match.id,
-    provider: "internal",
-    provider_match_id: match.id,
-    sport: "futebol",
-    league_name: match.league,
-    country_name: null,
-    stage: match.stage,
-    home_team: match.homeTeam,
-    away_team: match.awayTeam,
-    home_logo: match.homeTeamLogo,
-    away_logo: match.awayTeamLogo,
-    starts_at: buildStaticStartsAt(match),
-    timezone: "America/Sao_Paulo",
-    status: match.status,
-    status_detail: match.statusLabel || statusLabelFromStatus(match.status),
-    home_score: typeof match.homeScore === "number" ? match.homeScore : null,
-    away_score: typeof match.awayScore === "number" ? match.awayScore : null,
-    live_clock: match.liveDetail || null,
-    venue: match.venue,
-    city: inferCityFromVenue(match.venue),
-    has_room: true,
-    league_external_id: match.apiLeagueId ?? null,
-    season: match.apiSeason ?? null,
-    home_team_external_id: match.apiHomeTeamId ?? null,
-    away_team_external_id: match.apiAwayTeamId ?? null,
-    raw_payload: match,
-    last_synced_at: new Date().toISOString(),
-  }));
+  [] as SportsMatchRow[];
 
 export const buildFootballMatchRow = (fixture: ApiFootballFixture): SportsMatchRow => {
   const status = mapApiStatus(fixture.fixture.status.short);

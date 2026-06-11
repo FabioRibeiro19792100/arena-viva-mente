@@ -13,25 +13,22 @@ import {
   getMatchAvailableSpots,
   isSummaryAvailableForMatch,
   parseWorldCupMatchDate,
-  worldCupMatchMap,
 } from "@/data/worldCup2026";
 import { useMockAuth } from "@/contexts/MockAuthContext";
 import { addHistoryEntry, addReservation, getProductState, removeReservation } from "@/lib/productState";
 import { getMatchById, loadMatchById } from "@/lib/runtimeMatches";
-
-const fallbackMatch = worldCupMatchMap["wc2026-07"];
 
 const Booking = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user } = useMockAuth();
-  const [game, setGame] = useState(() => getMatchById(id) || (id?.startsWith("api-") ? null : fallbackMatch));
-  const activeGame = game || fallbackMatch;
-  const hasPostGameSummary = isSummaryAvailableForMatch(activeGame);
-  const currentStatus = getCurrentMatchStatus(activeGame);
-  const availableSpots = getMatchAvailableSpots(activeGame);
-  const kickoff = parseWorldCupMatchDate(activeGame);
+  const [game, setGame] = useState(() => getMatchById(id));
+  const activeGame = game;
+  const hasPostGameSummary = activeGame ? isSummaryAvailableForMatch(activeGame) : false;
+  const currentStatus = activeGame ? getCurrentMatchStatus(activeGame) : "scheduled";
+  const availableSpots = activeGame ? getMatchAvailableSpots(activeGame) : 0;
+  const kickoff = activeGame ? parseWorldCupMatchDate(activeGame) : null;
   const [countdown, setCountdown] = useState(() => {
     if (!kickoff) return 0;
     return Math.max(0, Math.floor((kickoff.getTime() - Date.now()) / 1000));
@@ -47,6 +44,8 @@ const Booking = () => {
       const nextMatch = await loadMatchById(id);
       if (isActive && nextMatch) {
         setGame(nextMatch);
+      } else if (isActive) {
+        setGame(null);
       }
     })();
 
@@ -69,13 +68,13 @@ const Booking = () => {
   }, [currentStatus, kickoff]);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || !activeGame) return;
     void (async () => {
       await addHistoryEntry(user.id, activeGame.id, "booking");
       const state = await getProductState(user.id);
       setIsReserved(state.reservations.some((reservation) => reservation.matchId === activeGame.id));
     })();
-  }, [activeGame.id, user]);
+  }, [activeGame?.id, user]);
 
   const formatTime = (seconds: number) => {
     const hours = Math.floor(seconds / 3600);
@@ -85,7 +84,7 @@ const Booking = () => {
   };
 
   const handleBooking = async () => {
-    if (!user) return;
+    if (!user || !activeGame) return;
     setIsBooking(true);
 
     setTimeout(() => {
@@ -104,13 +103,13 @@ const Booking = () => {
 
   const handleContinueToArquibancada = () => {
     setShowSuccessDialog(false);
-    if (currentStatus === "live") {
+    if (activeGame && currentStatus === "live") {
       navigate(`/arquibancada/${activeGame.id}`);
     }
   };
 
   const handleCancelReservation = () => {
-    if (!user) return;
+    if (!user || !activeGame) return;
     void (async () => {
       await removeReservation(user.id, activeGame.id);
       setIsReserved(false);
@@ -127,6 +126,19 @@ const Booking = () => {
         <Header />
         <div className="container mx-auto flex min-h-[60vh] items-center justify-center px-6">
           <p className="text-sm text-muted-foreground">Carregando jogo...</p>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+
+  if (!activeGame) {
+    return (
+      <div className="min-h-screen bg-background text-foreground">
+        <Header />
+        <div className="container mx-auto flex min-h-[60vh] flex-col items-center justify-center gap-4 px-6">
+          <p className="text-sm text-muted-foreground">Esse jogo não está disponível agora.</p>
+          <Button variant="outline" onClick={() => navigate("/")}>Voltar para jogos</Button>
         </div>
         <Footer />
       </div>

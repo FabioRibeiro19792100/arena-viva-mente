@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Share2, TrendingUp, MessageSquare, Clock, Flame } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import matchLive from "@/assets/match-live.jpg";
-import { isSummaryAvailableForMatch, worldCupMatchMap, worldCupSummaries } from "@/data/worldCup2026";
+import { isSummaryAvailableForMatch } from "@/data/worldCup2026";
 import { useMockAuth } from "@/contexts/MockAuthContext";
 import { addHistoryEntry } from "@/lib/productState";
 import { getMatchById, loadMatchById } from "@/lib/runtimeMatches";
@@ -19,23 +19,21 @@ const Resumo = () => {
   const { toast } = useToast();
   const { user } = useMockAuth();
   const [runtimeMatch, setRuntimeMatch] = useState(() => getMatchById(id));
-  const selectedSummary =
-    worldCupSummaries.find((item) => item.id === id) ||
-    (runtimeMatch
-      ? {
-          id: runtimeMatch.id,
-          homeTeam: runtimeMatch.homeTeam,
-          awayTeam: runtimeMatch.awayTeam,
-          score: "vs",
-          league: `${runtimeMatch.stage} • ${runtimeMatch.league}`,
-          date: `${runtimeMatch.date} • ${runtimeMatch.venue}`,
-          sentiment: "neutro" as const,
-          messagesCount: 0,
-          topPhrase: `"${runtimeMatch.homeTeam} x ${runtimeMatch.awayTeam} em ${runtimeMatch.venue}"`,
-        }
-      : worldCupSummaries[0]);
-  const selectedMatch = runtimeMatch || worldCupMatchMap[selectedSummary.id] || worldCupMatchMap["wc2026-07"];
-  const isSummaryAvailable = isSummaryAvailableForMatch(selectedMatch);
+  const selectedMatch = runtimeMatch;
+  const selectedSummary = selectedMatch
+    ? {
+        id: selectedMatch.id,
+        homeTeam: selectedMatch.homeTeam,
+        awayTeam: selectedMatch.awayTeam,
+        score: "vs",
+        league: `${selectedMatch.stage} • ${selectedMatch.league}`,
+        date: `${selectedMatch.date} • ${selectedMatch.venue}`,
+        sentiment: "neutro" as const,
+        messagesCount: 0,
+        topPhrase: `"${selectedMatch.homeTeam} x ${selectedMatch.awayTeam} em ${selectedMatch.venue}"`,
+      }
+    : null;
+  const isSummaryAvailable = selectedMatch ? isSummaryAvailableForMatch(selectedMatch) : false;
 
   useEffect(() => {
     let isActive = true;
@@ -53,9 +51,9 @@ const Resumo = () => {
   }, [id]);
 
   useEffect(() => {
-    if (!user || !isSummaryAvailable) return;
+    if (!user || !isSummaryAvailable || !selectedMatch) return;
     void addHistoryEntry(user.id, selectedMatch.id, "resumo");
-  }, [isSummaryAvailable, selectedMatch.id, user]);
+  }, [isSummaryAvailable, selectedMatch?.id, user]);
 
   // Função para quebrar texto em parágrafos por ponto final
   const splitIntoParagraphs = (text: string) => {
@@ -138,6 +136,19 @@ const Resumo = () => {
         <Header />
         <div className="container mx-auto flex min-h-[60vh] items-center justify-center px-6">
           <p className="text-sm text-muted-foreground">Carregando resumo...</p>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+
+  if (!selectedMatch || !selectedSummary) {
+    return (
+      <div className="min-h-screen bg-background text-foreground">
+        <Header />
+        <div className="container mx-auto flex min-h-[60vh] flex-col items-center justify-center gap-4 px-6">
+          <p className="text-sm text-muted-foreground">Esse resumo não está disponível agora.</p>
+          <Button variant="outline" onClick={() => navigate("/")}>Voltar para jogos</Button>
         </div>
         <Footer />
       </div>

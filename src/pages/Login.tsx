@@ -9,7 +9,6 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useMockAuth } from "@/contexts/MockAuthContext";
-import { worldCup2026Matches } from "@/data/worldCup2026";
 
 const PENDING_REDIRECT_KEY = "arena-viva-mente.pending-auth-redirect";
 const isLocalDevHost = () =>
@@ -30,7 +29,7 @@ const Login = () => {
     queryRedirect ||
     storedRedirect ||
     location.state?.from ||
-    `/arquibancada/${worldCup2026Matches[0].id}`;
+    "/";
 
   useEffect(() => {
     if (isAuthenticated && !showWelcomeDialog) {

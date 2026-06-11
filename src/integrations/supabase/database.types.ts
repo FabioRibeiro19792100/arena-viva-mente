@@ -168,6 +168,32 @@ export interface Database {
           user_id?: string;
         };
       };
+      world_cup_predictions: {
+        Row: {
+          created_at: string;
+          match_id: string;
+          predicted_away_score: number;
+          predicted_home_score: number;
+          updated_at: string;
+          user_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          match_id: string;
+          predicted_away_score: number;
+          predicted_home_score: number;
+          updated_at?: string;
+          user_id: string;
+        };
+        Update: {
+          created_at?: string;
+          match_id?: string;
+          predicted_away_score?: number;
+          predicted_home_score?: number;
+          updated_at?: string;
+          user_id?: string;
+        };
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;

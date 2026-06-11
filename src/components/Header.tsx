@@ -38,6 +38,14 @@ export const Header = ({ roomMode = false, onRoomMenuClick }: HeaderProps) => {
             <>
               {isAuthenticated && (
                 <button
+                  onClick={() => navigate("/bolao")}
+                  className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Bolão
+                </button>
+              )}
+              {isAuthenticated && (
+                <button
                   onClick={() => navigate("/reservas")}
                   className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors flex items-center gap-2"
                 >
@@ -162,6 +170,12 @@ export const Header = ({ roomMode = false, onRoomMenuClick }: HeaderProps) => {
                 </button>
                 {isAuthenticated && (
                   <>
+                    <button
+                      onClick={() => navigateFromMenu("/bolao")}
+                      className="flex w-full items-center justify-between text-left text-base text-foreground"
+                    >
+                      Bolão
+                    </button>
                     <button
                       onClick={() => navigateFromMenu("/reservas")}
                       className="flex w-full items-center justify-between text-left text-base text-foreground"

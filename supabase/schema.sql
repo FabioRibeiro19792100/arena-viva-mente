@@ -122,12 +122,26 @@ create table if not exists public.match_insights_cache (
   expires_at timestamptz not null
 );
 
+create table if not exists public.world_cup_predictions (
+  user_id uuid not null references auth.users(id) on delete cascade,
+  match_id text not null,
+  predicted_home_score integer not null check (predicted_home_score >= 0),
+  predicted_away_score integer not null check (predicted_away_score >= 0),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  primary key (user_id, match_id)
+);
+
+create index if not exists world_cup_predictions_match_id_idx
+  on public.world_cup_predictions (match_id);
+
 alter table public.profiles enable row level security;
 alter table public.favorites enable row level security;
 alter table public.reservations enable row level security;
 alter table public.history_entries enable row level security;
 alter table public.match_preferences enable row level security;
 alter table public.messages enable row level security;
+alter table public.world_cup_predictions enable row level security;
 
 drop policy if exists "profiles_select_own" on public.profiles;
 drop policy if exists "profiles_insert_own" on public.profiles;
@@ -138,6 +152,8 @@ drop policy if exists "history_entries_all_own" on public.history_entries;
 drop policy if exists "match_preferences_all_own" on public.match_preferences;
 drop policy if exists "messages_select_authenticated" on public.messages;
 drop policy if exists "messages_insert_own" on public.messages;
+drop policy if exists "world_cup_predictions_select_authenticated" on public.world_cup_predictions;
+drop policy if exists "world_cup_predictions_all_own" on public.world_cup_predictions;
 
 create policy "profiles_select_own" on public.profiles
   for select using (auth.uid() = id);
@@ -165,3 +181,9 @@ create policy "messages_select_authenticated" on public.messages
 
 create policy "messages_insert_own" on public.messages
   for insert with check (auth.uid() = user_id);
+
+create policy "world_cup_predictions_select_authenticated" on public.world_cup_predictions
+  for select using (auth.role() = 'authenticated');
+
+create policy "world_cup_predictions_all_own" on public.world_cup_predictions
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);

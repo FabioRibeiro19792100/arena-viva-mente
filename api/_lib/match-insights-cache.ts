@@ -104,39 +104,7 @@ const buildPlayerSummary = (stat?: any) => {
 const formatStatValue = (value: string | number | null | undefined) =>
   value === null || value === undefined || value === "" ? "—" : String(value);
 
-const getMockInsights = (matchId: string): MatchInsightsPayload | null => {
-  if (matchId !== "wc2026-test-01") return null;
-
-  return {
-    events: [
-      { minute: "12'", team: "Brazil", type: "Gol", detail: "Finalização dentro da área", player: "Vinicius Jr.", assist: "Bruno Guimarães" },
-      { minute: "29'", team: "Argentina", type: "Cartão", detail: "Entrada dura no meio-campo", player: "Enzo Fernández" },
-      { minute: "58'", team: "Brazil", type: "VAR", detail: "Gol validado após revisão", player: "Rodrygo" },
-    ],
-    lineups: [
-      { team: "Brazil", coach: "Dorival Júnior", formation: "4-3-3", starters: ["Alisson", "Danilo", "Marquinhos", "Rodrygo", "Vinicius Jr."], substitutes: ["Bento", "Bremer", "Savinho", "Endrick"] },
-      { team: "Argentina", coach: "Lionel Scaloni", formation: "4-4-2", starters: ["Emiliano Martínez", "Otamendi", "Mac Allister", "Julián Álvarez", "Lautaro Martínez"], substitutes: ["Rulli", "Paredes", "Di María", "Garnacho"] },
-    ],
-    teamStats: [
-      { team: "Brazil", stats: [{ label: "Posse", value: "57%" }, { label: "Finalizações", value: "16" }, { label: "Escanteios", value: "6" }] },
-      { team: "Argentina", stats: [{ label: "Posse", value: "43%" }, { label: "Finalizações", value: "9" }, { label: "Escanteios", value: "3" }] },
-    ],
-    playerStats: [
-      { player: "Rodrygo", team: "Brazil", rating: "8.2", summary: "2 gols • 3 no alvo" },
-      { player: "Mac Allister", team: "Argentina", rating: "7.1", summary: "1 assistência • 88% passe" },
-    ],
-    odds: [{ bookmaker: "Bet365", home: "2.10", draw: "3.20", away: "3.60" }],
-    prediction: { advice: "Brasil ou empate", homePercent: "48%", drawPercent: "29%", awayPercent: "23%" },
-    headToHead: [{ date: "22/11/2023", league: "Eliminatórias", homeTeam: "Brazil", awayTeam: "Argentina", score: "0-1" }],
-  };
-};
-
 export const getMatchInsights = async (matchId: string) => {
-  const mock = getMockInsights(matchId);
-  if (mock) {
-    return mock;
-  }
-
   const admin = getSupabaseAdmin();
   const { data: cached } = await admin
     .from("match_insights_cache")

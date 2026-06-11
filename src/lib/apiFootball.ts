@@ -509,10 +509,6 @@ export const mergeStaticMatchesWithApiFixtures = (
   );
 
   return matches.map((match) => {
-    if (match.id === "wc2026-test-01") {
-      return match;
-    }
-
     const fixture = fixtureMap.get(
       `${normalizeSearchText(match.homeTeam)}::${normalizeSearchText(match.awayTeam)}::${match.date}`,
     );

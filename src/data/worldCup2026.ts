@@ -229,24 +229,6 @@ const rawMatches: RawMatch[] = [
   ["wc2026-104", "Final", "Winner Match 101", "Winner Match 102", "19 de julho de 2026", "15:00", "MetLife Stadium, New York / New Jersey", "19 jul 2026"],
 ];
 
-const testMatch: WorldCupMatch = {
-  id: "wc2026-test-01",
-  homeTeam: "Brazil",
-  awayTeam: "Argentina",
-  league: "Copa do Mundo FIFA 2026™",
-  stage: "Partida teste",
-  status: "live",
-  statusLabel: "Sala ao vivo",
-  date: "1 de junho de 2026",
-  startTime: "20:00",
-  venue: "Bancada, Sala principal",
-  homeTeamLogo: teamLogo("Brazil"),
-  awayTeamLogo: teamLogo("Argentina"),
-  homeScore: 2,
-  awayScore: 1,
-  liveDetail: "67'",
-};
-
 const officialWorldCupMatches: WorldCupMatch[] = rawMatches.map(
   ([id, stage, homeTeam, awayTeam, date, startTime, venue, statusLabel]) => ({
     id,
@@ -264,13 +246,10 @@ const officialWorldCupMatches: WorldCupMatch[] = rawMatches.map(
   }),
 );
 
-export const worldCup2026Matches: WorldCupMatch[] = [
-  testMatch,
-  ...officialWorldCupMatches,
-];
+export const worldCup2026Matches: WorldCupMatch[] = [];
 
-export const featuredWorldCupMatches = worldCup2026Matches.slice(0, 12);
-export const moreWorldCupMatches = worldCup2026Matches.slice(12);
+export const featuredWorldCupMatches = worldCup2026Matches;
+export const moreWorldCupMatches = worldCup2026Matches;
 
 export const worldCupMatchMap = Object.fromEntries(
   worldCup2026Matches.map((match) => [match.id, match]),
@@ -322,10 +301,6 @@ export const formatBrasiliaTime = (startTime?: string) =>
 const LIVE_WINDOW_MS = 3 * 60 * 60 * 1000;
 
 export const getCurrentMatchStatus = (match: Pick<WorldCupMatch, "id" | "date" | "startTime" | "status">): MatchStatus => {
-  if (match.id === testMatch.id) {
-    return "live";
-  }
-
   if (match.id.startsWith("api-")) {
     return match.status;
   }
@@ -345,7 +320,6 @@ export const getMatchAvailableSpots = (
   const currentStatus = getCurrentMatchStatus(match);
 
   if (currentStatus === "ended") return 0;
-  if (match.id === testMatch.id) return 18;
 
   const hash = Array.from(match.id).reduce((total, char) => total + char.charCodeAt(0), 0);
   const baseCapacity =

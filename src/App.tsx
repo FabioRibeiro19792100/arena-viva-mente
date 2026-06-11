@@ -12,6 +12,7 @@ import Resumo from "./pages/Resumo";
 import Perfil from "./pages/Perfil";
 import Favoritos from "./pages/Favoritos";
 import Reservas from "./pages/Reservas";
+import Bolao from "./pages/Bolao";
 import NotFound from "./pages/NotFound";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { ThemeProvider } from "./components/theme-provider";
@@ -39,6 +40,7 @@ const App = () => (
                 <Route path="/perfil" element={<Perfil />} />
                 <Route path="/favoritos" element={<Favoritos />} />
                 <Route path="/reservas" element={<Reservas />} />
+                <Route path="/bolao" element={<Bolao />} />
               </Route>
               <Route path="*" element={<NotFound />} />
             </Routes>
