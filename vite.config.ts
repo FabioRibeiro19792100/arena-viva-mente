@@ -6,6 +6,8 @@ import matchesHandler from "./api/matches/index";
 import matchByIdHandler from "./api/matches/[id]";
 import matchInsightsHandler from "./api/matches/[id]/insights";
 import syncMatchesHandler from "./api/jobs/sync-matches";
+import worldCupMatchesHandler from "./api/world-cup-matches/index";
+import syncWorldCupScoresHandler from "./api/jobs/sync-world-cup-scores";
 import logoHandler from "./api/assets/logo";
 
 const buildQuery = (url: string) =>
@@ -57,6 +59,16 @@ const localApiPlugin = () => ({
 
         if (pathname === "/api/jobs/sync-matches") {
           await syncMatchesHandler(req, res);
+          return;
+        }
+
+        if (pathname === "/api/jobs/sync-world-cup-scores") {
+          await syncWorldCupScoresHandler(req, res);
+          return;
+        }
+
+        if (pathname === "/api/world-cup-matches") {
+          await worldCupMatchesHandler(req, res);
           return;
         }
 

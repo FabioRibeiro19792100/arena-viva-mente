@@ -11,7 +11,6 @@ import { useMockAuth } from "@/contexts/MockAuthContext";
 import {
   formatBrasiliaTime,
   getCurrentMatchStatus,
-  type WorldCupMatch,
 } from "@/data/worldCup2026";
 import {
   getWorldCupLeaderboard,
@@ -20,8 +19,8 @@ import {
   scoreWorldCupPrediction,
   type WorldCupPrediction,
 } from "@/lib/bolao";
-import { fetchMatchesFeed, type DisplayMatch } from "@/lib/matchesApi";
 import { isApiSportsMediaUrl, toProxiedAssetUrl } from "@/lib/media";
+import { fetchWorldCupPoolMatches, type WorldCupPoolMatch } from "@/lib/worldCupPoolApi";
 import { useToast } from "@/hooks/use-toast";
 
 const toInitialValues = (predictions: WorldCupPrediction[]) =>
@@ -32,17 +31,6 @@ const toInitialValues = (predictions: WorldCupPrediction[]) =>
     };
     return acc;
   }, {});
-
-const normalizeLabel = (value: string) =>
-  value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase();
-
-const isApiWorldCupMatch = (match: DisplayMatch) => {
-  const league = normalizeLabel(match.league).replace(/\s+/g, " ").trim();
-  return match.apiSource === "football" && (league === "world cup" || league === "copa do mundo");
-};
 
 const TeamMark = ({ name, logo }: { name: string; logo: string }) => {
   const [currentSrc, setCurrentSrc] = useState(() => toProxiedAssetUrl(logo));
@@ -82,7 +70,7 @@ const statusLabelByMatchStatus = (status: ReturnType<typeof getCurrentMatchStatu
 const Bolao = () => {
   const { user } = useMockAuth();
   const { toast } = useToast();
-  const [matches, setMatches] = useState<WorldCupMatch[]>([]);
+  const [matches, setMatches] = useState<WorldCupPoolMatch[]>([]);
   const [predictions, setPredictions] = useState<WorldCupPrediction[]>([]);
   const [formValues, setFormValues] = useState<Record<string, { home: string; away: string }>>({});
   const [leaderboard, setLeaderboard] = useState<Awaited<ReturnType<typeof getWorldCupLeaderboard>>>([]);
@@ -95,18 +83,9 @@ const Bolao = () => {
 
     setIsLoading(true);
     try {
-      const feed = await fetchMatchesFeed({
-        sport: "futebol",
-        quick: "all",
-        search: "",
-        league: "World Cup",
-        includePast: true,
-      });
-      const resolvedMatches = [...feed.todayMatches, ...feed.matches].filter(
-        isApiWorldCupMatch,
-      ) as WorldCupMatch[];
+      const resolvedMatches = await fetchWorldCupPoolMatches();
       const [nextPredictions, nextLeaderboard] = await Promise.all([
-        getWorldCupPredictions(user.id),
+        getWorldCupPredictions(user.id, resolvedMatches),
         getWorldCupLeaderboard(resolvedMatches, user),
       ]);
 
@@ -215,7 +194,13 @@ const Bolao = () => {
 
     setSavingMatchId(match.id);
     try {
-      await saveWorldCupPrediction(user.id, match.id, Number(values.home), Number(values.away));
+      await saveWorldCupPrediction(
+        user.id,
+        match.id,
+        Number(values.home),
+        Number(values.away),
+        match.linkedSportsMatchId ? [match.linkedSportsMatchId] : [],
+      );
       await loadBolaoData();
       toast({
         title: "Palpite salvo",
@@ -343,10 +328,10 @@ const Bolao = () => {
                 <Card className="border-border/80 shadow-[var(--shadow-card)]">
                   <CardContent className="space-y-2 p-8">
                     <p className="text-sm font-medium text-foreground">
-                      Ainda não encontrei jogos da Copa vindos da API.
+                      A fase de grupos da Copa ainda não apareceu na base do bolão.
                     </p>
                     <p className="text-sm text-muted-foreground">
-                      O bolão agora depende só do feed persistido da API. Sincronize a agenda para a Copa entrar aqui.
+                      Assim que a tabela própria da Copa estiver semeada no ambiente e o sync rodar, os jogos entram aqui.
                     </p>
                   </CardContent>
                 </Card>

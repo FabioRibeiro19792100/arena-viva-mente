@@ -246,6 +246,10 @@ const officialWorldCupMatches: WorldCupMatch[] = rawMatches.map(
   }),
 );
 
+export const worldCupGroupStageSeedMatches = officialWorldCupMatches.filter((match) =>
+  match.stage.startsWith("Grupo"),
+);
+
 export const testOpenMatch: WorldCupMatch = {
   id: "wc2026-test-01",
   homeTeam: "Brazil",
@@ -323,7 +327,7 @@ export const getCurrentMatchStatus = (match: Pick<WorldCupMatch, "id" | "date" |
     return "live";
   }
 
-  if (match.id.startsWith("api-")) {
+  if (match.id.startsWith("api-") || match.id.startsWith("wc2026-")) {
     return match.status;
   }
 

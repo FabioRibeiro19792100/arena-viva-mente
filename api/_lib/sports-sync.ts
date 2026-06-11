@@ -222,6 +222,17 @@ const syncFootballScheduled = async (mode: SyncMode) => {
 
 const syncFootballLive = async (mode: SyncMode) => {
   const payload = await fetchApiJson(FOOTBALL_BASE_URL, "/fixtures?live=all&timezone=America/Sao_Paulo");
+
+  if (payload?.errors?.access) {
+    await updateSyncStatus("futebol", mode, "suspended", String(payload.errors.access));
+    return { sport: "futebol" as const, status: "suspended" as SyncStatus, upserted: 0 };
+  }
+
+  if (payload?.errors?.plan) {
+    await updateSyncStatus("futebol", mode, "plan", String(payload.errors.plan));
+    return { sport: "futebol" as const, status: "plan" as SyncStatus, upserted: 0 };
+  }
+
   const rows = Array.isArray(payload?.response)
     ? (payload.response as ApiFootballFixture[]).map(buildFootballMatchRow)
     : [];
@@ -231,11 +242,6 @@ const syncFootballLive = async (mode: SyncMode) => {
     "football",
     rows.map((row) => row.id),
   );
-
-  if (payload?.errors?.plan) {
-    await updateSyncStatus("futebol", mode, "plan", String(payload.errors.plan));
-    return { sport: "futebol" as const, status: "plan" as SyncStatus, upserted: rows.length };
-  }
 
   const status: SyncStatus = rows.length > 0 ? "ok" : "offline";
   await updateSyncStatus("futebol", mode, status);
@@ -276,6 +282,12 @@ const syncNbaScheduled = async (mode: SyncMode) => {
 
 const syncNbaLive = async (mode: SyncMode) => {
   const payload = await fetchApiJson(NBA_BASE_URL, "/games?live=all");
+
+  if (payload?.errors?.requests) {
+    await updateSyncStatus("basquete", mode, "limit", String(payload.errors.requests));
+    return { sport: "basquete" as const, status: "limit" as SyncStatus, upserted: 0 };
+  }
+
   const rows = Array.isArray(payload?.response) ? (payload.response as ApiNbaGame[]).map(buildNbaMatchRow) : [];
 
   await upsertMatches(rows);
@@ -283,11 +295,6 @@ const syncNbaLive = async (mode: SyncMode) => {
     "nba",
     rows.map((row) => row.id),
   );
-
-  if (payload?.errors?.requests) {
-    await updateSyncStatus("basquete", mode, "limit", String(payload.errors.requests));
-    return { sport: "basquete" as const, status: "limit" as SyncStatus, upserted: rows.length };
-  }
 
   const status: SyncStatus = rows.length > 0 ? "ok" : "offline";
   await updateSyncStatus("basquete", mode, status);
@@ -332,6 +339,17 @@ const syncVolleyballScheduled = async (mode: SyncMode) => {
 
 const syncVolleyballLive = async (mode: SyncMode) => {
   const payload = await fetchApiJson(VOLLEYBALL_BASE_URL, "/games?live=all");
+
+  if (payload?.errors?.access) {
+    await updateSyncStatus("volei", mode, "suspended", String(payload.errors.access));
+    return { sport: "volei" as const, status: "suspended" as SyncStatus, upserted: 0 };
+  }
+
+  if (payload?.errors?.requests) {
+    await updateSyncStatus("volei", mode, "limit", String(payload.errors.requests));
+    return { sport: "volei" as const, status: "limit" as SyncStatus, upserted: 0 };
+  }
+
   const rows = Array.isArray(payload?.response)
     ? (payload.response as ApiVolleyballGame[]).map(buildVolleyballMatchRow)
     : [];
@@ -341,16 +359,6 @@ const syncVolleyballLive = async (mode: SyncMode) => {
     "volleyball",
     rows.map((row) => row.id),
   );
-
-  if (payload?.errors?.access) {
-    await updateSyncStatus("volei", mode, "suspended", String(payload.errors.access));
-    return { sport: "volei" as const, status: "suspended" as SyncStatus, upserted: rows.length };
-  }
-
-  if (payload?.errors?.requests) {
-    await updateSyncStatus("volei", mode, "limit", String(payload.errors.requests));
-    return { sport: "volei" as const, status: "limit" as SyncStatus, upserted: rows.length };
-  }
 
   const status: SyncStatus = rows.length > 0 ? "ok" : "offline";
   await updateSyncStatus("volei", mode, status);

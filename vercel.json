@@ -7,6 +7,10 @@
     {
       "path": "/api/jobs/sync-matches?mode=live",
       "schedule": "0 16-22 * * *"
+    },
+    {
+      "path": "/api/jobs/sync-world-cup-scores",
+      "schedule": "*/30 * * * *"
     }
   ],
   "rewrites": [

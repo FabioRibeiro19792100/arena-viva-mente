@@ -1,6 +1,7 @@
 import type { MockUser } from "@/contexts/MockAuthContext";
 import { getCurrentMatchStatus, type WorldCupMatch } from "@/data/worldCup2026";
 import { isSupabaseConfigured, supabase } from "@/integrations/supabase/client";
+import type { WorldCupPoolMatch } from "@/lib/worldCupPoolApi";
 
 export interface WorldCupPrediction {
   matchId: string;
@@ -63,7 +64,28 @@ export const scoreWorldCupPrediction = (match: WorldCupMatch, prediction?: World
   return predictedOutcome === actualOutcome ? 3 : 0;
 };
 
-export const getWorldCupPredictions = async (userId: string): Promise<WorldCupPrediction[]> => {
+const buildLegacyAliasMap = (matches: WorldCupPoolMatch[]) =>
+  new Map(
+    matches
+      .filter((match) => match.linkedSportsMatchId)
+      .map((match) => [match.linkedSportsMatchId as string, match.id]),
+  );
+
+const dedupePredictionsByMatchId = (predictions: WorldCupPrediction[]) =>
+  Array.from(
+    new Map(
+      [...predictions]
+        .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+        .map((prediction) => [prediction.matchId, prediction]),
+    ).values(),
+  );
+
+export const getWorldCupPredictions = async (
+  userId: string,
+  matches: WorldCupPoolMatch[] = [],
+): Promise<WorldCupPrediction[]> => {
+  const legacyAliasMap = buildLegacyAliasMap(matches);
+
   if (!isSupabaseConfigured || !supabase) {
     return readLocalPredictions(userId);
   }
@@ -79,12 +101,14 @@ export const getWorldCupPredictions = async (userId: string): Promise<WorldCupPr
     return [];
   }
 
-  return data.map((row) => ({
-    matchId: row.match_id,
-    predictedHomeScore: row.predicted_home_score,
-    predictedAwayScore: row.predicted_away_score,
-    updatedAt: row.updated_at,
-  }));
+  return dedupePredictionsByMatchId(
+    data.map((row) => ({
+      matchId: legacyAliasMap.get(row.match_id) || row.match_id,
+      predictedHomeScore: row.predicted_home_score,
+      predictedAwayScore: row.predicted_away_score,
+      updatedAt: row.updated_at,
+    })),
+  );
 };
 
 export const saveWorldCupPrediction = async (
@@ -92,6 +116,7 @@ export const saveWorldCupPrediction = async (
   matchId: string,
   predictedHomeScore: number,
   predictedAwayScore: number,
+  legacyMatchIds: string[] = [],
 ) => {
   const payload: WorldCupPrediction = {
     matchId,
@@ -104,7 +129,9 @@ export const saveWorldCupPrediction = async (
     const current = readLocalPredictions(userId);
     const next = [
       payload,
-      ...current.filter((prediction) => prediction.matchId !== matchId),
+      ...current.filter(
+        (prediction) => prediction.matchId !== matchId && !legacyMatchIds.includes(prediction.matchId),
+      ),
     ];
     saveLocalPredictions(userId, next);
     return;
@@ -122,12 +149,25 @@ export const saveWorldCupPrediction = async (
     console.error("Erro ao salvar palpite do bolão:", error);
     throw error;
   }
+
+  if (legacyMatchIds.length > 0) {
+    const { error: cleanupError } = await supabase
+      .from("world_cup_predictions")
+      .delete()
+      .eq("user_id", userId)
+      .in("match_id", legacyMatchIds);
+
+    if (cleanupError) {
+      console.error("Erro ao limpar palpites antigos do bolão:", cleanupError);
+    }
+  }
 };
 
 export const getWorldCupLeaderboard = async (
-  matches: WorldCupMatch[],
+  matches: WorldCupPoolMatch[],
   currentUser?: MockUser | null,
 ): Promise<WorldCupLeaderboardEntry[]> => {
+  const legacyAliasMap = buildLegacyAliasMap(matches);
   const scorableMatches = matches.filter(
     (match) =>
       match.homeScore !== undefined &&
@@ -173,7 +213,7 @@ export const getWorldCupLeaderboard = async (
   const [predictionsResult, profilesResult] = await Promise.all([
     supabase
       .from("world_cup_predictions")
-      .select("user_id, match_id, predicted_home_score, predicted_away_score"),
+      .select("user_id, match_id, predicted_home_score, predicted_away_score, updated_at"),
     supabase
       .from("profiles")
       .select("id, name, username, avatar_url"),
@@ -199,8 +239,19 @@ export const getWorldCupLeaderboard = async (
   );
 
   const leaderboardMap = new Map<string, WorldCupLeaderboardEntry>();
+  const dedupedRows = Array.from(
+    new Map(
+      (predictionsResult.data || [])
+        .map((row) => ({
+          ...row,
+          match_id: legacyAliasMap.get(row.match_id) || row.match_id,
+        }))
+        .sort((a, b) => b.updated_at.localeCompare(a.updated_at))
+        .map((row) => [`${row.user_id}:${row.match_id}`, row]),
+    ).values(),
+  );
 
-  for (const row of predictionsResult.data || []) {
+  for (const row of dedupedRows) {
     const profile = profilesById.get(row.user_id);
     const currentEntry =
       leaderboardMap.get(row.user_id) ||

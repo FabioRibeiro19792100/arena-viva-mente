@@ -135,6 +135,36 @@ create table if not exists public.world_cup_predictions (
 create index if not exists world_cup_predictions_match_id_idx
   on public.world_cup_predictions (match_id);
 
+create table if not exists public.world_cup_matches (
+  id text primary key,
+  stage text not null,
+  group_name text,
+  match_number integer not null,
+  home_team text not null,
+  away_team text not null,
+  home_flag text,
+  away_flag text,
+  kickoff_at timestamptz not null,
+  timezone text not null default 'America/Sao_Paulo',
+  venue text,
+  city text,
+  status text not null check (status in ('scheduled', 'live', 'ended')),
+  status_detail text,
+  home_score integer,
+  away_score integer,
+  live_clock text,
+  linked_sports_match_id text,
+  source text not null default 'seed',
+  source_url text,
+  source_payload jsonb,
+  last_score_sync_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists world_cup_matches_kickoff_at_idx
+  on public.world_cup_matches (kickoff_at);
+
 alter table public.profiles enable row level security;
 alter table public.favorites enable row level security;
 alter table public.reservations enable row level security;
@@ -142,6 +172,7 @@ alter table public.history_entries enable row level security;
 alter table public.match_preferences enable row level security;
 alter table public.messages enable row level security;
 alter table public.world_cup_predictions enable row level security;
+alter table public.world_cup_matches enable row level security;
 
 drop policy if exists "profiles_select_own" on public.profiles;
 drop policy if exists "profiles_insert_own" on public.profiles;
@@ -154,6 +185,7 @@ drop policy if exists "messages_select_authenticated" on public.messages;
 drop policy if exists "messages_insert_own" on public.messages;
 drop policy if exists "world_cup_predictions_select_authenticated" on public.world_cup_predictions;
 drop policy if exists "world_cup_predictions_all_own" on public.world_cup_predictions;
+drop policy if exists "world_cup_matches_select_authenticated" on public.world_cup_matches;
 
 create policy "profiles_select_own" on public.profiles
   for select using (auth.uid() = id);
@@ -187,3 +219,6 @@ create policy "world_cup_predictions_select_authenticated" on public.world_cup_p
 
 create policy "world_cup_predictions_all_own" on public.world_cup_predictions
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+create policy "world_cup_matches_select_authenticated" on public.world_cup_matches
+  for select using (auth.role() = 'authenticated');
