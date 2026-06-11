@@ -26,11 +26,13 @@ export const Header = ({ roomMode = false, onRoomMenuClick }: HeaderProps) => {
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/80 bg-background/90 backdrop-blur-xl supports-[backdrop-filter]:bg-background/75">
       <div className="container flex h-20 items-center justify-between px-6">
-        <div
-          className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
-          onClick={() => navigate("/")}
-        >
-          <h1 className="min-w-0 text-2xl font-bold tracking-tight text-foreground">Bancada</h1>
+        <div className="flex min-w-0 flex-col items-start gap-1">
+          <div
+            className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
+            onClick={() => navigate("/")}
+          >
+            <h1 className="min-w-0 text-2xl font-bold tracking-tight text-foreground">Bancada</h1>
+          </div>
         </div>
 
         <nav className="hidden md:flex items-center gap-6">

@@ -4,7 +4,6 @@ import { Footer } from "@/components/Footer";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useMockAuth } from "@/contexts/MockAuthContext";
@@ -241,17 +240,14 @@ const Bolao = () => {
       <section className="py-10 md:py-14">
         <div className="container mx-auto max-w-7xl px-6">
           <div className="mb-8 space-y-3">
-            <Badge variant="outline" className="border-border bg-muted/45 text-foreground">
-              Bolão da Copa
-            </Badge>
             <h1 className="text-3xl font-semibold text-foreground md:text-4xl">
-              Palpites da Copa do Mundo 2026
+              Bolão da Copa
             </h1>
           </div>
 
           <div className="mb-6 flex items-center justify-between gap-4">
             <p className="text-sm text-muted-foreground">
-              Regras: 5 no placar exato, 3 no resultado, 0 quando erra tudo.
+              Regras: 5 pontos no placar exato, 3 pontos no resultado e 0 pontos quando não acertar.
             </p>
           </div>
 
@@ -397,10 +393,12 @@ const Bolao = () => {
                                 </div>
                               </div>
 
-                              <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4">
+                              <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 sm:gap-4">
                                 <div className="flex flex-col items-center gap-3">
                                   <TeamMark name={match.homeTeam} logo={match.homeTeamLogo} />
-                                  <span className="text-base font-semibold text-foreground">{match.homeTeam}</span>
+                                  <span className="max-w-[6.5rem] text-center text-[13px] font-semibold leading-tight text-foreground sm:max-w-[8.5rem] sm:text-base">
+                                    {match.homeTeam}
+                                  </span>
                                 </div>
 
                                 <div className="flex items-center gap-2 sm:gap-3">
@@ -425,7 +423,9 @@ const Bolao = () => {
 
                                 <div className="flex flex-col items-center gap-3">
                                   <TeamMark name={match.awayTeam} logo={match.awayTeamLogo} />
-                                  <span className="text-base font-semibold text-foreground">{match.awayTeam}</span>
+                                  <span className="max-w-[6.5rem] text-center text-[13px] font-semibold leading-tight text-foreground sm:max-w-[8.5rem] sm:text-base">
+                                    {match.awayTeam}
+                                  </span>
                                 </div>
                               </div>
 

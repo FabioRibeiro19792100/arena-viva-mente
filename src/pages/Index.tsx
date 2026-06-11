@@ -4,7 +4,7 @@ import { GameCard } from "@/components/GameCard";
 import { Footer } from "@/components/Footer";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CalendarDays, Search } from "lucide-react";
+import { CalendarDays, Search, Trophy } from "lucide-react";
 import { useMockAuth } from "@/contexts/MockAuthContext";
 import {
   addReservation,
@@ -427,6 +427,17 @@ const Index = () => {
         <div className="container px-6">
           <div className="md:hidden sticky top-20 z-30 -mx-6 mb-5 border-b border-border/80 bg-background/92 px-6 py-3 backdrop-blur-xl">
             <div className="space-y-3">
+              {user && (
+                <button
+                  type="button"
+                  onClick={() => navigate("/bolao")}
+                  className="inline-flex items-center gap-2 py-1 text-sm font-semibold text-foreground transition-colors hover:text-foreground"
+                >
+                  <Trophy className="h-4 w-4" />
+                  Bolão da Copa
+                </button>
+              )}
+
               <div className="flex flex-wrap items-center gap-3">
                 <button
                   type="button"
