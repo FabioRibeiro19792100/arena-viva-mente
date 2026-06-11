@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { Heart, LogOut, Menu, Moon, Sun, Ticket, User } from "lucide-react";
+import { Heart, LogOut, Menu, Moon, Sun, Ticket, Trophy, User } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useMockAuth } from "@/contexts/MockAuthContext";
 import { useTheme } from "next-themes";
@@ -41,8 +41,9 @@ export const Header = ({ roomMode = false, onRoomMenuClick }: HeaderProps) => {
               {isAuthenticated && (
                 <button
                   onClick={() => navigate("/bolao")}
-                  className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                  className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors flex items-center gap-2"
                 >
+                  <Trophy className="h-4 w-4" />
                   Bolão
                 </button>
               )}

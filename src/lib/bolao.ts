@@ -201,18 +201,6 @@ export const getWorldCupLeaderboard = async (
   const leaderboardMap = new Map<string, WorldCupLeaderboardEntry>();
 
   for (const row of predictionsResult.data || []) {
-    const match = scorableMatches.find((item) => item.id === row.match_id);
-    if (!match) continue;
-
-    const points = scoreWorldCupPrediction(match, {
-      matchId: row.match_id,
-      predictedHomeScore: row.predicted_home_score,
-      predictedAwayScore: row.predicted_away_score,
-      updatedAt: "",
-    });
-
-    if (points === null) continue;
-
     const profile = profilesById.get(row.user_id);
     const currentEntry =
       leaderboardMap.get(row.user_id) ||
@@ -227,10 +215,23 @@ export const getWorldCupLeaderboard = async (
         predictionsCount: 0,
       };
 
-    currentEntry.totalPoints += points;
-    currentEntry.exactScoreHits += points === 5 ? 1 : 0;
-    currentEntry.outcomeHits += points === 3 ? 1 : 0;
     currentEntry.predictionsCount += 1;
+
+    const match = scorableMatches.find((item) => item.id === row.match_id);
+    if (match) {
+      const points = scoreWorldCupPrediction(match, {
+        matchId: row.match_id,
+        predictedHomeScore: row.predicted_home_score,
+        predictedAwayScore: row.predicted_away_score,
+        updatedAt: "",
+      });
+
+      if (points !== null) {
+        currentEntry.totalPoints += points;
+        currentEntry.exactScoreHits += points === 5 ? 1 : 0;
+        currentEntry.outcomeHits += points === 3 ? 1 : 0;
+      }
+    }
 
     leaderboardMap.set(row.user_id, currentEntry);
   }
@@ -238,6 +239,7 @@ export const getWorldCupLeaderboard = async (
   return Array.from(leaderboardMap.values()).sort((a, b) => {
     if (b.totalPoints !== a.totalPoints) return b.totalPoints - a.totalPoints;
     if (b.exactScoreHits !== a.exactScoreHits) return b.exactScoreHits - a.exactScoreHits;
-    return b.outcomeHits - a.outcomeHits;
+    if (b.outcomeHits !== a.outcomeHits) return b.outcomeHits - a.outcomeHits;
+    return b.predictionsCount - a.predictionsCount;
   });
 };

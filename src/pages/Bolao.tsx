@@ -239,7 +239,7 @@ const Bolao = () => {
       <Header />
 
       <section className="py-10 md:py-14">
-        <div className="container mx-auto max-w-7xl px-6">
+        <div className="container px-6">
           <div className="mb-8 space-y-3">
             <h1 className="text-3xl font-semibold text-foreground md:text-4xl">
               Bolão da Copa
