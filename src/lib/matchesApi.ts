@@ -29,11 +29,15 @@ export const fetchMatchesFeed = async (params: {
   sport: "all" | SportType;
   quick: QuickFilterType;
   search: string;
+  league?: string;
+  includePast?: boolean;
 }) => {
   const query = new URLSearchParams();
   if (params.sport !== "all") query.set("sport", params.sport);
   if (params.quick !== "all") query.set("quick", params.quick);
   if (params.search.trim()) query.set("search", params.search.trim());
+  if (params.league?.trim()) query.set("league", params.league.trim());
+  if (params.includePast) query.set("includePast", "1");
 
   const suffix = query.toString() ? `?${query.toString()}` : "";
   return fetchJson<MatchesFeedResponse>(`/api/matches${suffix}`);

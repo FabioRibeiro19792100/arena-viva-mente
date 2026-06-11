@@ -121,6 +121,8 @@ export const getMatchesFeed = async (input: {
   sport: "all" | SportType;
   quick: QuickFilterType;
   search: string;
+  league?: string;
+  includePast?: boolean;
 }): Promise<MatchesFeedPayload> => {
   await ensureStaticMatchesSeeded();
   await ensureScheduledMatchesFresh();
@@ -131,11 +133,18 @@ export const getMatchesFeed = async (input: {
   let query = admin
     .from("sports_matches")
     .select("*")
-    .or(`status.eq.live,starts_at.gte.${brasliaDayStartIso}`)
     .order("starts_at", { ascending: true });
+
+  if (!input.includePast) {
+    query = query.or(`status.eq.live,starts_at.gte.${brasliaDayStartIso}`);
+  }
 
   if (input.sport !== "all") {
     query = query.eq("sport", input.sport);
+  }
+
+  if (input.league?.trim()) {
+    query = query.ilike("league_name", `%${input.league.trim()}%`);
   }
 
   if (input.quick === "live") {
@@ -154,8 +163,8 @@ export const getMatchesFeed = async (input: {
     throw error;
   }
 
-  const rows = ((data || []) as SportsMatchRow[]).filter(
-    (row) => row.status === "live" || isTodayOrFutureBrasiliaDay(row.starts_at),
+  const rows = ((data || []) as SportsMatchRow[]).filter((row) =>
+    input.includePast ? true : row.status === "live" || isTodayOrFutureBrasiliaDay(row.starts_at),
   );
   const rowsById = new Map(rows.map((row) => [row.id, row]));
 

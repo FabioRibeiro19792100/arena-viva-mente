@@ -246,7 +246,25 @@ const officialWorldCupMatches: WorldCupMatch[] = rawMatches.map(
   }),
 );
 
-export const worldCup2026Matches: WorldCupMatch[] = [];
+export const testOpenMatch: WorldCupMatch = {
+  id: "wc2026-test-01",
+  homeTeam: "Brazil",
+  awayTeam: "Argentina",
+  league: "Evento teste",
+  stage: "Sala aberta",
+  status: "live",
+  statusLabel: "Evento teste aberto",
+  date: "1 de junho de 2026",
+  startTime: "20:00",
+  venue: "Bancada, Sala principal",
+  homeTeamLogo: teamLogo("Brazil"),
+  awayTeamLogo: teamLogo("Argentina"),
+  homeScore: 2,
+  awayScore: 1,
+  liveDetail: "67'",
+};
+
+export const worldCup2026Matches: WorldCupMatch[] = [testOpenMatch];
 
 export const featuredWorldCupMatches = worldCup2026Matches;
 export const moreWorldCupMatches = worldCup2026Matches;
@@ -301,6 +319,10 @@ export const formatBrasiliaTime = (startTime?: string) =>
 const LIVE_WINDOW_MS = 3 * 60 * 60 * 1000;
 
 export const getCurrentMatchStatus = (match: Pick<WorldCupMatch, "id" | "date" | "startTime" | "status">): MatchStatus => {
+  if (match.id === testOpenMatch.id) {
+    return "live";
+  }
+
   if (match.id.startsWith("api-")) {
     return match.status;
   }
@@ -320,6 +342,7 @@ export const getMatchAvailableSpots = (
   const currentStatus = getCurrentMatchStatus(match);
 
   if (currentStatus === "ended") return 0;
+  if (match.id === testOpenMatch.id) return 18;
 
   const hash = Array.from(match.id).reduce((total, char) => total + char.charCodeAt(0), 0);
   const baseCapacity =

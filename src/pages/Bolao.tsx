@@ -102,6 +102,8 @@ const Bolao = () => {
         sport: "futebol",
         quick: "all",
         search: "",
+        league: "Copa do Mundo",
+        includePast: true,
       });
       const resolvedMatches = [...feed.todayMatches, ...feed.matches].filter(
         isApiWorldCupMatch,

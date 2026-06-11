@@ -2,6 +2,7 @@ import { getSupabaseAdmin } from "./supabase-admin.js";
 import {
   buildFootballMatchRow,
   buildNbaMatchRow,
+  buildStaticMatchRows,
   buildVolleyballMatchRow,
   type SportType,
   type SportsMatchRow,
@@ -139,7 +140,7 @@ const updateSyncStatus = async (
 };
 
 export const ensureStaticMatchesSeeded = async () => {
-  return;
+  await upsertMatches(buildStaticMatchRows());
 };
 
 const syncFootballScheduled = async (mode: SyncMode) => {

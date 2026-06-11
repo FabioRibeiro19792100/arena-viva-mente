@@ -18,12 +18,16 @@ export default async function handler(req: any, res: any) {
       ? req.query.quick
       : "all";
     const search = typeof req.query?.search === "string" ? req.query.search : "";
+    const league = typeof req.query?.league === "string" ? req.query.league : "";
+    const includePast = req.query?.includePast === "1" || req.query?.includePast === "true";
 
     return res.status(200).json(
       await getMatchesFeed({
         sport,
         quick,
         search,
+        league,
+        includePast,
       }),
     );
   } catch (error: any) {
