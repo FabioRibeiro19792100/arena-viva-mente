@@ -132,6 +132,20 @@ const buildMatchKey = (homeTeam: string, awayTeam: string, kickoffAt: string) =>
   return `${normalizeText(homeTeam)}__${normalizeText(awayTeam)}__${localDate}`;
 };
 
+const buildMatchKeys = (homeTeam: string, awayTeam: string, kickoffAt: string) => {
+  const homeVariants = buildTeamVariants(homeTeam);
+  const awayVariants = buildTeamVariants(awayTeam);
+  const keys = new Set<string>();
+
+  for (const homeVariant of homeVariants) {
+    for (const awayVariant of awayVariants) {
+      keys.add(buildMatchKey(homeVariant, awayVariant, kickoffAt));
+    }
+  }
+
+  return Array.from(keys);
+};
+
 const mapWorldCupRowToMatch = (row: WorldCupMatchRow): WorldCupPoolMatch => ({
   id: row.id,
   homeTeam: row.home_team,
@@ -181,7 +195,16 @@ const isMissingWorldCupTableError = (error: unknown) => {
 
 export const ensureWorldCupGroupStageSeeded = async () => {
   try {
-    await upsertWorldCupRows(seedRows);
+    const admin = getSupabaseAdmin();
+    const { data, error } = await admin.from("world_cup_matches").select("id");
+    if (error) throw error;
+
+    const existingIds = new Set((data || []).map((row) => row.id));
+    const missingRows = seedRows.filter((row) => !existingIds.has(row.id));
+
+    if (missingRows.length > 0) {
+      await upsertWorldCupRows(missingRows);
+    }
   } catch (error) {
     if (isMissingWorldCupTableError(error)) {
       return seedRows.length;
@@ -202,6 +225,42 @@ const loadWorldCupRows = async () => {
   return (data || []) as WorldCupMatchRow[];
 };
 
+const enrichRowsWithLegacyLinks = async (rows: WorldCupMatchRow[]) => {
+  const rowsMissingLinks = rows.filter((row) => !row.linked_sports_match_id);
+  if (rowsMissingLinks.length === 0) {
+    return rows;
+  }
+
+  const admin = getSupabaseAdmin();
+  const { data, error } = await admin
+    .from("sports_matches")
+    .select("id, home_team, away_team, starts_at")
+    .eq("sport", "futebol")
+    .or("league_name.ilike.%World Cup%,league_name.ilike.%Copa do Mundo%");
+
+  if (error) {
+    return rows;
+  }
+
+  const sportsByKey = new Map<string, string>();
+
+  for (const row of data || []) {
+    for (const key of buildMatchKeys(row.home_team, row.away_team, row.starts_at)) {
+      sportsByKey.set(key, row.id);
+    }
+  }
+
+  return rows.map((row) => ({
+    ...row,
+    linked_sports_match_id:
+      row.linked_sports_match_id ||
+      buildMatchKeys(row.home_team, row.away_team, row.kickoff_at)
+        .map((key) => sportsByKey.get(key))
+        .find(Boolean) ||
+      null,
+  }));
+};
+
 export const getWorldCupPoolMatches = async () => {
   let rows = seedRows;
 
@@ -214,7 +273,7 @@ export const getWorldCupPoolMatches = async () => {
     }
   }
 
-  return rows.map(mapWorldCupRowToMatch);
+  return (await enrichRowsWithLegacyLinks(rows)).map(mapWorldCupRowToMatch);
 };
 
 export const syncWorldCupScoresFromSportsSnapshot = async () => {
@@ -273,6 +332,33 @@ interface ParsedScoreUpdate {
   source_payload: unknown;
 }
 
+interface GeGroupTeam {
+  nome_popular: string;
+}
+
+interface GeGroupMatch {
+  data_realizacao: string;
+  jogo_ja_comecou: boolean;
+  placar_oficial_mandante: number | null;
+  placar_oficial_visitante: number | null;
+  equipes: {
+    mandante: GeGroupTeam;
+    visitante: GeGroupTeam;
+  };
+  transmissao?: {
+    label?: string | null;
+    broadcast?: {
+      id?: string | null;
+      label?: string | null;
+    } | null;
+  } | null;
+}
+
+interface GeGroup {
+  nome_grupo?: string | null;
+  lista_jogos?: GeGroupMatch[] | null;
+}
+
 const simplifyHtml = (html: string) =>
   html
     .replace(/<script[\s\S]*?<\/script>/gi, " ")
@@ -282,6 +368,74 @@ const simplifyHtml = (html: string) =>
     .replace(/\s+/g, " ")
     .trim();
 
+const extractJsonArray = (source: string, anchor: string) => {
+  const anchorIndex = source.indexOf(anchor);
+  if (anchorIndex < 0) return null;
+
+  const startIndex = source.indexOf("[", anchorIndex + anchor.length);
+  if (startIndex < 0) return null;
+
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+
+  for (let index = startIndex; index < source.length; index += 1) {
+    const char = source[index];
+
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+
+    if (char === "\\") {
+      escaped = true;
+      continue;
+    }
+
+    if (char === "\"") {
+      inString = !inString;
+      continue;
+    }
+
+    if (inString) continue;
+
+    if (char === "[") depth += 1;
+    if (char === "]") depth -= 1;
+
+    if (depth === 0) {
+      return source.slice(startIndex, index + 1);
+    }
+  }
+
+  return null;
+};
+
+const parseGeGroupsData = (html: string) => {
+  const rawGroups = extractJsonArray(html, "const grupos_fase =");
+  if (!rawGroups) return [] as GeGroup[];
+
+  try {
+    return JSON.parse(rawGroups) as GeGroup[];
+  } catch {
+    return [] as GeGroup[];
+  }
+};
+
+const inferMatchStatusFromGe = (match: GeGroupMatch): MatchStatus => {
+  const broadcastId = match.transmissao?.broadcast?.id || "";
+  if (broadcastId === "ENCERRADA") return "ended";
+  if (match.jogo_ja_comecou) return "live";
+  return "scheduled";
+};
+
+const buildStatusDetailFromGe = (match: GeGroupMatch, status: MatchStatus) => {
+  const label = match.transmissao?.label || match.transmissao?.broadcast?.label || null;
+  if (label?.trim()) return label.trim();
+  if (status === "live") return "Ao vivo";
+  if (status === "ended") return "Encerrado";
+  return "Agendado";
+};
+
 const extractSnippet = (text: string, anchor: string) => {
   const index = text.toLowerCase().indexOf(anchor.toLowerCase());
   if (index < 0) return "";
@@ -289,6 +443,51 @@ const extractSnippet = (text: string, anchor: string) => {
 };
 
 const parseGeScoreUpdates = (html: string, matches: WorldCupMatchRow[]): ParsedScoreUpdate[] => {
+  const groups = parseGeGroupsData(html);
+  const updatesFromGroups = groups.flatMap((group) =>
+    (group.lista_jogos || []).flatMap((match) => {
+      const geKeys = buildMatchKeys(
+        match.equipes.mandante.nome_popular,
+        match.equipes.visitante.nome_popular,
+        match.data_realizacao,
+      );
+      const row = matches.find((item) =>
+        buildMatchKeys(item.home_team, item.away_team, item.kickoff_at).some((key) => geKeys.includes(key)),
+      );
+
+      if (!row) return [];
+
+      const status = inferMatchStatusFromGe(match);
+      const hasOfficialScore =
+        typeof match.placar_oficial_mandante === "number" &&
+        typeof match.placar_oficial_visitante === "number";
+
+      if (!hasOfficialScore && status === "scheduled") {
+        return [];
+      }
+
+      return [
+        {
+          id: row.id,
+          home_score: match.placar_oficial_mandante ?? 0,
+          away_score: match.placar_oficial_visitante ?? 0,
+          status,
+          status_detail: buildStatusDetailFromGe(match, status),
+          live_clock: null,
+          source_payload: {
+            source: "grupos_fase",
+            group: group.nome_grupo || null,
+            geMatch: match,
+          },
+        } satisfies ParsedScoreUpdate,
+      ];
+    }),
+  );
+
+  if (updatesFromGroups.length > 0) {
+    return updatesFromGroups;
+  }
+
   const text = simplifyHtml(html);
   const updates: ParsedScoreUpdate[] = [];
 
