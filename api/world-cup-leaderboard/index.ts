@@ -5,6 +5,17 @@ type Scope = "general" | "brazil";
 
 const endedMatchStatus = "ended";
 
+const isMissingCreditsTableError = (error: unknown) => {
+  const message =
+    error instanceof Error
+      ? error.message
+      : typeof error === "object" && error && "message" in error
+        ? String((error as { message?: unknown }).message || "")
+        : "";
+
+  return /world_cup_prediction_credits/i.test(message) && /schema cache|does not exist|relation/i.test(message);
+};
+
 const scorePrediction = (
   match: { homeScore?: number; awayScore?: number; status: string },
   prediction: { home: number; away: number },
@@ -71,7 +82,9 @@ export default async function handler(req: any, res: any) {
       admin.from("world_cup_prediction_credits").select("user_id, kind"),
     ]);
 
-    if (predictionsResult.error || profilesResult.error || creditsResult.error) {
+    const canIgnoreCreditsError = isMissingCreditsTableError(creditsResult.error);
+
+    if (predictionsResult.error || profilesResult.error || (creditsResult.error && !canIgnoreCreditsError)) {
       return res.status(500).json({
         error: "world_cup_leaderboard_read_failed",
         predictions: predictionsResult.error?.message || null,
@@ -98,7 +111,7 @@ export default async function handler(req: any, res: any) {
     );
 
     const consumedCreditsByUser = new Map<string, number>();
-    for (const row of creditsResult.data || []) {
+    for (const row of canIgnoreCreditsError ? [] : creditsResult.data || []) {
       if (row.kind !== "edit_consume") continue;
       consumedCreditsByUser.set(row.user_id, (consumedCreditsByUser.get(row.user_id) || 0) + 1);
     }
