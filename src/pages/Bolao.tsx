@@ -1184,7 +1184,7 @@ const Bolao = () => {
     return (
       <div
         key={match.id}
-        className="grid grid-cols-[minmax(0,1.8fr)_110px_110px_120px] items-center gap-4 border-b border-border/60 px-4 py-4"
+        className="grid grid-cols-[minmax(0,1.8fr)_120px_120px_110px_minmax(0,1.2fr)] items-center gap-4 border-b border-border/60 px-4 py-4"
       >
         <div className="min-w-0">
           <p className="truncate text-sm font-medium text-foreground">
@@ -1201,6 +1201,11 @@ const Bolao = () => {
         </div>
         <div className="text-center">
           <p className="text-sm font-semibold text-foreground">{officialScore}</p>
+        </div>
+        <div className="text-center">
+          <p className={`text-xs font-medium ${predictionFeedback.className}`}>
+            {predictionFeedback.label}
+          </p>
         </div>
         <div className="min-w-0 text-right">
           {editState.canEdit ? (
