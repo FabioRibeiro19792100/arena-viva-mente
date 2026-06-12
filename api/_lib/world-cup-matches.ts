@@ -83,6 +83,31 @@ const buildStatusLabel = (status: MatchStatus, statusDetail: string | null) => {
   return "Agendado";
 };
 
+const applyEmergencyScoreOverrides = (matches: WorldCupPoolMatch[]) =>
+  matches.map((match) => {
+    if (match.id === "wc2026-01") {
+      return {
+        ...match,
+        status: "ended" as const,
+        statusLabel: "Encerrado",
+        homeScore: 2,
+        awayScore: 0,
+      };
+    }
+
+    if (match.id === "wc2026-02") {
+      return {
+        ...match,
+        status: "ended" as const,
+        statusLabel: "Encerrado",
+        homeScore: 2,
+        awayScore: 1,
+      };
+    }
+
+    return match;
+  });
+
 const buildSeedRowsFromLocalMatches = () =>
   worldCupGroupStageSeedMatches
     .map<WorldCupMatchRow | null>((match, index) => {
@@ -328,7 +353,9 @@ export const getWorldCupPoolMatches = async () => {
     throw error;
   }
 
-  return (await enrichRowsWithLegacyLinks(rows)).map(mapWorldCupRowToMatch);
+  return applyEmergencyScoreOverrides(
+    (await enrichRowsWithLegacyLinks(rows)).map(mapWorldCupRowToMatch),
+  );
 };
 
 export const syncWorldCupScoresFromSportsSnapshot = async () => {
