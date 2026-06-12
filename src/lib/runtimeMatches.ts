@@ -1,4 +1,4 @@
-import { worldCupMatchMap, type WorldCupMatch } from "@/data/worldCup2026";
+import type { WorldCupMatch } from "@/data/worldCup2026";
 import { fetchMatchById, fetchMatchesByIds } from "@/lib/matchesApi";
 
 const runtimeMatches = new Map<string, WorldCupMatch>();
@@ -13,17 +13,7 @@ export const upsertRuntimeMatches = (matches: WorldCupMatch[]) => {
 
 export const getMatchById = (id?: string | null) => {
   if (!id) return null;
-  const runtimeMatch = runtimeMatches.get(id) || null;
-  const staticMatch = worldCupMatchMap[id] || null;
-
-  if (staticMatch && runtimeMatch) {
-    return {
-      ...staticMatch,
-      ...runtimeMatch,
-    };
-  }
-
-  return runtimeMatch || staticMatch;
+  return runtimeMatches.get(id) || null;
 };
 
 export const hydrateRuntimeMatchesByIds = async (ids: string[]) => {
@@ -42,7 +32,7 @@ export const loadMatchById = async (id?: string | null) => {
   if (!id) return null;
 
   const existing = getMatchById(id);
-  if (existing && !id.startsWith("api-")) {
+  if (existing) {
     return existing;
   }
 

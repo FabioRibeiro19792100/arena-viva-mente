@@ -1,9 +1,4 @@
-import {
-  parseWorldCupMatchDate,
-  type MatchStatus,
-  type WorldCupMatch,
-  worldCupGroupStageSeedMatches,
-} from "../../src/data/worldCup2026.js";
+import { type MatchStatus, type WorldCupMatch } from "../../src/data/worldCup2026.js";
 import { translateTeamLabel } from "../../src/lib/matchLabels.js";
 import { getSupabaseAdmin } from "./supabase-admin.js";
 
@@ -245,6 +240,9 @@ export const ensureWorldCupGroupStageSeeded = async () => {
   try {
     const existingRows = await loadExistingWorldCupRowsSafe();
     const geRows = await loadGeSeedRowsSafe();
+    if (geRows.length === 0) {
+      throw new Error("world_cup_ge_seed_unavailable");
+    }
     const canonicalRows = buildCanonicalWorldCupRows(existingRows, geRows);
     await upsertWorldCupRows(canonicalRows);
   } catch (error) {
@@ -743,66 +741,21 @@ const buildCanonicalWorldCupRows = (
   existingRows: WorldCupMatchRow[],
   geRows: WorldCupMatchRow[],
 ) => {
-  const existingById = new Map(existingRows.map((row) => [row.id, row]));
-
-  return worldCupGroupStageSeedMatches.map<WorldCupMatchRow>((match, index) => {
-    const seedKickoff = parseWorldCupMatchDate(match)?.toISOString();
-    const geRow =
-      geRows.find(
-        (row) =>
-          row.stage === match.stage &&
-          matchesTeamPair(match.homeTeam, match.awayTeam, row.home_team, row.away_team),
-      ) ||
-      geRows.find((row) =>
-        matchesTeamPair(match.homeTeam, match.awayTeam, row.home_team, row.away_team),
-      ) ||
-      null;
-    const kickoff = geRow?.kickoff_at || seedKickoff;
-    if (!kickoff) {
-      throw new Error(`invalid_world_cup_seed_kickoff:${match.id}`);
-    }
-
-    const canonicalKeys = buildMatchKeys(match.homeTeam, match.awayTeam, kickoff);
-    const existingCandidate = existingById.get(match.id);
+  return geRows.map<WorldCupMatchRow>((geRow, index) => {
     const existingRow =
-      existingCandidate &&
-      buildMatchKeys(
-        existingCandidate.home_team,
-        existingCandidate.away_team,
-        existingCandidate.kickoff_at,
-      ).some((key) => canonicalKeys.includes(key))
-        ? existingCandidate
-        : null;
-    const hasGeScore =
-      typeof geRow?.home_score === "number" && typeof geRow?.away_score === "number";
+      existingRows.find(
+        (row) =>
+          row.id === geRow.id ||
+          (row.stage === geRow.stage &&
+            matchesTeamPair(row.home_team, row.away_team, geRow.home_team, geRow.away_team)),
+      ) || null;
 
     return {
-      id: match.id,
-      stage: match.stage,
-      group_name: match.stage.startsWith("Grupo") ? match.stage : null,
+      ...geRow,
       match_number: index + 1,
-      home_team: match.homeTeam,
-      away_team: match.awayTeam,
-      home_flag: geRow?.home_flag || existingRow?.home_flag || match.homeTeamLogo || null,
-      away_flag: geRow?.away_flag || existingRow?.away_flag || match.awayTeamLogo || null,
-      kickoff_at: kickoff,
-      timezone: "America/Sao_Paulo",
-      venue: geRow?.venue || existingRow?.venue || match.venue || null,
-      city: geRow?.city || existingRow?.city || inferCityFromVenue(match.venue),
-      status: geRow?.status || existingRow?.status || "scheduled",
-      status_detail:
-        geRow?.status_detail ||
-        existingRow?.status_detail ||
-        match.statusLabel ||
-        "Agendado",
-      home_score: hasGeScore ? geRow?.home_score ?? null : existingRow?.home_score ?? null,
-      away_score: hasGeScore ? geRow?.away_score ?? null : existingRow?.away_score ?? null,
-      live_clock: geRow?.live_clock || existingRow?.live_clock || null,
       linked_sports_match_id: existingRow?.linked_sports_match_id || null,
-      source: geRow?.source || existingRow?.source || "seed",
-      source_url: geRow?.source_url || existingRow?.source_url || WORLD_CUP_SOURCE_URL,
-      source_payload: geRow?.source_payload || existingRow?.source_payload || { source: "seed" },
-      last_score_sync_at: geRow?.last_score_sync_at || existingRow?.last_score_sync_at || null,
+      created_at: existingRow?.created_at,
+      updated_at: existingRow?.updated_at,
     };
   });
 };
