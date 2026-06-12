@@ -8,7 +8,7 @@ import {
   type MatchStatus,
 } from "@/data/worldCup2026";
 import { useToast } from "@/hooks/use-toast";
-import { CheckCheck, Heart, Share2, Sparkles, Ticket } from "lucide-react";
+import { CheckCheck, Heart, Share2, Ticket } from "lucide-react";
 import { translateTeamLabel } from "@/lib/matchLabels";
 import { MatchCardFrame } from "@/components/MatchCardFrame";
 
@@ -117,17 +117,15 @@ export const GameCard = ({
   })();
 
   const renderTopAction = () => {
-    if (!hasRoom || roomOpen) {
+    if (!hasRoom || roomOpen || currentStatus === "ended") {
       return null;
     }
 
-    const kind = currentStatus === "ended" ? "highlights" : isReserved ? "reserved" : "reserve";
-    const label = currentStatus === "ended" ? "Highlights" : isReserved ? "Reservado" : "Reservar";
-    const icon = currentStatus === "ended"
-      ? <Sparkles className="h-3.5 w-3.5" />
-      : isReserved
-        ? <CheckCheck className="h-3.5 w-3.5" />
-        : <Ticket className="h-3.5 w-3.5" />;
+    const kind = isReserved ? "reserved" : "reserve";
+    const label = isReserved ? "Reservado" : "Reservar";
+    const icon = isReserved
+      ? <CheckCheck className="h-3.5 w-3.5" />
+      : <Ticket className="h-3.5 w-3.5" />;
 
     const handleClick = () => {
       if (kind === "reserve") {
@@ -135,9 +133,6 @@ export const GameCard = ({
         return;
       }
 
-      if (kind === "highlights") {
-        navigate(`/resumo/${id}`);
-      }
     };
 
     return (
