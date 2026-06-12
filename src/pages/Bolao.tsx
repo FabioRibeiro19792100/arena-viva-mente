@@ -45,6 +45,7 @@ import { TeamMark } from "@/components/MatchCardFrame";
 import { MatchCountriesMap } from "@/components/MatchCountriesMap";
 import { Sparkles } from "lucide-react";
 import { FIFA_RANKING_2026, FIFA_RANKING_SNAPSHOT_DATE } from "@/data/fifaRanking2026";
+import { translateTeamLabel } from "@/lib/matchLabels";
 
 const toInitialValues = (predictions: WorldCupPrediction[]) =>
   predictions.reduce<Record<string, { home: string; away: string }>>((acc, prediction) => {
@@ -694,6 +695,8 @@ const Bolao = () => {
   };
 
   const renderPredictionCard = (match: WorldCupPoolMatch) => {
+    const homeTeamLabel = translateTeamLabel(match.homeTeam);
+    const awayTeamLabel = translateTeamLabel(match.awayTeam);
     const currentStatus = getCurrentMatchStatus(match);
     const savedPrediction = predictionsByMatchId[match.id];
     const points = scoreWorldCupPrediction(match, savedPrediction);
@@ -735,12 +738,12 @@ const Bolao = () => {
               <div className="flex min-w-0 flex-col items-center text-center">
                 <TeamMark
                   src={match.homeTeamLogo}
-                  alt={match.homeTeam}
+                  alt={homeTeamLabel}
                   defined
                   imageClassName="h-14 w-auto max-w-[76px] object-contain drop-shadow-sm"
                 />
                 <p className="mt-3 flex h-[44px] max-w-[92px] items-start justify-center text-center text-[0.9rem] font-semibold leading-tight text-foreground break-words">
-                  {match.homeTeam}
+                  {homeTeamLabel}
                 </p>
               </div>
 
@@ -807,12 +810,12 @@ const Bolao = () => {
               <div className="flex min-w-0 flex-col items-center text-center">
                 <TeamMark
                   src={match.awayTeamLogo}
-                  alt={match.awayTeam}
+                  alt={awayTeamLabel}
                   defined
                   imageClassName="h-14 w-auto max-w-[76px] object-contain drop-shadow-sm"
                 />
                 <p className="mt-3 flex h-[44px] max-w-[92px] items-start justify-center text-center text-[0.9rem] font-semibold leading-tight text-foreground break-words">
-                  {match.awayTeam}
+                  {awayTeamLabel}
                 </p>
               </div>
             </div>
@@ -864,11 +867,11 @@ const Bolao = () => {
               <div className="flex flex-col items-center text-center">
                 <TeamMark
                   src={match.homeTeamLogo}
-                  alt={match.homeTeam}
+                  alt={homeTeamLabel}
                   defined
                   imageClassName="h-24 w-auto max-w-[128px] object-contain drop-shadow-sm"
                 />
-                <p className="mt-4 text-xl font-semibold text-foreground">{match.homeTeam}</p>
+                <p className="mt-4 text-xl font-semibold text-foreground">{homeTeamLabel}</p>
               </div>
 
               <div className="min-w-[180px] text-center">
@@ -930,11 +933,11 @@ const Bolao = () => {
               <div className="flex flex-col items-center text-center">
                 <TeamMark
                   src={match.awayTeamLogo}
-                  alt={match.awayTeam}
+                  alt={awayTeamLabel}
                   defined
                   imageClassName="h-24 w-auto max-w-[128px] object-contain drop-shadow-sm"
                 />
-                <p className="mt-4 text-xl font-semibold text-foreground">{match.awayTeam}</p>
+                <p className="mt-4 text-xl font-semibold text-foreground">{awayTeamLabel}</p>
               </div>
             </div>
 
@@ -989,8 +992,8 @@ const Bolao = () => {
         }
         league={isMobileDeck ? match.stage : match.league}
         meta={isMobileDeck ? formatBrasiliaTime(match.startTime) : `${match.date} • ${formatBrasiliaTime(match.startTime)}`}
-        homeTeam={match.homeTeam}
-        awayTeam={match.awayTeam}
+        homeTeam={homeTeamLabel}
+        awayTeam={awayTeamLabel}
         homeTeamLogo={match.homeTeamLogo}
         awayTeamLogo={match.awayTeamLogo}
         centerContent={
@@ -1085,8 +1088,8 @@ const Bolao = () => {
 
             {!isMobileDeck ? (
               <MatchCountriesMap
-                homeTeam={match.homeTeam}
-                awayTeam={match.awayTeam}
+                homeTeam={homeTeamLabel}
+                awayTeam={awayTeamLabel}
                 homeTeamLogo={match.homeTeamLogo}
                 awayTeamLogo={match.awayTeamLogo}
                 showLegend
@@ -1099,6 +1102,8 @@ const Bolao = () => {
   };
 
   const renderSavedPredictionRow = (match: WorldCupPoolMatch) => {
+    const homeTeamLabel = translateTeamLabel(match.homeTeam);
+    const awayTeamLabel = translateTeamLabel(match.awayTeam);
     const savedPrediction = predictionsByMatchId[match.id];
     if (!savedPrediction) return null;
 
@@ -1117,12 +1122,12 @@ const Bolao = () => {
           <div className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-sm">
             <TeamMark
               src={match.homeTeamLogo}
-              alt={match.homeTeam}
+              alt={homeTeamLabel}
               defined
               imageClassName="h-6 w-auto max-w-[28px] object-contain"
             />
           </div>
-          <span className="truncate text-sm font-medium text-foreground">{match.homeTeam}</span>
+          <span className="truncate text-sm font-medium text-foreground">{homeTeamLabel}</span>
         </div>
 
         <div className="flex min-w-[92px] flex-col items-center text-center">
@@ -1139,7 +1144,7 @@ const Bolao = () => {
 
         <div className="flex min-w-0 flex-1 items-center justify-end gap-2">
           <div className="min-w-0 flex-1 text-right">
-            <span className="block truncate text-sm font-medium text-foreground">{match.awayTeam}</span>
+            <span className="block truncate text-sm font-medium text-foreground">{awayTeamLabel}</span>
             {editState.canEdit ? (
               <button
                 type="button"
@@ -1155,7 +1160,7 @@ const Bolao = () => {
           <div className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-sm">
             <TeamMark
               src={match.awayTeamLogo}
-              alt={match.awayTeam}
+              alt={awayTeamLabel}
               defined
               imageClassName="h-6 w-auto max-w-[28px] object-contain"
             />
@@ -1166,6 +1171,8 @@ const Bolao = () => {
   };
 
   const renderSavedPredictionDesktopRow = (match: WorldCupPoolMatch) => {
+    const homeTeamLabel = translateTeamLabel(match.homeTeam);
+    const awayTeamLabel = translateTeamLabel(match.awayTeam);
     const savedPrediction = predictionsByMatchId[match.id];
     if (!savedPrediction) return null;
 
@@ -1181,7 +1188,7 @@ const Bolao = () => {
       >
         <div className="min-w-0">
           <p className="truncate text-sm font-medium text-foreground">
-            {match.homeTeam} x {match.awayTeam}
+            {homeTeamLabel} x {awayTeamLabel}
           </p>
           <p className="text-xs text-muted-foreground">
             {match.date} • {formatBrasiliaTime(match.startTime)} • {match.stage}
@@ -1531,7 +1538,7 @@ const Bolao = () => {
         <DrawerContent className="border-border bg-card">
           <DrawerHeader>
             <DrawerTitle>
-              {activePickerMatch ? `${activePickerMatch.homeTeam} x ${activePickerMatch.awayTeam}` : "Escolher placar"}
+              {activePickerMatch ? `${translateTeamLabel(activePickerMatch.homeTeam)} x ${translateTeamLabel(activePickerMatch.awayTeam)}` : "Escolher placar"}
             </DrawerTitle>
             <DrawerDescription>Deslize para cima ou para baixo e toque em OK para confirmar.</DrawerDescription>
           </DrawerHeader>
@@ -1539,14 +1546,14 @@ const Bolao = () => {
           {activePickerMatch && pickerValues && (
             <div className="grid grid-cols-2 gap-6 px-6 pb-8 pt-2">
               <ScoreWheel
-                label={activePickerMatch.homeTeam}
+                label={translateTeamLabel(activePickerMatch.homeTeam)}
                 value={pickerValues.home}
                 onChange={(nextHome) => {
                   setPickerValues((current) => (current ? { ...current, home: nextHome } : current));
                 }}
               />
               <ScoreWheel
-                label={activePickerMatch.awayTeam}
+                label={translateTeamLabel(activePickerMatch.awayTeam)}
                 value={pickerValues.away}
                 onChange={(nextAway) => {
                   setPickerValues((current) => (current ? { ...current, away: nextAway } : current));
@@ -1568,7 +1575,7 @@ const Bolao = () => {
             <DialogTitle>Sugestão da IA</DialogTitle>
             <DialogDescription>
               {aiProposal
-                ? `${aiProposal.match.homeTeam} x ${aiProposal.match.awayTeam}`
+                ? `${translateTeamLabel(aiProposal.match.homeTeam)} x ${translateTeamLabel(aiProposal.match.awayTeam)}`
                 : "Sugestão de palpite baseada no ranking local"}
             </DialogDescription>
           </DialogHeader>
