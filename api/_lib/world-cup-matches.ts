@@ -314,6 +314,11 @@ export const getWorldCupPoolMatches = async () => {
   try {
     await ensureWorldCupGroupStageSeeded();
     try {
+      await syncWorldCupScoresFromSportsSnapshot();
+    } catch {
+      // Keep serving matches even if sports snapshot sync fails.
+    }
+    try {
       await syncWorldCupScoresFromGe();
     } catch {
       // Keep serving seeded matches even if score sync fails.
