@@ -711,7 +711,7 @@ const Bolao = () => {
 
     if (isMobileDeck) {
       return (
-        <div className="grid h-full w-full grid-rows-[auto_minmax(0,1fr)_auto]">
+        <div className="flex h-full w-full flex-col">
           <div className="shrink-0 space-y-2 text-center">
             <div className="flex items-center justify-center gap-2 text-xs font-medium text-muted-foreground">
               <span>{match.stage}</span>
@@ -731,7 +731,7 @@ const Bolao = () => {
             ) : null}
           </div>
 
-          <div className="flex min-h-0 items-center justify-center py-3">
+          <div className="flex shrink-0 items-start justify-center pt-6">
             <div className="grid w-full grid-cols-[minmax(0,1fr)_108px_minmax(0,1fr)] items-center gap-2 px-1">
               <div className="flex min-w-0 flex-col items-center text-center">
                 <TeamMark
@@ -815,7 +815,7 @@ const Bolao = () => {
             </div>
           </div>
 
-          <div className="shrink-0 space-y-4 pt-10 pb-2">
+          <div className="shrink-0 space-y-4 pt-8 pb-2">
             {!isLocked && isDeckEditable ? (
               <div className="space-y-2">
                 <div className="flex justify-center">
@@ -1282,7 +1282,7 @@ const Bolao = () => {
                     )}
 
                     <div
-                      className={isMobilePredictionDeck ? "flex min-h-0 flex-1 items-center overflow-hidden" : isMobile ? "flex h-[calc(100svh-232px)] min-h-[540px] flex-col overflow-hidden" : ""}
+                      className={isMobilePredictionDeck ? "flex min-h-0 flex-1 items-start overflow-hidden" : isMobile ? "flex h-[calc(100svh-232px)] min-h-[540px] flex-col overflow-hidden" : ""}
                       onTouchStart={(event) => {
                         touchStartXRef.current = event.touches[0]?.clientX ?? null;
                         touchDeltaXRef.current = 0;
@@ -1332,7 +1332,7 @@ const Bolao = () => {
                       }}
                       >
                       <div
-                        className={isMobilePredictionDeck ? "flex h-full min-h-0 w-full flex-1 items-center" : isMobile ? "flex-1" : ""}
+                        className={isMobilePredictionDeck ? "flex h-full min-h-0 w-full flex-1 items-start pt-[8svh]" : isMobile ? "flex-1" : ""}
                         style={
                           isMobile
                             ? {
