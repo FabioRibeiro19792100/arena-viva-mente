@@ -88,6 +88,14 @@ const buildTeamVariants = (teamName: string) => {
   return Array.from(new Set([teamName, translated].filter(Boolean)));
 };
 
+const slugifyGePathPart = (value: string) =>
+  translateTeamLabel(value)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+
 const buildMatchKey = (homeTeam: string, awayTeam: string, kickoffAt: string) => {
   const localDate = new Intl.DateTimeFormat("en-CA", {
     timeZone: "America/Sao_Paulo",
@@ -260,6 +268,7 @@ export const getWorldCupPoolMatches = async () => {
     await ensureWorldCupGroupStageSeeded();
     await syncWorldCupScoresFromGe().catch(() => ({ updated: 0, source: WORLD_CUP_SOURCE_URL }));
     rows = await loadWorldCupRows();
+    rows = await applyGeMatchPageOverrides(rows);
   } catch (error) {
     throw error;
   }
@@ -320,6 +329,17 @@ interface ParsedScoreUpdate {
   status: MatchStatus;
   status_detail: string | null;
   live_clock: string | null;
+  source_payload: unknown;
+}
+
+interface GeMatchPageOverride {
+  kickoff_at: string | null;
+  venue: string | null;
+  city: string | null;
+  status: MatchStatus | null;
+  status_detail: string | null;
+  home_score: number | null;
+  away_score: number | null;
   source_payload: unknown;
 }
 
@@ -442,6 +462,170 @@ const parseGeKickoffAt = (value: string, fallbackTime?: string | null) => {
   return new Date(Date.UTC(year, month - 1, day, hours + 3, minutes || 0)).toISOString();
 };
 
+const buildGeMatchPageUrl = (match: Pick<WorldCupMatchRow, "kickoff_at" | "home_team" | "away_team">) => {
+  const date = new Intl.DateTimeFormat("pt-BR", {
+    timeZone: "America/Sao_Paulo",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(new Date(match.kickoff_at));
+  const [day, month, year] = date.split("/");
+  return `${WORLD_CUP_SOURCE_URL}jogo/${day}-${month}-${year}/${slugifyGePathPart(match.home_team)}-${slugifyGePathPart(match.away_team)}.ghtml`;
+};
+
+const extractJsonLdBlocks = (html: string) =>
+  Array.from(html.matchAll(/<script[^>]*type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/gi))
+    .map((match) => match[1])
+    .flatMap((raw) => {
+      try {
+        return [JSON.parse(raw)];
+      } catch {
+        return [];
+      }
+    });
+
+const parseGeMatchPageOverride = (html: string): GeMatchPageOverride | null => {
+  const jsonLdBlocks = extractJsonLdBlocks(html);
+  const sportsEvent =
+    jsonLdBlocks.find((item) =>
+      item &&
+      typeof item === "object" &&
+      ("startDate" in item || "location" in item) &&
+      ("competitor" in item || "name" in item),
+    ) || null;
+
+  const startDate =
+    sportsEvent &&
+    typeof sportsEvent === "object" &&
+    "startDate" in sportsEvent &&
+    typeof (sportsEvent as { startDate?: unknown }).startDate === "string"
+      ? new Date((sportsEvent as { startDate: string }).startDate).toISOString()
+      : null;
+
+  const venue =
+    sportsEvent &&
+    typeof sportsEvent === "object" &&
+    "location" in sportsEvent &&
+    sportsEvent.location &&
+    typeof sportsEvent.location === "object" &&
+    "name" in sportsEvent.location &&
+    typeof (sportsEvent.location as { name?: unknown }).name === "string"
+      ? String((sportsEvent.location as { name: string }).name).trim()
+      : null;
+
+  const city =
+    sportsEvent &&
+    typeof sportsEvent === "object" &&
+    "location" in sportsEvent &&
+    sportsEvent.location &&
+    typeof sportsEvent.location === "object" &&
+    "address" in sportsEvent.location &&
+    sportsEvent.location.address &&
+    typeof sportsEvent.location.address === "object" &&
+    "addressRegion" in sportsEvent.location.address &&
+    typeof (sportsEvent.location.address as { addressRegion?: unknown }).addressRegion === "string"
+      ? String((sportsEvent.location.address as { addressRegion: string }).addressRegion).trim()
+      : null;
+
+  const titleMatch = html.match(/<title>([^<]+)<\/title>/i);
+  const title = titleMatch?.[1]?.trim() || "";
+  const scoreMatch = title.match(/(\d+)\s*x\s*(\d+)/i);
+  const now = Date.now();
+  const kickoffMs = startDate ? new Date(startDate).getTime() : null;
+  const inferredStatus: MatchStatus | null = scoreMatch
+    ? "ended"
+    : kickoffMs && kickoffMs <= now
+      ? now - kickoffMs < 3 * 60 * 60 * 1000
+        ? "live"
+        : "ended"
+      : startDate
+        ? "scheduled"
+        : null;
+
+  if (!startDate && !scoreMatch && !venue) {
+    return null;
+  }
+
+  return {
+    kickoff_at: startDate,
+    venue,
+    city,
+    status: inferredStatus,
+    status_detail:
+      inferredStatus === "ended"
+        ? "Encerrado"
+        : inferredStatus === "live"
+          ? "Ao vivo"
+          : inferredStatus === "scheduled"
+            ? "Agendado"
+            : null,
+    home_score: scoreMatch ? Number(scoreMatch[1]) : null,
+    away_score: scoreMatch ? Number(scoreMatch[2]) : null,
+    source_payload: {
+      source: "ge_match_page",
+      title,
+    },
+  };
+};
+
+const shouldRefreshFromGeMatchPage = (row: WorldCupMatchRow) => {
+  const now = Date.now();
+  const kickoffMs = new Date(row.kickoff_at).getTime();
+  const dayMs = 24 * 60 * 60 * 1000;
+  return kickoffMs >= now - 2 * dayMs && kickoffMs <= now + dayMs;
+};
+
+const applyGeMatchPageOverrides = async (rows: WorldCupMatchRow[]) => {
+  const candidates = rows.filter(shouldRefreshFromGeMatchPage);
+  if (candidates.length === 0) return rows;
+
+  const overrides = await Promise.all(
+    candidates.map(async (row) => {
+      try {
+        const response = await fetch(buildGeMatchPageUrl(row), {
+          headers: {
+            "user-agent":
+              "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36",
+            accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+          },
+        });
+
+        if (!response.ok) return [row.id, null] as const;
+
+        const html = await response.text();
+        return [row.id, parseGeMatchPageOverride(html)] as const;
+      } catch {
+        return [row.id, null] as const;
+      }
+    }),
+  );
+
+  const overrideById = new Map(overrides);
+
+  return rows.map((row) => {
+    const override = overrideById.get(row.id);
+    if (!override) return row;
+
+    return {
+      ...row,
+      kickoff_at: override.kickoff_at || row.kickoff_at,
+      venue: override.venue || row.venue,
+      city: override.city || row.city,
+      status: override.status || row.status,
+      status_detail: override.status_detail || row.status_detail,
+      home_score: typeof override.home_score === "number" ? override.home_score : row.home_score,
+      away_score: typeof override.away_score === "number" ? override.away_score : row.away_score,
+      source: "ge_match_page",
+      source_url: buildGeMatchPageUrl(row),
+      source_payload: override.source_payload,
+      last_score_sync_at:
+        typeof override.home_score === "number" || typeof override.away_score === "number"
+          ? new Date().toISOString()
+          : row.last_score_sync_at,
+    };
+  });
+};
+
 const buildWorldCupRowsFromGeGroups = (groups: GeGroup[]) => {
   let matchNumber = 1;
 
@@ -549,20 +733,20 @@ const buildCanonicalWorldCupRows = (
       timezone: "America/Sao_Paulo",
       venue: geRow?.venue || existingRow?.venue || match.venue || null,
       city: geRow?.city || existingRow?.city || inferCityFromVenue(match.venue),
-      status: existingRow?.status || geRow?.status || "scheduled",
+      status: geRow?.status || existingRow?.status || "scheduled",
       status_detail:
-        existingRow?.status_detail ||
         geRow?.status_detail ||
+        existingRow?.status_detail ||
         match.statusLabel ||
         "Agendado",
-      home_score: existingRow?.home_score ?? (hasGeScore ? geRow?.home_score ?? null : null),
-      away_score: existingRow?.away_score ?? (hasGeScore ? geRow?.away_score ?? null : null),
-      live_clock: existingRow?.live_clock || geRow?.live_clock || null,
+      home_score: hasGeScore ? geRow?.home_score ?? null : existingRow?.home_score ?? null,
+      away_score: hasGeScore ? geRow?.away_score ?? null : existingRow?.away_score ?? null,
+      live_clock: geRow?.live_clock || existingRow?.live_clock || null,
       linked_sports_match_id: existingRow?.linked_sports_match_id || null,
-      source: existingRow?.source || geRow?.source || "seed",
-      source_url: existingRow?.source_url || geRow?.source_url || WORLD_CUP_SOURCE_URL,
-      source_payload: existingRow?.source_payload || geRow?.source_payload || { source: "seed" },
-      last_score_sync_at: existingRow?.last_score_sync_at || geRow?.last_score_sync_at || null,
+      source: geRow?.source || existingRow?.source || "seed",
+      source_url: geRow?.source_url || existingRow?.source_url || WORLD_CUP_SOURCE_URL,
+      source_payload: geRow?.source_payload || existingRow?.source_payload || { source: "seed" },
+      last_score_sync_at: geRow?.last_score_sync_at || existingRow?.last_score_sync_at || null,
     };
   });
 };
