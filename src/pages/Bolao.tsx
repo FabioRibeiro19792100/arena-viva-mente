@@ -712,7 +712,7 @@ const Bolao = () => {
     if (isMobileDeck) {
       return (
         <div className="flex h-full w-full flex-col">
-          <div className="shrink-0 space-y-2 text-center">
+          <div className="shrink-0 text-center">
             <div className="flex items-center justify-center gap-2 text-xs font-medium text-muted-foreground">
               <span>{match.stage}</span>
               <span>•</span>
@@ -724,11 +724,9 @@ const Bolao = () => {
                 </>
               ) : null}
             </div>
-            {currentStatus !== "scheduled" ? (
-              <div className="text-xs font-medium text-muted-foreground">
-                {statusLabelByMatchStatus(currentStatus)}
-              </div>
-            ) : null}
+            <div className="mt-2 h-4 text-xs font-medium text-muted-foreground">
+              {currentStatus !== "scheduled" ? statusLabelByMatchStatus(currentStatus) : null}
+            </div>
           </div>
 
           <div className="flex shrink-0 items-start justify-center pt-6">
@@ -745,24 +743,26 @@ const Bolao = () => {
                 </p>
               </div>
 
-              <div className="flex min-w-0 flex-col items-center justify-center text-center">
+              <div className="flex min-w-0 flex-col items-center justify-start text-center">
                 {isLocked && showOfficialScore ? (
                   <>
                     <div className="whitespace-nowrap text-[2.3rem] font-semibold tracking-[0.02em] text-foreground">
                       {match.homeScore} - {match.awayScore}
                     </div>
                     <div className="mt-2 text-sm font-medium text-muted-foreground">Placar oficial</div>
-                    {savedPrediction ? (
-                      <div className={`mt-3 text-xs font-medium ${predictionFeedback.className}`}>
-                        <div>
-                          Seu palpite: {savedPrediction.predictedHomeScore} x {savedPrediction.predictedAwayScore}
+                    <div className="mt-3 min-h-10">
+                      {savedPrediction ? (
+                        <div className={`text-xs font-medium ${predictionFeedback.className}`}>
+                          <div>
+                            Seu palpite: {savedPrediction.predictedHomeScore} x {savedPrediction.predictedAwayScore}
+                          </div>
+                          <div className="mt-1">
+                            {predictionFeedback.label}
+                            {points !== null ? ` • ${points} pontos` : ""}
+                          </div>
                         </div>
-                        <div className="mt-1">
-                          {predictionFeedback.label}
-                          {points !== null ? ` • ${points} pontos` : ""}
-                        </div>
-                      </div>
-                    ) : null}
+                      ) : null}
+                    </div>
                   </>
                 ) : isDeckEditable ? (
                   <>
@@ -782,18 +782,20 @@ const Bolao = () => {
                             : "Toque para escolher"}
                       </div>
                     </button>
-                    {savedPrediction ? (
-                      <div className={`mt-3 text-xs font-medium ${predictionFeedback.className}`}>
-                        Seu palpite: {savedPrediction.predictedHomeScore} x {savedPrediction.predictedAwayScore}
-                      </div>
-                    ) : null}
+                    <div className="mt-3 min-h-10">
+                      {savedPrediction ? (
+                        <div className={`text-xs font-medium ${predictionFeedback.className}`}>
+                          Seu palpite: {savedPrediction.predictedHomeScore} x {savedPrediction.predictedAwayScore}
+                        </div>
+                      ) : null}
+                    </div>
                   </>
                 ) : (
                   <>
                     <div className="whitespace-nowrap text-[2.45rem] font-semibold tracking-[0.02em] text-foreground">
                       {displayHomeValue} - {displayAwayValue}
                     </div>
-                    <div className="mt-3 space-y-1 text-xs font-medium text-muted-foreground">
+                    <div className="mt-3 min-h-10 space-y-1 text-xs font-medium text-muted-foreground">
                       <div>Seu palpite: {savedPrediction?.predictedHomeScore} x {savedPrediction?.predictedAwayScore}</div>
                       <div>Palpite travado nesta sessão.</div>
                     </div>
