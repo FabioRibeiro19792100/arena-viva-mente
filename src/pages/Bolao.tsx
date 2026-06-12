@@ -861,7 +861,7 @@ const Bolao = () => {
               </div>
             </div>
 
-            <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-8">
+            <div className="mx-auto grid w-full max-w-4xl grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-8">
               <div className="flex flex-col items-center text-center">
                 <TeamMark
                   src={match.homeTeamLogo}
@@ -1229,22 +1229,39 @@ const Bolao = () => {
 
       <section className={`flex-1 ${isMobilePredictionDeck ? "overflow-hidden py-0" : "py-6 md:py-14"}`}>
         <div className={`container ${isMobilePredictionDeck ? "px-4" : "px-6"} ${isMobilePredictionDeck ? "flex h-full min-h-0 flex-col" : ""}`}>
-          {!isMobile && (
-            <div className="mb-4 space-y-2 md:mb-8 md:space-y-3">
+          {!isMobile ? (
+            <div className="mb-6 flex items-start justify-between gap-6 md:mb-10">
               <h1 className="text-2xl font-semibold text-foreground md:text-4xl">
                 Bolão
               </h1>
+              <div className="flex items-center gap-4 pt-2 text-sm">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTab("palpites");
+                    setPredictionView("saved");
+                  }}
+                  className={`underline underline-offset-4 transition-colors ${
+                    activeTab === "palpites" ? "text-foreground" : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Lista de palpites
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("ranking")}
+                  className={`underline underline-offset-4 transition-colors ${
+                    activeTab === "ranking" ? "text-foreground" : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Ranking
+                </button>
+              </div>
             </div>
-          )}
-
-          <div className="mb-4 hidden items-center justify-between gap-4 md:flex">
-            <p className="text-sm text-muted-foreground">
-              Regras: 5 pontos no placar exato, 3 pontos no resultado e 0 pontos quando não acertar.
-            </p>
-          </div>
+          ) : null}
 
           <div className={`${isMobilePredictionDeck ? "mx-auto flex h-full min-h-0 w-full max-w-[420px] flex-1 flex-col" : "mb-6 space-y-4 md:mb-10 md:space-y-6"}`}>
-            <div className={`flex gap-4 text-sm ${isMobilePredictionDeck ? "shrink-0 items-center justify-center py-4 text-center" : "items-center"}`}>
+            <div className={`flex gap-4 text-sm ${isMobilePredictionDeck ? "shrink-0 items-center justify-center py-4 text-center" : "hidden"}`}>
               <button
                 type="button"
                 onClick={() => {
@@ -1344,15 +1361,6 @@ const Bolao = () => {
                         : `${pendingMatches.length} ${pendingMatches.length === 1 ? "jogo" : "jogos"} faltando`}
                       {deckMatches.length > 0 ? ` • ${completedDeckCount}/${deckMatches.length}` : ""}
                     </span>
-                  ) : activeDeckMatch ? (
-                    <div className="text-right">
-                      <div className="text-sm font-medium text-foreground">
-                        {deckMatches.length > 0 ? `${completedDeckCount}/${deckMatches.length}` : ""}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        {activeDeckMatch.stage} • {activeDeckMatch.date} • {formatBrasiliaTime(activeDeckMatch.startTime)}
-                      </div>
-                    </div>
                   ) : <span />
                 ) : (
                   isMobilePredictionDeck ? (
@@ -1488,7 +1496,7 @@ const Bolao = () => {
                       </div>
                     ) : null}
 
-                    <div className="hidden items-center justify-between gap-3 md:flex">
+                    <div className="hidden items-center justify-between gap-3 pt-2 md:flex">
                       <Button
                         variant="outline"
                         onClick={goToPreviousDeckMatch}
