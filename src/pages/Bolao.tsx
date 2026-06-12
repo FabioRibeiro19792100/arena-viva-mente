@@ -67,6 +67,9 @@ const statusLabelByMatchStatus = (status: ReturnType<typeof getCurrentMatchStatu
   return "Palpite aberto";
 };
 
+const hasOfficialScore = (match: WorldCupPoolMatch) =>
+  typeof match.homeScore === "number" && typeof match.awayScore === "number";
+
 const Bolao = () => {
   const { user } = useMockAuth();
   const { toast } = useToast();
@@ -352,6 +355,7 @@ const Bolao = () => {
                         const points = scoreWorldCupPrediction(match, savedPrediction);
                         const values = formValues[match.id] || { home: "", away: "" };
                         const isLocked = currentStatus !== "scheduled";
+                        const showOfficialScore = hasOfficialScore(match);
 
                         return (
                           <Card
@@ -416,10 +420,17 @@ const Bolao = () => {
                               </div>
 
                               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                                <div className="min-h-5 text-xs text-muted-foreground">
-                                  {savedPrediction
-                                    ? `Seu palpite: ${savedPrediction.predictedHomeScore} x ${savedPrediction.predictedAwayScore}${points !== null ? ` • ${points} pontos` : ""}`
-                                    : "Defina seu placar antes de a partida começar."}
+                                <div className="space-y-1">
+                                  <div className="min-h-5 text-xs text-muted-foreground">
+                                    {savedPrediction
+                                      ? `Seu palpite: ${savedPrediction.predictedHomeScore} x ${savedPrediction.predictedAwayScore}${points !== null ? ` • ${points} pontos` : ""}`
+                                      : "Defina seu placar antes de a partida começar."}
+                                  </div>
+                                  {showOfficialScore && (
+                                    <div className="text-xs font-medium text-foreground">
+                                      Placar oficial: {match.homeScore} x {match.awayScore}
+                                    </div>
+                                  )}
                                 </div>
 
                                 <Button
