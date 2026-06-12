@@ -12,7 +12,7 @@ import { addReservation, getMatchReservationCounts, getProductState, toggleFavor
 import { useToast } from "@/hooks/use-toast";
 import { fetchWorldCupPoolMatches, type WorldCupPoolMatch } from "@/lib/worldCupPoolApi";
 import { normalizeSearchText } from "@/lib/matchLabels";
-import { getCurrentMatchStatus } from "@/data/worldCup2026";
+import { getCurrentMatchStatus, parseWorldCupMatchDate } from "@/data/worldCup2026";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 type QuickFilterType = "all" | "live" | "soon";
@@ -90,15 +90,19 @@ const Index = () => {
       return true;
     });
 
-    if (!normalizedSearch) {
-      return quickMatches;
-    }
+    const searchedMatches = !normalizedSearch
+      ? quickMatches
+      : quickMatches.filter((match) => {
+          const searchableText = normalizeSearchText(
+            [match.homeTeam, match.awayTeam, match.league, match.stage, match.venue, match.date].join(" "),
+          );
+          return searchableText.includes(normalizedSearch);
+        });
 
-    return quickMatches.filter((match) => {
-      const searchableText = normalizeSearchText(
-        [match.homeTeam, match.awayTeam, match.league, match.stage, match.venue, match.date].join(" "),
-      );
-      return searchableText.includes(normalizedSearch);
+    return [...searchedMatches].sort((a, b) => {
+      const aKickoff = parseWorldCupMatchDate({ date: a.date, startTime: a.startTime || "" })?.getTime() || 0;
+      const bKickoff = parseWorldCupMatchDate({ date: b.date, startTime: b.startTime || "" })?.getTime() || 0;
+      return aKickoff - bKickoff;
     });
   }, [normalizedSearch, quickFilter, worldCupMatches]);
 

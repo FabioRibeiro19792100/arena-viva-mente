@@ -11,10 +11,15 @@ import {
   type WorldCupMatch,
 } from "@/data/worldCup2026";
 import {
+  consumeWorldCupEditCredit,
+  getWorldCupEditCreditSummary,
   getWorldCupLeaderboard,
   getWorldCupPredictions,
   saveWorldCupPrediction,
   scoreWorldCupPrediction,
+  WorldCupCreditMutationError,
+  type WorldCupCreditSummary,
+  type WorldCupLeaderboardScope,
   type WorldCupPrediction,
 } from "@/lib/bolao";
 import { fetchWorldCupPoolMatches, type WorldCupPoolMatch } from "@/lib/worldCupPoolApi";
@@ -338,21 +343,61 @@ const Bolao = () => {
   const [matches, setMatches] = useState<WorldCupPoolMatch[]>([]);
   const [predictions, setPredictions] = useState<WorldCupPrediction[]>([]);
   const [formValues, setFormValues] = useState<Record<string, { home: string; away: string }>>({});
-  const [leaderboard, setLeaderboard] = useState<Awaited<ReturnType<typeof getWorldCupLeaderboard>>>([]);
+  const [leaderboards, setLeaderboards] = useState<Record<WorldCupLeaderboardScope, Awaited<ReturnType<typeof getWorldCupLeaderboard>>>>({
+    general: [],
+    brazil: [],
+  });
+  const [creditSummary, setCreditSummary] = useState<WorldCupCreditSummary>({
+    availableCredits: 0,
+    exactHitCredits: 0,
+    consumedCredits: 0,
+  });
   const [isLoading, setIsLoading] = useState(true);
   const [savingMatchId, setSavingMatchId] = useState<string | null>(null);
+  const [savedFeedbackMatchId, setSavedFeedbackMatchId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"palpites" | "ranking">("palpites");
+  const [activeRankingScope, setActiveRankingScope] = useState<WorldCupLeaderboardScope>("general");
   const [predictionView, setPredictionView] = useState<"deck" | "saved">("deck");
   const [activeDeckMatchId, setActiveDeckMatchId] = useState<string | null>(null);
-  const [activePickerMatchId, setActivePickerMatchId] = useState<string | null>(null);
+  const [activePicker, setActivePicker] = useState<{ matchId: string; mode: "deck" | "credit-edit" } | null>(null);
   const [pickerValues, setPickerValues] = useState<{ home: number; away: number } | null>(null);
   const [aiProposal, setAiProposal] = useState<AiProposal | null>(null);
-  const saveTimeoutRef = useRef<number | null>(null);
+  const [sessionEditableMatchIds, setSessionEditableMatchIds] = useState<string[]>([]);
+  const savedFeedbackTimeoutRef = useRef<number | null>(null);
   const swipeTimeoutRef = useRef<number | null>(null);
   const touchStartXRef = useRef<number | null>(null);
   const touchDeltaXRef = useRef(0);
   const [dragOffsetX, setDragOffsetX] = useState(0);
   const [isDraggingCard, setIsDraggingCard] = useState(false);
+
+  const showSaveFeedback = (matchId: string) => {
+    setSavedFeedbackMatchId(matchId);
+    if (savedFeedbackTimeoutRef.current !== null) {
+      window.clearTimeout(savedFeedbackTimeoutRef.current);
+    }
+    savedFeedbackTimeoutRef.current = window.setTimeout(() => {
+      setSavedFeedbackMatchId((current) => (current === matchId ? null : current));
+    }, 1400);
+  };
+
+  const refreshMetaState = async (
+    resolvedMatches: WorldCupPoolMatch[],
+    nextPredictions: WorldCupPrediction[],
+  ) => {
+    if (!user) return;
+
+    const [generalLeaderboard, brazilLeaderboard, nextCredits] = await Promise.all([
+      getWorldCupLeaderboard(resolvedMatches, user, "general"),
+      getWorldCupLeaderboard(resolvedMatches, user, "brazil"),
+      getWorldCupEditCreditSummary(user.id, resolvedMatches, nextPredictions),
+    ]);
+
+    setLeaderboards({
+      general: generalLeaderboard,
+      brazil: brazilLeaderboard,
+    });
+    setCreditSummary(nextCredits);
+  };
 
   const loadBolaoData = async () => {
     if (!user) return;
@@ -360,15 +405,13 @@ const Bolao = () => {
     setIsLoading(true);
     try {
       const resolvedMatches = await fetchWorldCupPoolMatches();
-      const [nextPredictions, nextLeaderboard] = await Promise.all([
-        getWorldCupPredictions(user.id, resolvedMatches),
-        getWorldCupLeaderboard(resolvedMatches, user),
-      ]);
+      const nextPredictions = await getWorldCupPredictions(user.id, resolvedMatches);
 
       setMatches(resolvedMatches);
       setPredictions(nextPredictions);
       setFormValues(toInitialValues(nextPredictions));
-      setLeaderboard(nextLeaderboard);
+      setSessionEditableMatchIds([]);
+      await refreshMetaState(resolvedMatches, nextPredictions);
     } finally {
       setIsLoading(false);
     }
@@ -379,6 +422,18 @@ const Bolao = () => {
     void loadBolaoData();
   }, [user]);
 
+  useEffect(
+    () => () => {
+      if (savedFeedbackTimeoutRef.current !== null) {
+        window.clearTimeout(savedFeedbackTimeoutRef.current);
+      }
+      if (swipeTimeoutRef.current !== null) {
+        window.clearTimeout(swipeTimeoutRef.current);
+      }
+    },
+    [],
+  );
+
   const predictionsByMatchId = useMemo(
     () =>
       predictions.reduce<Record<string, WorldCupPrediction>>((acc, prediction) => {
@@ -388,48 +443,62 @@ const Bolao = () => {
     [predictions],
   );
 
-  const myTotalPoints = useMemo(
+  const sessionEditableSet = useMemo(
+    () => new Set(sessionEditableMatchIds),
+    [sessionEditableMatchIds],
+  );
+
+  const deckMatches = useMemo(
     () =>
-      matches.reduce((sum, match) => {
-        const points = scoreWorldCupPrediction(match, predictionsByMatchId[match.id]);
-        return sum + (points || 0);
-      }, 0),
+      matches
+        .filter((match) => getCurrentMatchStatus(match) === "scheduled")
+        .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()),
+    [matches],
+  );
+
+  const pendingMatches = useMemo(
+    () => deckMatches.filter((match) => !predictionsByMatchId[match.id]),
+    [deckMatches, predictionsByMatchId],
+  );
+
+  const completedDeckCount = useMemo(
+    () => deckMatches.filter((match) => Boolean(predictionsByMatchId[match.id])).length,
+    [deckMatches, predictionsByMatchId],
+  );
+
+  const savedMatches = useMemo(
+    () =>
+      matches
+        .filter((match) => Boolean(predictionsByMatchId[match.id]))
+        .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()),
     [matches, predictionsByMatchId],
   );
 
-  const myExactHits = useMemo(
-    () =>
-      matches.reduce((sum, match) => {
-        const points = scoreWorldCupPrediction(match, predictionsByMatchId[match.id]);
-        return sum + (points === 5 ? 1 : 0);
-      }, 0),
-    [matches, predictionsByMatchId],
+  useEffect(() => {
+    if (deckMatches.length === 0) return;
+
+    const currentStillExists = activeDeckMatchId && deckMatches.some((match) => match.id === activeDeckMatchId);
+    if (currentStillExists) return;
+
+    const firstPendingMatch = deckMatches.find((match) => !predictionsByMatchId[match.id]);
+    setActiveDeckMatchId(firstPendingMatch?.id || null);
+  }, [activeDeckMatchId, deckMatches, predictionsByMatchId]);
+
+  const activeDeckIndex = useMemo(
+    () => deckMatches.findIndex((match) => match.id === activeDeckMatchId),
+    [activeDeckMatchId, deckMatches],
   );
 
-  const myOutcomeHits = useMemo(
-    () =>
-      matches.reduce((sum, match) => {
-        const points = scoreWorldCupPrediction(match, predictionsByMatchId[match.id]);
-        return sum + (points === 3 ? 1 : 0);
-      }, 0),
-    [matches, predictionsByMatchId],
+  const activeDeckMatch =
+    (activeDeckMatchId ? deckMatches.find((match) => match.id === activeDeckMatchId) : null) || null;
+
+  const activePickerMatch = useMemo(
+    () => matches.find((match) => match.id === activePicker?.matchId) || null,
+    [activePicker, matches],
   );
 
-  const currentUserRankingEntry = useMemo(() => {
-    const existing = leaderboard.find((entry) => entry.userId === user?.id);
-    if (existing) return existing;
-    if (!user) return null;
-    return {
-      userId: user.id,
-      name: user.name,
-      username: user.username,
-      avatarUrl: user.avatar,
-      totalPoints: myTotalPoints,
-      exactScoreHits: myExactHits,
-      outcomeHits: myOutcomeHits,
-      predictionsCount: predictions.length,
-    };
-  }, [leaderboard, myExactHits, myOutcomeHits, myTotalPoints, predictions.length, user]);
+  const currentLeaderboard = leaderboards[activeRankingScope];
+  const isMobilePredictionDeck = isMobile && activeTab === "palpites" && predictionView === "deck";
 
   const applySavedPredictionLocally = (matchId: string, home: number, away: number) => {
     const nextPrediction: WorldCupPrediction = {
@@ -452,9 +521,15 @@ const Bolao = () => {
     }));
   };
 
-  const persistPrediction = async (match: WorldCupPoolMatch, values: { home: number; away: number }) => {
+  const markSessionEditable = (matchId: string) => {
+    setSessionEditableMatchIds((current) => (current.includes(matchId) ? current : [...current, matchId]));
+  };
+
+  const saveDeckPrediction = async (match: WorldCupPoolMatch, values: { home: number; away: number }) => {
     if (!user) return;
 
+    applySavedPredictionLocally(match.id, values.home, values.away);
+    markSessionEditable(match.id);
     setSavingMatchId(match.id);
     try {
       await saveWorldCupPrediction(
@@ -464,6 +539,7 @@ const Bolao = () => {
         values.away,
         match.linkedSportsMatchId ? [match.linkedSportsMatchId] : [],
       );
+      showSaveFeedback(match.id);
     } catch {
       toast({
         title: "Não foi possível salvar",
@@ -475,172 +551,147 @@ const Bolao = () => {
     }
   };
 
-  const queuePredictionSave = (match: WorldCupPoolMatch, values: { home: number; away: number }) => {
+  const savePredictionWithCredit = async (match: WorldCupPoolMatch, values: { home: number; away: number }) => {
     if (!user) return;
-    if (Number.isNaN(values.home) || Number.isNaN(values.away)) {
-      return;
+
+    const currentPrediction = predictionsByMatchId[match.id];
+    if (!currentPrediction) return;
+
+    setSavingMatchId(match.id);
+    try {
+      const nextSummary = await consumeWorldCupEditCredit(
+        user.id,
+        match,
+        values,
+        matches,
+        currentPrediction,
+        match.linkedSportsMatchId ? [match.linkedSportsMatchId] : [],
+      );
+
+      applySavedPredictionLocally(match.id, values.home, values.away);
+      setCreditSummary(nextSummary);
+      setLeaderboards((current) => ({
+        general: current.general.map((entry) =>
+          entry.userId === user.id
+            ? { ...entry, editCreditsAvailable: nextSummary.availableCredits }
+            : entry,
+        ),
+        brazil: current.brazil.map((entry) =>
+          entry.userId === user.id
+            ? { ...entry, editCreditsAvailable: nextSummary.availableCredits }
+            : entry,
+        ),
+      }));
+      showSaveFeedback(match.id);
+    } catch (error) {
+      if (error instanceof WorldCupCreditMutationError) {
+        if (error.code !== "UNCHANGED") {
+          toast({
+            title: "Não foi possível editar",
+            description: error.message,
+            variant: "destructive",
+          });
+        }
+      } else {
+        toast({
+          title: "Não foi possível editar",
+          description: "Tente novamente em alguns instantes.",
+          variant: "destructive",
+        });
+      }
+    } finally {
+      setSavingMatchId(null);
     }
-
-    applySavedPredictionLocally(match.id, values.home, values.away);
-
-    if (saveTimeoutRef.current !== null) {
-      window.clearTimeout(saveTimeoutRef.current);
-    }
-
-    saveTimeoutRef.current = window.setTimeout(() => {
-      void persistPrediction(match, values);
-    }, 250);
   };
 
-  const openScorePicker = (match: WorldCupPoolMatch) => {
+  const openScorePicker = (match: WorldCupPoolMatch, mode: "deck" | "credit-edit") => {
     const currentValues = formValues[match.id];
     const savedPrediction = predictionsByMatchId[match.id];
-    setActivePickerMatchId(match.id);
+    setActivePicker({ matchId: match.id, mode });
     setPickerValues({
       home: Number(currentValues?.home ?? savedPrediction?.predictedHomeScore ?? 0),
       away: Number(currentValues?.away ?? savedPrediction?.predictedAwayScore ?? 0),
     });
   };
 
-  const applyAiProposal = () => {
+  const applyAiProposal = async () => {
     if (!aiProposal || !user) return;
-
     const nextValues = {
       home: aiProposal.homeScore,
       away: aiProposal.awayScore,
     };
-
-    applySavedPredictionLocally(aiProposal.match.id, nextValues.home, nextValues.away);
-
-    if (saveTimeoutRef.current !== null) {
-      window.clearTimeout(saveTimeoutRef.current);
-    }
-
-    saveTimeoutRef.current = window.setTimeout(() => {
-      void persistPrediction(aiProposal.match, nextValues);
-    }, 50);
-
+    await saveDeckPrediction(aiProposal.match, nextValues);
     setAiProposal(null);
   };
 
-  const applyRandomProposal = (match: WorldCupPoolMatch) => {
+  const applyRandomProposal = async (match: WorldCupPoolMatch) => {
     if (!user) return;
-
     const randomProposal = buildRandomProposal(match);
-    const nextValues = {
+    await saveDeckPrediction(match, {
       home: randomProposal.homeScore,
       away: randomProposal.awayScore,
-    };
-
-    applySavedPredictionLocally(match.id, nextValues.home, nextValues.away);
-
-    if (saveTimeoutRef.current !== null) {
-      window.clearTimeout(saveTimeoutRef.current);
-    }
-
-    saveTimeoutRef.current = window.setTimeout(() => {
-      void persistPrediction(match, nextValues);
-    }, 50);
+    });
   };
-
-  const activePickerMatch = useMemo(
-    () => matches.find((match) => match.id === activePickerMatchId) || null,
-    [activePickerMatchId, matches],
-  );
-
-  useEffect(
-    () => () => {
-      if (saveTimeoutRef.current !== null) {
-        window.clearTimeout(saveTimeoutRef.current);
-      }
-      if (swipeTimeoutRef.current !== null) {
-        window.clearTimeout(swipeTimeoutRef.current);
-      }
-    },
-    [],
-  );
-
-  const pendingPredictionsCount = useMemo(
-    () =>
-      matches.filter(
-        (match) => getCurrentMatchStatus(match) === "scheduled" && !predictionsByMatchId[match.id],
-      ).length,
-    [matches, predictionsByMatchId],
-  );
-
-  const savedPredictionsCount = useMemo(
-    () => Object.keys(predictionsByMatchId).length,
-    [predictionsByMatchId],
-  );
-
-  const pendingMatches = useMemo(
-    () =>
-      matches
-        .filter(
-          (match) => getCurrentMatchStatus(match) === "scheduled" && !predictionsByMatchId[match.id],
-        )
-        .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()),
-    [matches, predictionsByMatchId],
-  );
-
-  const savedMatches = useMemo(
-    () =>
-      matches
-        .filter((match) => Boolean(predictionsByMatchId[match.id]))
-        .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()),
-    [matches, predictionsByMatchId],
-  );
-
-  useEffect(() => {
-    if (pendingMatches.length === 0) return;
-
-    const currentStillExists = activeDeckMatchId && pendingMatches.some((match) => match.id === activeDeckMatchId);
-    if (currentStillExists) return;
-
-    const currentSavedMatch = activeDeckMatchId ? matches.find((match) => match.id === activeDeckMatchId) : null;
-    if (currentSavedMatch && getCurrentMatchStatus(currentSavedMatch) === "scheduled") return;
-
-    setActiveDeckMatchId(pendingMatches[0].id);
-  }, [activeDeckMatchId, matches, pendingMatches]);
-
-  const activeDeckIndex = useMemo(
-    () => pendingMatches.findIndex((match) => match.id === activeDeckMatchId),
-    [activeDeckMatchId, pendingMatches],
-  );
 
   const goToPreviousDeckMatch = () => {
     if (activeDeckIndex <= 0) return;
-    setActiveDeckMatchId(pendingMatches[activeDeckIndex - 1]?.id || null);
+    setActiveDeckMatchId(deckMatches[activeDeckIndex - 1]?.id || null);
   };
 
-  const goToNextDeckMatch = () => {
-    if (activeDeckIndex >= pendingMatches.length - 1) return;
-    setActiveDeckMatchId(pendingMatches[activeDeckIndex + 1]?.id || null);
+  const canAdvanceFromCurrentDeckMatch = () => {
+    if (!activeDeckMatch) return false;
+    return Boolean(predictionsByMatchId[activeDeckMatch.id]);
   };
 
-  const commitPickerValues = () => {
-    if (!activePickerMatch || !pickerValues) return;
-    queuePredictionSave(activePickerMatch, pickerValues);
-    setActivePickerMatchId(null);
+  const attemptAdvanceDeck = () => {
+    if (!activeDeckMatch) return;
+    if (!canAdvanceFromCurrentDeckMatch()) {
+      toast({
+        title: "Palpite pendente",
+        description: "Você precisa registrar o placar deste jogo antes de avançar.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (activeDeckIndex >= deckMatches.length - 1) return;
+    setActiveDeckMatchId(deckMatches[activeDeckIndex + 1]?.id || null);
   };
 
-  const activeDeckMatch =
-    (activeDeckMatchId ? matches.find((match) => match.id === activeDeckMatchId) : null) ||
-    pendingMatches[0] ||
-    null;
+  const commitPickerValues = async () => {
+    if (!activePickerMatch || !pickerValues || !activePicker) return;
 
-  const savedGroupedMatches = useMemo(
-    () =>
-      Array.from(
-        savedMatches.reduce((groups, match) => {
-          const list = groups.get(match.stage) || [];
-          list.push(match);
-          groups.set(match.stage, list);
-          return groups;
-        }, new Map<string, WorldCupPoolMatch[]>()),
-      ),
-    [savedMatches],
-  );
+    if (activePicker.mode === "deck") {
+      await saveDeckPrediction(activePickerMatch, pickerValues);
+    } else {
+      await savePredictionWithCredit(activePickerMatch, pickerValues);
+    }
+
+    setActivePicker(null);
+  };
+
+  const getSavedEditState = (match: WorldCupPoolMatch) => {
+    if (getCurrentMatchStatus(match) !== "scheduled") {
+      return {
+        canEdit: false,
+        label: "Bloqueado",
+        helper: "Este jogo já começou e não pode mais ser alterado.",
+      };
+    }
+
+    if (creditSummary.availableCredits <= 0) {
+      return {
+        canEdit: false,
+        label: "Sem créditos",
+        helper: "Você não possui créditos de edição disponíveis.",
+      };
+    }
+
+    return {
+      canEdit: true,
+      label: "Editar com 1 crédito",
+      helper: "Use 1 crédito para alterar este palpite futuro.",
+    };
+  };
 
   const renderPredictionCard = (match: WorldCupPoolMatch) => {
     const currentStatus = getCurrentMatchStatus(match);
@@ -649,12 +700,148 @@ const Bolao = () => {
     const predictionFeedback = getPredictionFeedback(points);
     const values = formValues[match.id] || { home: "", away: "" };
     const isLocked = currentStatus !== "scheduled";
+    const isSessionEditable = sessionEditableSet.has(match.id);
+    const isDeckEditable = !savedPrediction || isSessionEditable;
     const showOfficialScore = hasOfficialScore(match);
     const isMobileDeck = isMobile && predictionView === "deck";
     const displayHomeValue =
       values.home !== "" ? values.home : savedPrediction ? String(savedPrediction.predictedHomeScore) : "--";
     const displayAwayValue =
       values.away !== "" ? values.away : savedPrediction ? String(savedPrediction.predictedAwayScore) : "--";
+
+    if (isMobileDeck) {
+      return (
+        <div className="flex h-full w-full flex-col">
+          <div className="shrink-0 space-y-2 text-center">
+            <div className="flex items-center justify-center gap-2 text-xs font-medium text-muted-foreground">
+              <span>{match.stage}</span>
+              <span>•</span>
+              <span>{formatBrasiliaTime(match.startTime)}</span>
+              {points !== null ? (
+                <>
+                  <span>•</span>
+                  <span className="text-foreground">{points} pts</span>
+                </>
+              ) : null}
+            </div>
+            {currentStatus !== "scheduled" ? (
+              <div className="text-xs font-medium text-muted-foreground">
+                {statusLabelByMatchStatus(currentStatus)}
+              </div>
+            ) : null}
+          </div>
+
+          <div className="flex flex-1 items-center justify-center py-2">
+            <div className="grid w-full grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-4">
+              <div className="flex flex-col items-center text-center">
+                <TeamMark
+                  src={match.homeTeamLogo}
+                  alt={match.homeTeam}
+                  defined
+                  imageClassName="h-20 w-auto max-w-[110px] object-contain drop-shadow-sm"
+                />
+                <p className="mt-3 max-w-full truncate text-[1.05rem] font-semibold text-foreground">
+                  {match.homeTeam}
+                </p>
+              </div>
+
+              <div className="flex min-w-[108px] flex-col items-center justify-center text-center">
+                {isLocked && showOfficialScore ? (
+                  <>
+                    <div className="text-5xl font-semibold tracking-[0.1em] text-foreground">
+                      {match.homeScore} - {match.awayScore}
+                    </div>
+                    <div className="mt-2 text-sm font-medium text-muted-foreground">Placar oficial</div>
+                    {savedPrediction ? (
+                      <div className={`mt-3 text-xs font-medium ${predictionFeedback.className}`}>
+                        <div>
+                          Seu palpite: {savedPrediction.predictedHomeScore} x {savedPrediction.predictedAwayScore}
+                        </div>
+                        <div className="mt-1">
+                          {predictionFeedback.label}
+                          {points !== null ? ` • ${points} pontos` : ""}
+                        </div>
+                      </div>
+                    ) : null}
+                  </>
+                ) : isDeckEditable ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => openScorePicker(match, "deck")}
+                      className="px-0 py-2"
+                    >
+                      <div className="text-6xl font-semibold tracking-[0.1em] text-foreground">
+                        {displayHomeValue} - {displayAwayValue}
+                      </div>
+                      <div className="mt-2 text-sm font-medium text-muted-foreground">
+                        {savingMatchId === match.id
+                          ? "Salvando..."
+                          : savedFeedbackMatchId === match.id
+                            ? "Salvo"
+                            : "Toque para escolher"}
+                      </div>
+                    </button>
+                    {savedPrediction ? (
+                      <div className={`mt-3 text-xs font-medium ${predictionFeedback.className}`}>
+                        Seu palpite: {savedPrediction.predictedHomeScore} x {savedPrediction.predictedAwayScore}
+                      </div>
+                    ) : null}
+                  </>
+                ) : (
+                  <>
+                    <div className="text-6xl font-semibold tracking-[0.1em] text-foreground">
+                      {displayHomeValue} - {displayAwayValue}
+                    </div>
+                    <div className="mt-3 space-y-1 text-xs font-medium text-muted-foreground">
+                      <div>Seu palpite: {savedPrediction?.predictedHomeScore} x {savedPrediction?.predictedAwayScore}</div>
+                      <div>Palpite travado nesta sessão.</div>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              <div className="flex flex-col items-center text-center">
+                <TeamMark
+                  src={match.awayTeamLogo}
+                  alt={match.awayTeam}
+                  defined
+                  imageClassName="h-20 w-auto max-w-[110px] object-contain drop-shadow-sm"
+                />
+                <p className="mt-3 max-w-full truncate text-[1.05rem] font-semibold text-foreground">
+                  {match.awayTeam}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-auto shrink-0 space-y-4 pt-16 pb-1">
+            {!isLocked && isDeckEditable ? (
+              <div className="space-y-2">
+                <div className="flex justify-center">
+                  <button
+                    type="button"
+                    onClick={() => setAiProposal(buildAiProposal(match, predictions))}
+                    className="inline-flex min-h-11 items-center justify-center rounded-full border border-border/70 bg-muted/25 px-5 py-3 text-sm font-medium text-foreground transition-colors hover:bg-muted/40"
+                  >
+                    IA, qual seu palpite?
+                  </button>
+                </div>
+                <div className="flex justify-center">
+                  <button
+                    type="button"
+                    onClick={() => applyRandomProposal(match)}
+                    className="inline-flex min-h-11 items-center justify-center rounded-full border border-border/70 bg-muted/25 px-5 py-3 text-sm font-medium text-foreground transition-colors hover:bg-muted/40"
+                  >
+                    Mete o louco(a)
+                  </button>
+                </div>
+              </div>
+            ) : null}
+          </div>
+        </div>
+      );
+    }
 
     return (
       <MatchCardFrame
@@ -671,8 +858,8 @@ const Bolao = () => {
             {points !== null ? <span className="text-xs font-medium text-foreground">{points} pts</span> : null}
           </div>
         }
-        league={match.league}
-        meta={`${match.date} • ${formatBrasiliaTime(match.startTime)}`}
+        league={isMobileDeck ? match.stage : match.league}
+        meta={isMobileDeck ? formatBrasiliaTime(match.startTime) : `${match.date} • ${formatBrasiliaTime(match.startTime)}`}
         homeTeam={match.homeTeam}
         awayTeam={match.awayTeam}
         homeTeamLogo={match.homeTeamLogo}
@@ -700,18 +887,22 @@ const Bolao = () => {
                 <span className="text-xs font-medium text-muted-foreground">Encerrado</span>
               )}
             </div>
-          ) : (
+          ) : isDeckEditable ? (
             <div className="space-y-2 text-center">
               <button
                 type="button"
-                onClick={() => openScorePicker(match)}
+                onClick={() => openScorePicker(match, "deck")}
                 className={`transition-colors ${isMobileDeck ? "px-0 py-2" : "rounded-2xl border border-border/80 bg-background px-4 py-3 hover:bg-muted/30"}`}
               >
-                <div className={`${isMobileDeck ? "text-4xl" : "text-xl"} font-semibold tracking-[0.12em] text-foreground`}>
+                <div className={`${isMobileDeck ? "text-5xl" : "text-xl"} font-semibold tracking-[0.12em] text-foreground`}>
                   {displayHomeValue} - {displayAwayValue}
                 </div>
-                <div className="mt-1 text-xs font-medium text-muted-foreground">
-                  {savingMatchId === match.id ? "Salvando..." : "Toque para escolher"}
+                <div className={`mt-1 font-medium text-muted-foreground ${isMobileDeck ? "text-sm" : "text-xs"}`}>
+                  {savingMatchId === match.id
+                    ? "Salvando..."
+                    : savedFeedbackMatchId === match.id
+                      ? "Salvo"
+                      : "Toque para escolher"}
                 </div>
               </button>
               {savedPrediction ? (
@@ -720,17 +911,29 @@ const Bolao = () => {
                 </div>
               ) : null}
             </div>
+          ) : (
+            <div className="space-y-2 text-center">
+              <div className={`${isMobileDeck ? "text-4xl" : "text-xl"} font-semibold tracking-[0.12em] text-foreground`}>
+                {displayHomeValue} - {displayAwayValue}
+              </div>
+              <div className="space-y-1 text-xs font-medium text-muted-foreground">
+                <div>Seu palpite: {savedPrediction?.predictedHomeScore} x {savedPrediction?.predictedAwayScore}</div>
+                <div>Palpite travado nesta sessão.</div>
+              </div>
+            </div>
           )
         }
         bottomContent={
-          <div className="space-y-3">
-            {!isLocked ? (
-              <div className="space-y-2">
+          <div className={`space-y-3 ${isMobileDeck ? "pt-2" : ""}`}>
+            {!isLocked && isDeckEditable ? (
+              <div className={isMobileDeck ? "grid grid-cols-2 gap-3" : "space-y-2"}>
                 <div className="flex justify-center">
                   <button
                     type="button"
                     onClick={() => setAiProposal(buildAiProposal(match, predictions))}
-                    className="inline-flex items-center justify-center gap-2 rounded-full border border-border/70 bg-muted/25 px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted/40"
+                    className={`inline-flex items-center justify-center gap-2 border border-border/70 bg-muted/25 font-medium text-foreground transition-colors hover:bg-muted/40 ${
+                      isMobileDeck ? "min-h-12 w-full rounded-2xl px-3 py-3 text-sm" : "rounded-full px-4 py-2 text-sm"
+                    }`}
                   >
                     <Sparkles className="h-4 w-4" />
                     <span>IA, qual seu palpite?</span>
@@ -740,7 +943,9 @@ const Bolao = () => {
                   <button
                     type="button"
                     onClick={() => applyRandomProposal(match)}
-                    className="inline-flex items-center justify-center gap-2 rounded-full border border-border/70 bg-muted/25 px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted/40"
+                    className={`inline-flex items-center justify-center gap-2 border border-border/70 bg-muted/25 font-medium text-foreground transition-colors hover:bg-muted/40 ${
+                      isMobileDeck ? "min-h-12 w-full rounded-2xl px-3 py-3 text-sm" : "rounded-full px-4 py-2 text-sm"
+                    }`}
                   >
                     <Sparkles className="h-4 w-4" />
                     <span>Mete o louco(a)</span>
@@ -749,12 +954,15 @@ const Bolao = () => {
               </div>
             ) : null}
 
-            <MatchCountriesMap
-              homeTeam={match.homeTeam}
-              awayTeam={match.awayTeam}
-              homeTeamLogo={match.homeTeamLogo}
-              awayTeamLogo={match.awayTeamLogo}
-            />
+            {!isMobileDeck ? (
+              <MatchCountriesMap
+                homeTeam={match.homeTeam}
+                awayTeam={match.awayTeam}
+                homeTeamLogo={match.homeTeamLogo}
+                awayTeamLogo={match.awayTeamLogo}
+                showLegend
+              />
+            ) : null}
           </div>
         }
       />
@@ -767,6 +975,7 @@ const Bolao = () => {
 
     const points = scoreWorldCupPrediction(match, savedPrediction);
     const predictionFeedback = getPredictionFeedback(points);
+    const editState = getSavedEditState(match);
     const officialScore = hasOfficialScore(match)
       ? `${match.homeScore} x ${match.awayScore}`
       : null;
@@ -801,7 +1010,21 @@ const Bolao = () => {
         </div>
 
         <div className="flex min-w-0 flex-1 items-center justify-end gap-2">
-          <span className="truncate text-sm font-medium text-foreground">{match.awayTeam}</span>
+          <div className="min-w-0 flex-1 text-right">
+            <span className="block truncate text-sm font-medium text-foreground">{match.awayTeam}</span>
+            <span className="block text-[11px] text-muted-foreground">{editState.helper}</span>
+            {editState.canEdit ? (
+              <button
+                type="button"
+                onClick={() => openScorePicker(match, "credit-edit")}
+                className="mt-1 text-[11px] font-medium text-foreground underline underline-offset-4"
+              >
+                {editState.label}
+              </button>
+            ) : (
+              <span className="mt-1 block text-[11px] font-medium text-muted-foreground">{editState.label}</span>
+            )}
+          </div>
           <div className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-sm">
             <TeamMark
               src={match.awayTeamLogo}
@@ -815,14 +1038,66 @@ const Bolao = () => {
     );
   };
 
+  const renderSavedPredictionDesktopRow = (match: WorldCupPoolMatch) => {
+    const savedPrediction = predictionsByMatchId[match.id];
+    if (!savedPrediction) return null;
+
+    const points = scoreWorldCupPrediction(match, savedPrediction);
+    const predictionFeedback = getPredictionFeedback(points);
+    const editState = getSavedEditState(match);
+    const officialScore = hasOfficialScore(match) ? `${match.homeScore} x ${match.awayScore}` : "—";
+
+    return (
+      <div
+        key={match.id}
+        className="grid grid-cols-[minmax(0,1.8fr)_120px_120px_110px_minmax(0,1.2fr)] items-center gap-4 border-b border-border/60 px-4 py-4"
+      >
+        <div className="min-w-0">
+          <p className="truncate text-sm font-medium text-foreground">
+            {match.homeTeam} x {match.awayTeam}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            {match.date} • {formatBrasiliaTime(match.startTime)} • {match.stage}
+          </p>
+        </div>
+        <div className="text-center">
+          <p className="text-xs text-muted-foreground">Seu palpite</p>
+          <p className="text-sm font-semibold text-foreground">
+            {savedPrediction.predictedHomeScore} x {savedPrediction.predictedAwayScore}
+          </p>
+        </div>
+        <div className="text-center">
+          <p className="text-xs text-muted-foreground">Oficial</p>
+          <p className="text-sm font-semibold text-foreground">{officialScore}</p>
+        </div>
+        <div className="text-center">
+          <p className={`text-sm font-medium ${predictionFeedback.className}`}>{predictionFeedback.label}</p>
+        </div>
+        <div className="min-w-0 text-right">
+          <p className="text-sm font-medium text-foreground">{editState.label}</p>
+          <p className="text-xs text-muted-foreground">{editState.helper}</p>
+          {editState.canEdit ? (
+            <button
+              type="button"
+              onClick={() => openScorePicker(match, "credit-edit")}
+              className="mt-1 text-xs font-medium text-foreground underline underline-offset-4"
+            >
+              Editar placar
+            </button>
+          ) : null}
+        </div>
+      </div>
+    );
+  };
+
   if (!user) return null;
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className={`flex min-h-screen flex-col bg-background text-foreground ${isMobilePredictionDeck ? "overflow-hidden" : ""}`}>
       <Header />
 
-      <section className="py-6 md:py-14">
-        <div className="container px-6">
+      <section className={`flex-1 ${isMobilePredictionDeck ? "min-h-[calc(100svh-112px)] overflow-hidden py-2" : "py-6 md:py-14"}`}>
+        <div className={`container px-6 ${isMobilePredictionDeck ? "flex h-full min-h-[calc(100svh-128px)] flex-col" : ""}`}>
           {!isMobile && (
             <div className="mb-4 space-y-2 md:mb-8 md:space-y-3">
               <h1 className="text-2xl font-semibold text-foreground md:text-4xl">
@@ -837,8 +1112,8 @@ const Bolao = () => {
             </p>
           </div>
 
-          <div className="mb-6 space-y-4 md:mb-10 md:space-y-6">
-            <div className="flex items-center gap-4 text-sm">
+          <div className={`${isMobilePredictionDeck ? "mx-auto flex min-h-0 flex-1 w-full max-w-[420px] flex-col space-y-3" : "mb-6 space-y-4 md:mb-10 md:space-y-6"}`}>
+            <div className={`flex gap-4 text-sm ${isMobilePredictionDeck ? "items-center justify-center text-center" : "items-center"}`}>
               <button
                 type="button"
                 onClick={() => {
@@ -864,6 +1139,26 @@ const Bolao = () => {
 
             {activeTab === "ranking" ? (
               <div className="space-y-6">
+              <div className="flex items-center gap-4 text-sm">
+                <button
+                  type="button"
+                  onClick={() => setActiveRankingScope("general")}
+                  className={`underline underline-offset-4 transition-colors ${
+                    activeRankingScope === "general" ? "text-foreground" : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Geral
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveRankingScope("brazil")}
+                  className={`underline underline-offset-4 transition-colors ${
+                    activeRankingScope === "brazil" ? "text-foreground" : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Brasil
+                </button>
+              </div>
               <Card className="border-border/80 shadow-[var(--shadow-card)]">
                 <CardContent className="space-y-5 p-5">
                   <div className="space-y-1">
@@ -871,10 +1166,10 @@ const Bolao = () => {
                   </div>
 
                   <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                    {leaderboard.length === 0 ? (
+                    {currentLeaderboard.length === 0 ? (
                       <p className="text-sm text-muted-foreground">Ainda não há pontuação fechada.</p>
                     ) : (
-                      leaderboard.slice(0, 12).map((entry, index) => (
+                      currentLeaderboard.slice(0, 12).map((entry, index) => (
                         <div
                           key={entry.userId}
                           className={`flex items-center gap-3 border px-3 py-3 ${
@@ -892,7 +1187,7 @@ const Bolao = () => {
                           </Avatar>
                           <div className="min-w-0 flex-1">
                             <p className="truncate text-sm font-medium text-foreground">
-                              {entry.name}
+                              {entry.name} ⭐ {entry.editCreditsAvailable}
                               {entry.userId === user?.id ? " • Você" : ""}
                             </p>
                             <p className="text-xs text-muted-foreground">
@@ -908,22 +1203,34 @@ const Bolao = () => {
               </Card>
               </div>
             ) : (
-              <div className="space-y-8">
-              <div className="flex items-center justify-between gap-3">
+              <div className={`${isMobilePredictionDeck ? "flex min-h-0 flex-1 flex-col space-y-3" : "space-y-8"}`}>
+              <div className={`flex gap-3 ${isMobilePredictionDeck ? "flex-col items-center text-center" : "items-center justify-between"}`}>
                 {predictionView === "deck" ? (
-                  <span className="text-sm font-medium text-foreground">
-                    {pendingMatches.length === 0
-                      ? "Nenhum jogo faltando"
-                      : `${pendingMatches.length} ${pendingMatches.length === 1 ? "jogo faltando" : "jogos faltando"}`}
-                  </span>
+                  <div className="space-y-1">
+                    <span className="block text-sm font-medium text-foreground">
+                      {pendingMatches.length === 0
+                        ? "Nenhum jogo faltando"
+                        : `Faltam ${pendingMatches.length} ${pendingMatches.length === 1 ? "jogo" : "jogos"} para completar seus palpites.`}
+                    </span>
+                    <span className="block text-xs text-muted-foreground">
+                      Você já preencheu {completedDeckCount} de {deckMatches.length} jogos.
+                    </span>
+                  </div>
                 ) : (
-                  <span />
+                  <div className="space-y-1">
+                    <span className="block text-sm font-medium text-foreground">
+                      Você possui {creditSummary.availableCredits} {creditSummary.availableCredits === 1 ? "crédito" : "créditos"} de edição disponíveis.
+                    </span>
+                    <span className="block text-xs text-muted-foreground">
+                      Use seus créditos apenas em jogos futuros já salvos.
+                    </span>
+                  </div>
                 )}
                 {predictionView === "saved" ? (
                   <button
                     type="button"
                     onClick={() => setPredictionView("deck")}
-                    className="text-sm text-muted-foreground underline underline-offset-4 transition-colors hover:text-foreground"
+                    className={`text-sm text-muted-foreground underline underline-offset-4 transition-colors hover:text-foreground ${isMobilePredictionDeck ? "self-center" : ""}`}
                   >
                     Voltar aos jogos
                   </button>
@@ -964,18 +1271,23 @@ const Bolao = () => {
                 </Card>
               ) : (
                 predictionView === "deck" && activeDeckMatch ? (
-                  <section className="space-y-4 md:space-y-5">
+                  <section className={`${isMobilePredictionDeck ? "flex min-h-0 flex-1 flex-col text-center" : "space-y-4 md:space-y-5"}`}>
                     {!isMobile && (
                       <div className="space-y-1">
                         <h2 className="text-xl font-semibold text-foreground md:text-2xl">
-                          {activeDeckIndex + 1} de {pendingMatches.length}
+                          {pendingMatches.length === 0 ? "Todos os palpites foram preenchidos" : `${activeDeckIndex + 1} de ${deckMatches.length}`}
                         </h2>
                         <p className="text-sm text-muted-foreground">{activeDeckMatch.stage}</p>
                       </div>
                     )}
 
                     <div
-                      className={isMobile ? "flex min-h-[calc(100svh-320px)] flex-col" : ""}
+                      className={isMobilePredictionDeck ? "flex min-h-[calc(100svh-320px)] flex-1 items-start overflow-hidden" : isMobile ? "flex h-[calc(100svh-232px)] min-h-[540px] flex-col overflow-hidden" : ""}
+                      style={
+                        isMobilePredictionDeck
+                          ? { paddingTop: "clamp(1rem, calc(40svh - 190px), 7rem)" }
+                          : undefined
+                      }
                       onTouchStart={(event) => {
                         touchStartXRef.current = event.touches[0]?.clientX ?? null;
                         touchDeltaXRef.current = 0;
@@ -990,11 +1302,23 @@ const Bolao = () => {
                         if (!isMobile) return;
                         const delta = touchDeltaXRef.current;
 
-                        if (delta <= -48 && activeDeckIndex < pendingMatches.length - 1) {
+                        if (delta <= -48 && activeDeckIndex < deckMatches.length - 1) {
+                          if (!canAdvanceFromCurrentDeckMatch()) {
+                            toast({
+                              title: "Palpite pendente",
+                              description: "Você precisa registrar o placar deste jogo antes de avançar.",
+                              variant: "destructive",
+                            });
+                            setIsDraggingCard(false);
+                            setDragOffsetX(0);
+                            touchStartXRef.current = null;
+                            touchDeltaXRef.current = 0;
+                            return;
+                          }
                           setDragOffsetX(-window.innerWidth * 0.95);
                           setIsDraggingCard(false);
                           swipeTimeoutRef.current = window.setTimeout(() => {
-                            goToNextDeckMatch();
+                            attemptAdvanceDeck();
                             setDragOffsetX(0);
                           }, 170);
                         } else if (delta >= 48 && activeDeckIndex > 0) {
@@ -1011,9 +1335,9 @@ const Bolao = () => {
                         touchStartXRef.current = null;
                         touchDeltaXRef.current = 0;
                       }}
-                    >
+                      >
                       <div
-                        className={isMobile ? "flex-1" : ""}
+                        className={isMobilePredictionDeck ? "flex h-full min-h-[calc(100svh-320px)] w-full flex-1 items-start" : isMobile ? "flex-1" : ""}
                         style={
                           isMobile
                             ? {
@@ -1029,7 +1353,7 @@ const Bolao = () => {
                     </div>
 
                     {isMobile ? (
-                      <div className="flex items-center justify-center pb-2 text-center text-xs font-medium text-muted-foreground">
+                      <div className={`${isMobilePredictionDeck ? "mt-auto pt-3 pb-[max(8px,env(safe-area-inset-bottom))]" : "pb-2"} flex items-center justify-center text-center text-xs font-medium text-muted-foreground`}>
                         Deslize para o lado para ver o proximo jogo
                       </div>
                     ) : null}
@@ -1044,8 +1368,8 @@ const Bolao = () => {
                       </Button>
                       <Button
                         variant="outline"
-                        onClick={goToNextDeckMatch}
-                        disabled={activeDeckIndex >= pendingMatches.length - 1}
+                        onClick={attemptAdvanceDeck}
+                        disabled={activeDeckIndex >= deckMatches.length - 1}
                       >
                         Próximo
                       </Button>
@@ -1057,20 +1381,18 @@ const Bolao = () => {
                     {savedMatches.map((match) => renderSavedPredictionRow(match))}
                   </div>
                 ) : (
-                  savedGroupedMatches.map(([stage, stageMatches]) => (
-                    <section key={stage} className="space-y-4">
-                      <div className="space-y-1">
-                        <h2 className="text-2xl font-semibold text-foreground">{stage}</h2>
-                        <p className="text-sm text-muted-foreground">
-                          {stageMatches.length} {stageMatches.length === 1 ? "jogo" : "jogos"}
-                        </p>
-                      </div>
-
-                      <div className="space-y-4">
-                        {stageMatches.map((match) => renderPredictionCard(match))}
-                      </div>
-                    </section>
-                  ))
+                  <div className="overflow-hidden border border-border/70 bg-card shadow-[var(--shadow-card)]">
+                    <div className="grid grid-cols-[minmax(0,1.8fr)_120px_120px_110px_minmax(0,1.2fr)] gap-4 border-b border-border/70 px-4 py-3 text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">
+                      <span>Jogo</span>
+                      <span className="text-center">Palpite</span>
+                      <span className="text-center">Oficial</span>
+                      <span className="text-center">Status</span>
+                      <span className="text-right">Edição</span>
+                    </div>
+                    <div>
+                      {savedMatches.map((match) => renderSavedPredictionDesktopRow(match))}
+                    </div>
+                  </div>
                 ))
               )}
               </div>
@@ -1079,13 +1401,13 @@ const Bolao = () => {
         </div>
       </section>
 
-      <Drawer open={Boolean(activePickerMatch)} onOpenChange={(open) => !open && setActivePickerMatchId(null)}>
+      <Drawer open={Boolean(activePickerMatch)} onOpenChange={(open) => !open && setActivePicker(null)}>
         <DrawerContent className="border-border bg-card">
           <DrawerHeader>
             <DrawerTitle>
               {activePickerMatch ? `${activePickerMatch.homeTeam} x ${activePickerMatch.awayTeam}` : "Escolher placar"}
             </DrawerTitle>
-            <DrawerDescription>Deslize para cima ou para baixo. O palpite salva sozinho.</DrawerDescription>
+            <DrawerDescription>Deslize para cima ou para baixo e toque em OK para confirmar.</DrawerDescription>
           </DrawerHeader>
 
           {activePickerMatch && pickerValues && (
@@ -1161,7 +1483,7 @@ const Bolao = () => {
         </DialogContent>
       </Dialog>
 
-      <Footer />
+      {!isMobilePredictionDeck ? <Footer /> : null}
     </div>
   );
 };

@@ -10,6 +10,24 @@ export interface WorldCupPrediction {
   updatedAt: string;
 }
 
+export type WorldCupLeaderboardScope = "general" | "brazil";
+export type WorldCupCreditEventKind = "exact_hit_grant" | "edit_consume";
+
+export interface WorldCupCreditSummary {
+  availableCredits: number;
+  exactHitCredits: number;
+  consumedCredits: number;
+}
+
+export interface WorldCupCreditLedgerEntry {
+  eventKey: string;
+  userId: string;
+  kind: WorldCupCreditEventKind;
+  sourceMatchId: string | null;
+  targetMatchId: string | null;
+  createdAt: string;
+}
+
 export interface WorldCupLeaderboardEntry {
   userId: string;
   name: string;
@@ -19,11 +37,25 @@ export interface WorldCupLeaderboardEntry {
   exactScoreHits: number;
   outcomeHits: number;
   predictionsCount: number;
+  editCreditsAvailable: number;
+}
+
+type CreditMutationErrorCode = "NO_CREDITS" | "MATCH_STARTED" | "UNCHANGED";
+
+export class WorldCupCreditMutationError extends Error {
+  code: CreditMutationErrorCode;
+
+  constructor(code: CreditMutationErrorCode, message: string) {
+    super(message);
+    this.code = code;
+  }
 }
 
 const LOCAL_PREDICTIONS_PREFIX = "arena-viva-mente.world-cup-predictions";
+const LOCAL_CREDITS_PREFIX = "arena-viva-mente.world-cup-prediction-credits";
 
 const localPredictionsKey = (userId: string) => `${LOCAL_PREDICTIONS_PREFIX}.${userId}`;
+const localCreditsKey = (userId: string) => `${LOCAL_CREDITS_PREFIX}.${userId}`;
 
 const readLocalPredictions = (userId: string): WorldCupPrediction[] => {
   try {
@@ -36,6 +68,19 @@ const readLocalPredictions = (userId: string): WorldCupPrediction[] => {
 
 const saveLocalPredictions = (userId: string, predictions: WorldCupPrediction[]) => {
   localStorage.setItem(localPredictionsKey(userId), JSON.stringify(predictions));
+};
+
+const readLocalCreditLedger = (userId: string): WorldCupCreditLedgerEntry[] => {
+  try {
+    const stored = localStorage.getItem(localCreditsKey(userId));
+    return stored ? (JSON.parse(stored) as WorldCupCreditLedgerEntry[]) : [];
+  } catch {
+    return [];
+  }
+};
+
+const saveLocalCreditLedger = (userId: string, entries: WorldCupCreditLedgerEntry[]) => {
+  localStorage.setItem(localCreditsKey(userId), JSON.stringify(entries));
 };
 
 const canUseSupabasePredictions = async (userId: string) => {
@@ -51,6 +96,157 @@ const canUseSupabasePredictions = async (userId: string) => {
 const getMatchOutcome = (homeScore: number, awayScore: number) => {
   if (homeScore === awayScore) return "draw";
   return homeScore > awayScore ? "home" : "away";
+};
+
+const buildLegacyAliasMap = (matches: WorldCupPoolMatch[]) =>
+  new Map(
+    matches
+      .filter((match) => match.linkedSportsMatchId)
+      .map((match) => [match.linkedSportsMatchId as string, match.id]),
+  );
+
+const dedupePredictionsByMatchId = (predictions: WorldCupPrediction[]) =>
+  Array.from(
+    new Map(
+      [...predictions]
+        .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+        .map((prediction) => [prediction.matchId, prediction]),
+    ).values(),
+  );
+
+const buildPredictionMap = (predictions: WorldCupPrediction[]) =>
+  new Map(predictions.map((prediction) => [prediction.matchId, prediction]));
+
+const normalizeLeaderboardMatches = (
+  matches: WorldCupPoolMatch[],
+  scope: WorldCupLeaderboardScope,
+) => {
+  const scorableMatches = matches.filter(
+    (match) =>
+      match.homeScore !== undefined &&
+      match.awayScore !== undefined &&
+      getCurrentMatchStatus(match) === "ended",
+  );
+
+  if (scope === "brazil") {
+    return scorableMatches.filter((match) => match.homeTeam === "Brazil" || match.awayTeam === "Brazil");
+  }
+
+  return scorableMatches;
+};
+
+const exactGrantEventKey = (matchId: string) => `exact:${matchId}`;
+const consumeEventKey = (matchId: string) =>
+  `consume:${matchId}:${Date.now()}:${Math.random().toString(36).slice(2, 10)}`;
+
+const deriveCreditSummary = (ledger: WorldCupCreditLedgerEntry[]) => {
+  const exactHitCredits = ledger.filter((entry) => entry.kind === "exact_hit_grant").length;
+  const consumedCredits = ledger.filter((entry) => entry.kind === "edit_consume").length;
+
+  return {
+    exactHitCredits,
+    consumedCredits,
+    availableCredits: Math.max(0, exactHitCredits - consumedCredits),
+  } satisfies WorldCupCreditSummary;
+};
+
+const syncLocalCreditLedger = (
+  userId: string,
+  predictions: WorldCupPrediction[],
+  matches: WorldCupPoolMatch[],
+) => {
+  const ledger = readLocalCreditLedger(userId);
+  const predictionMap = buildPredictionMap(predictions);
+  const existingKeys = new Set(ledger.map((entry) => entry.eventKey));
+  const newEntries = matches
+    .filter((match) => {
+      const prediction = predictionMap.get(match.id);
+      return scoreWorldCupPrediction(match, prediction) === 5;
+    })
+    .filter((match) => !existingKeys.has(exactGrantEventKey(match.id)))
+    .map<WorldCupCreditLedgerEntry>((match) => ({
+      eventKey: exactGrantEventKey(match.id),
+      userId,
+      kind: "exact_hit_grant",
+      sourceMatchId: match.id,
+      targetMatchId: null,
+      createdAt: new Date().toISOString(),
+    }));
+
+  if (newEntries.length === 0) {
+    return ledger;
+  }
+
+  const nextLedger = [...ledger, ...newEntries];
+  saveLocalCreditLedger(userId, nextLedger);
+  return nextLedger;
+};
+
+const syncSupabaseCreditLedger = async (
+  userId: string,
+  predictions: WorldCupPrediction[],
+  matches: WorldCupPoolMatch[],
+) => {
+  const { data, error } = await supabase
+    .from("world_cup_prediction_credits")
+    .select("event_key, user_id, kind, source_match_id, target_match_id, created_at")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    console.error("Erro ao buscar créditos do bolão:", error);
+    return [] as WorldCupCreditLedgerEntry[];
+  }
+
+  const ledger = (data || []).map<WorldCupCreditLedgerEntry>((entry) => ({
+    eventKey: entry.event_key,
+    userId: entry.user_id,
+    kind: entry.kind,
+    sourceMatchId: entry.source_match_id,
+    targetMatchId: entry.target_match_id,
+    createdAt: entry.created_at,
+  }));
+
+  const predictionMap = buildPredictionMap(predictions);
+  const existingKeys = new Set(ledger.map((entry) => entry.eventKey));
+  const missingGrants = matches
+    .filter((match) => {
+      const prediction = predictionMap.get(match.id);
+      return scoreWorldCupPrediction(match, prediction) === 5;
+    })
+    .filter((match) => !existingKeys.has(exactGrantEventKey(match.id)))
+    .map((match) => ({
+      event_key: exactGrantEventKey(match.id),
+      user_id: userId,
+      kind: "exact_hit_grant" as const,
+      source_match_id: match.id,
+      target_match_id: null,
+    }));
+
+  if (missingGrants.length === 0) {
+    return ledger;
+  }
+
+  const { error: insertError } = await supabase
+    .from("world_cup_prediction_credits")
+    .insert(missingGrants);
+
+  if (insertError) {
+    console.error("Erro ao sincronizar créditos do bolão:", insertError);
+    return ledger;
+  }
+
+  return [
+    ...ledger,
+    ...missingGrants.map<WorldCupCreditLedgerEntry>((entry) => ({
+      eventKey: entry.event_key,
+      userId: entry.user_id,
+      kind: entry.kind,
+      sourceMatchId: entry.source_match_id,
+      targetMatchId: entry.target_match_id,
+      createdAt: new Date().toISOString(),
+    })),
+  ];
 };
 
 export const scoreWorldCupPrediction = (match: WorldCupMatch, prediction?: WorldCupPrediction | null) => {
@@ -73,22 +269,6 @@ export const scoreWorldCupPrediction = (match: WorldCupMatch, prediction?: World
 
   return predictedOutcome === actualOutcome ? 3 : 0;
 };
-
-const buildLegacyAliasMap = (matches: WorldCupPoolMatch[]) =>
-  new Map(
-    matches
-      .filter((match) => match.linkedSportsMatchId)
-      .map((match) => [match.linkedSportsMatchId as string, match.id]),
-  );
-
-const dedupePredictionsByMatchId = (predictions: WorldCupPrediction[]) =>
-  Array.from(
-    new Map(
-      [...predictions]
-        .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
-        .map((prediction) => [prediction.matchId, prediction]),
-    ).values(),
-  );
 
 export const getWorldCupPredictions = async (
   userId: string,
@@ -173,25 +353,137 @@ export const saveWorldCupPrediction = async (
   }
 };
 
+export const getWorldCupEditCreditSummary = async (
+  userId: string,
+  matches: WorldCupPoolMatch[],
+  providedPredictions?: WorldCupPrediction[],
+): Promise<WorldCupCreditSummary> => {
+  const predictions =
+    providedPredictions || (await getWorldCupPredictions(userId, matches));
+
+  if (!(await canUseSupabasePredictions(userId))) {
+    const ledger = syncLocalCreditLedger(userId, predictions, matches);
+    return deriveCreditSummary(ledger);
+  }
+
+  const ledger = await syncSupabaseCreditLedger(userId, predictions, matches);
+  return deriveCreditSummary(ledger);
+};
+
+export const consumeWorldCupEditCredit = async (
+  userId: string,
+  match: WorldCupPoolMatch,
+  nextValues: { home: number; away: number },
+  matches: WorldCupPoolMatch[],
+  currentPrediction: WorldCupPrediction,
+  legacyMatchIds: string[] = [],
+) => {
+  if (getCurrentMatchStatus(match) !== "scheduled") {
+    throw new WorldCupCreditMutationError(
+      "MATCH_STARTED",
+      "Este jogo já começou e não pode mais ser alterado.",
+    );
+  }
+
+  if (
+    currentPrediction.predictedHomeScore === nextValues.home &&
+    currentPrediction.predictedAwayScore === nextValues.away
+  ) {
+    throw new WorldCupCreditMutationError("UNCHANGED", "O palpite já está com esse placar.");
+  }
+
+  const predictions = await getWorldCupPredictions(userId, matches);
+  const summary = await getWorldCupEditCreditSummary(userId, matches, predictions);
+
+  if (summary.availableCredits <= 0) {
+    throw new WorldCupCreditMutationError(
+      "NO_CREDITS",
+      "Você não possui créditos de edição disponíveis.",
+    );
+  }
+
+  const consumeEntry: WorldCupCreditLedgerEntry = {
+    eventKey: consumeEventKey(match.id),
+    userId,
+    kind: "edit_consume",
+    sourceMatchId: null,
+    targetMatchId: match.id,
+    createdAt: new Date().toISOString(),
+  };
+
+  if (!(await canUseSupabasePredictions(userId))) {
+    const ledger = readLocalCreditLedger(userId);
+    saveLocalCreditLedger(userId, [...ledger, consumeEntry]);
+    await saveWorldCupPrediction(
+      userId,
+      match.id,
+      nextValues.home,
+      nextValues.away,
+      legacyMatchIds,
+    );
+
+    return {
+      ...summary,
+      consumedCredits: summary.consumedCredits + 1,
+      availableCredits: Math.max(0, summary.availableCredits - 1),
+    } satisfies WorldCupCreditSummary;
+  }
+
+  const { error: insertError } = await supabase
+    .from("world_cup_prediction_credits")
+    .insert({
+      event_key: consumeEntry.eventKey,
+      user_id: consumeEntry.userId,
+      kind: consumeEntry.kind,
+      source_match_id: consumeEntry.sourceMatchId,
+      target_match_id: consumeEntry.targetMatchId,
+    });
+
+  if (insertError) {
+    console.error("Erro ao consumir crédito do bolão:", insertError);
+    throw insertError;
+  }
+
+  try {
+    await saveWorldCupPrediction(
+      userId,
+      match.id,
+      nextValues.home,
+      nextValues.away,
+      legacyMatchIds,
+    );
+  } catch (error) {
+    await supabase
+      .from("world_cup_prediction_credits")
+      .delete()
+      .eq("event_key", consumeEntry.eventKey)
+      .eq("user_id", userId);
+    throw error;
+  }
+
+  return {
+    ...summary,
+    consumedCredits: summary.consumedCredits + 1,
+    availableCredits: Math.max(0, summary.availableCredits - 1),
+  } satisfies WorldCupCreditSummary;
+};
+
 export const getWorldCupLeaderboard = async (
   matches: WorldCupPoolMatch[],
   currentUser?: MockUser | null,
+  scope: WorldCupLeaderboardScope = "general",
 ): Promise<WorldCupLeaderboardEntry[]> => {
+  const scopedMatches = normalizeLeaderboardMatches(matches, scope);
   const legacyAliasMap = buildLegacyAliasMap(matches);
-  const scorableMatches = matches.filter(
-    (match) =>
-      match.homeScore !== undefined &&
-      match.awayScore !== undefined &&
-      getCurrentMatchStatus(match) === "ended",
-  );
 
   if (!currentUser || !(await canUseSupabasePredictions(currentUser.id))) {
     if (!currentUser) return [];
 
     const predictions = readLocalPredictions(currentUser.id);
+    const ledger = syncLocalCreditLedger(currentUser.id, predictions, matches);
     const scoreSummary = predictions.reduce(
       (summary, prediction) => {
-        const match = scorableMatches.find((item) => item.id === prediction.matchId);
+        const match = scopedMatches.find((item) => item.id === prediction.matchId);
         const points = match ? scoreWorldCupPrediction(match, prediction) : null;
         if (points === null) return summary;
         return {
@@ -215,24 +507,29 @@ export const getWorldCupLeaderboard = async (
         name: currentUser.name,
         username: currentUser.username,
         avatarUrl: currentUser.avatar,
+        editCreditsAvailable: deriveCreditSummary(ledger).availableCredits,
         ...scoreSummary,
       },
     ];
   }
 
-  const [predictionsResult, profilesResult] = await Promise.all([
+  const [predictionsResult, profilesResult, creditsResult] = await Promise.all([
     supabase
       .from("world_cup_predictions")
       .select("user_id, match_id, predicted_home_score, predicted_away_score, updated_at"),
     supabase
       .from("profiles")
       .select("id, name, username, avatar_url"),
+    supabase
+      .from("world_cup_prediction_credits")
+      .select("user_id, kind"),
   ]);
 
-  if (predictionsResult.error || profilesResult.error) {
+  if (predictionsResult.error || profilesResult.error || creditsResult.error) {
     console.error("Erro ao buscar ranking do bolão:", {
       predictions: predictionsResult.error,
       profiles: profilesResult.error,
+      credits: creditsResult.error,
     });
     return [];
   }
@@ -247,6 +544,12 @@ export const getWorldCupLeaderboard = async (
       },
     ]),
   );
+
+  const consumedCreditsByUser = new Map<string, number>();
+  for (const row of creditsResult.data || []) {
+    if (row.kind !== "edit_consume") continue;
+    consumedCreditsByUser.set(row.user_id, (consumedCreditsByUser.get(row.user_id) || 0) + 1);
+  }
 
   const leaderboardMap = new Map<string, WorldCupLeaderboardEntry>();
   const dedupedRows = Array.from(
@@ -274,11 +577,12 @@ export const getWorldCupLeaderboard = async (
         exactScoreHits: 0,
         outcomeHits: 0,
         predictionsCount: 0,
+        editCreditsAvailable: 0,
       };
 
     currentEntry.predictionsCount += 1;
 
-    const match = scorableMatches.find((item) => item.id === row.match_id);
+    const match = scopedMatches.find((item) => item.id === row.match_id);
     if (match) {
       const points = scoreWorldCupPrediction(match, {
         matchId: row.match_id,
@@ -297,10 +601,20 @@ export const getWorldCupLeaderboard = async (
     leaderboardMap.set(row.user_id, currentEntry);
   }
 
-  return Array.from(leaderboardMap.values()).sort((a, b) => {
-    if (b.totalPoints !== a.totalPoints) return b.totalPoints - a.totalPoints;
-    if (b.exactScoreHits !== a.exactScoreHits) return b.exactScoreHits - a.exactScoreHits;
-    if (b.outcomeHits !== a.outcomeHits) return b.outcomeHits - a.outcomeHits;
-    return b.predictionsCount - a.predictionsCount;
-  });
+  const sorted = Array.from(leaderboardMap.values())
+    .map((entry) => ({
+      ...entry,
+      editCreditsAvailable: Math.max(
+        0,
+        entry.exactScoreHits - (consumedCreditsByUser.get(entry.userId) || 0),
+      ),
+    }))
+    .sort((a, b) => {
+      if (b.totalPoints !== a.totalPoints) return b.totalPoints - a.totalPoints;
+      if (b.exactScoreHits !== a.exactScoreHits) return b.exactScoreHits - a.exactScoreHits;
+      if (b.outcomeHits !== a.outcomeHits) return b.outcomeHits - a.outcomeHits;
+      return b.predictionsCount - a.predictionsCount;
+    });
+
+  return sorted;
 };

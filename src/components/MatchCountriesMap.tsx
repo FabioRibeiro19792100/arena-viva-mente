@@ -86,11 +86,13 @@ export const MatchCountriesMap = ({
   awayTeam,
   homeTeamLogo,
   awayTeamLogo,
+  showLegend = true,
 }: {
   homeTeam: string;
   awayTeam: string;
   homeTeamLogo: string;
   awayTeamLogo: string;
+  showLegend?: boolean;
 }) => {
   const homeCode = getFlagCode(homeTeamLogo);
   const awayCode = getFlagCode(awayTeamLogo);
@@ -117,16 +119,18 @@ export const MatchCountriesMap = ({
         </div>
       </div>
 
-      <div className="flex items-center justify-center gap-4 text-[11px] text-muted-foreground">
-        <div className="flex items-center gap-2">
-          <span className="h-2.5 w-2.5 rounded-full bg-[#2563eb]" />
-          <span>{homeTeam}</span>
+      {showLegend ? (
+        <div className="flex items-center justify-center gap-4 text-[11px] text-muted-foreground">
+          <div className="flex items-center gap-2">
+            <span className="h-2.5 w-2.5 rounded-full bg-[#2563eb]" />
+            <span>{homeTeam}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="h-2.5 w-2.5 rounded-full bg-[#e11d48]" />
+            <span>{awayTeam}</span>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <span className="h-2.5 w-2.5 rounded-full bg-[#e11d48]" />
-          <span>{awayTeam}</span>
-        </div>
-      </div>
+      ) : null}
     </div>
   );
 };

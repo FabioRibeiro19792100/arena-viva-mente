@@ -194,6 +194,32 @@ export interface Database {
           user_id?: string;
         };
       };
+      world_cup_prediction_credits: {
+        Row: {
+          created_at: string;
+          event_key: string;
+          kind: "edit_consume" | "exact_hit_grant";
+          source_match_id: string | null;
+          target_match_id: string | null;
+          user_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          event_key: string;
+          kind: "edit_consume" | "exact_hit_grant";
+          source_match_id?: string | null;
+          target_match_id?: string | null;
+          user_id: string;
+        };
+        Update: {
+          created_at?: string;
+          event_key?: string;
+          kind?: "edit_consume" | "exact_hit_grant";
+          source_match_id?: string | null;
+          target_match_id?: string | null;
+          user_id?: string;
+        };
+      };
       world_cup_matches: {
         Row: {
           away_flag: string | null;

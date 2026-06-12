@@ -135,6 +135,21 @@ create table if not exists public.world_cup_predictions (
 create index if not exists world_cup_predictions_match_id_idx
   on public.world_cup_predictions (match_id);
 
+create table if not exists public.world_cup_prediction_credits (
+  event_key text primary key,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  kind text not null check (kind in ('exact_hit_grant', 'edit_consume')),
+  source_match_id text,
+  target_match_id text,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists world_cup_prediction_credits_user_id_idx
+  on public.world_cup_prediction_credits (user_id);
+
+create index if not exists world_cup_prediction_credits_target_match_id_idx
+  on public.world_cup_prediction_credits (target_match_id);
+
 create table if not exists public.world_cup_matches (
   id text primary key,
   stage text not null,
@@ -172,6 +187,7 @@ alter table public.history_entries enable row level security;
 alter table public.match_preferences enable row level security;
 alter table public.messages enable row level security;
 alter table public.world_cup_predictions enable row level security;
+alter table public.world_cup_prediction_credits enable row level security;
 alter table public.world_cup_matches enable row level security;
 
 drop policy if exists "profiles_select_own" on public.profiles;
@@ -185,6 +201,9 @@ drop policy if exists "messages_select_authenticated" on public.messages;
 drop policy if exists "messages_insert_own" on public.messages;
 drop policy if exists "world_cup_predictions_select_authenticated" on public.world_cup_predictions;
 drop policy if exists "world_cup_predictions_all_own" on public.world_cup_predictions;
+drop policy if exists "world_cup_prediction_credits_select_authenticated" on public.world_cup_prediction_credits;
+drop policy if exists "world_cup_prediction_credits_insert_own" on public.world_cup_prediction_credits;
+drop policy if exists "world_cup_prediction_credits_delete_own" on public.world_cup_prediction_credits;
 drop policy if exists "world_cup_matches_select_authenticated" on public.world_cup_matches;
 
 create policy "profiles_select_own" on public.profiles
@@ -219,6 +238,15 @@ create policy "world_cup_predictions_select_authenticated" on public.world_cup_p
 
 create policy "world_cup_predictions_all_own" on public.world_cup_predictions
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+create policy "world_cup_prediction_credits_select_authenticated" on public.world_cup_prediction_credits
+  for select using (auth.role() = 'authenticated');
+
+create policy "world_cup_prediction_credits_insert_own" on public.world_cup_prediction_credits
+  for insert with check (auth.uid() = user_id);
+
+create policy "world_cup_prediction_credits_delete_own" on public.world_cup_prediction_credits
+  for delete using (auth.uid() = user_id);
 
 create policy "world_cup_matches_select_authenticated" on public.world_cup_matches
   for select using (auth.role() = 'authenticated');

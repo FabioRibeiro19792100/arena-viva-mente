@@ -98,21 +98,33 @@ export const MatchCardFrame = ({
       : `flex h-full flex-col overflow-hidden bg-card transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[var(--shadow-card)] ${className}`;
 
   const content = (
-    <div className={`flex h-full flex-col ${surface === "plain" ? "p-0" : "p-5"}`}>
+    <div className={`flex h-full flex-col ${surface === "plain" ? "justify-between p-0" : "p-5"}`}>
       {(topLeft || topRight) && (
-        <div className="flex min-h-10 items-start justify-between gap-3">
-          <div>{topLeft}</div>
-          <div className="flex min-h-8 items-center justify-end gap-2">{topRight}</div>
+        <div
+          className={`flex min-h-10 gap-3 ${
+            surface === "plain" ? "items-center justify-center text-center" : "items-start justify-between"
+          }`}
+        >
+          {topLeft ? <div>{topLeft}</div> : null}
+          {topRight ? (
+            <div
+              className={`flex min-h-8 items-center gap-2 ${
+                surface === "plain" ? "justify-center" : "justify-end"
+              }`}
+            >
+              {topRight}
+            </div>
+          ) : null}
         </div>
       )}
 
-      <div className={`${topLeft || topRight ? "mt-4" : ""} text-left`}>
+      <div className={`${topLeft || topRight ? "mt-4" : ""} ${surface === "plain" ? "text-center" : "text-left"}`}>
         <p className="text-sm font-medium text-muted-foreground">{league}</p>
         <p className="mt-1 text-xs text-muted-foreground">{meta}</p>
       </div>
 
-      <div className="mt-6 min-h-[152px]">
-        <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-start gap-4">
+      <div className={`${surface === "plain" ? "mt-4 flex flex-1 items-center" : "mt-6 min-h-[152px]"}`}>
+        <div className={`grid w-full grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] ${surface === "plain" ? "items-center gap-3" : "items-start gap-4"}`}>
           <div className="flex flex-col items-center text-center">
             <TeamMark src={homeTeamLogo} alt={homeTeam} defined={homeTeamDefined} />
             <p className="mt-3 max-w-full truncate text-sm font-semibold text-foreground sm:text-[0.95rem]">
@@ -120,7 +132,7 @@ export const MatchCardFrame = ({
             </p>
           </div>
 
-          <div className="flex min-h-[110px] min-w-[72px] flex-col items-center justify-center gap-1">
+          <div className={`flex min-w-[72px] flex-col items-center justify-center gap-1 ${surface === "plain" ? "min-h-[96px]" : "min-h-[110px]"}`}>
             {centerContent}
           </div>
 
@@ -133,7 +145,11 @@ export const MatchCardFrame = ({
         </div>
       </div>
 
-      {bottomContent ? <div className="mt-auto pt-4">{bottomContent}</div> : <div className="mt-auto pt-4" />}
+      {bottomContent ? (
+        <div className={surface === "plain" ? "pt-3" : "mt-auto pt-4"}>{bottomContent}</div>
+      ) : (
+        <div className={surface === "plain" ? "pt-3" : "mt-auto pt-4"} />
+      )}
 
       {footerContent ? <div className="flex justify-end pt-1">{footerContent}</div> : null}
     </div>
