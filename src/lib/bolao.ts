@@ -38,6 +38,16 @@ const saveLocalPredictions = (userId: string, predictions: WorldCupPrediction[])
   localStorage.setItem(localPredictionsKey(userId), JSON.stringify(predictions));
 };
 
+const canUseSupabasePredictions = async (userId: string) => {
+  if (!isSupabaseConfigured || !supabase) return false;
+
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  return session?.user?.id === userId;
+};
+
 const getMatchOutcome = (homeScore: number, awayScore: number) => {
   if (homeScore === awayScore) return "draw";
   return homeScore > awayScore ? "home" : "away";
@@ -86,7 +96,7 @@ export const getWorldCupPredictions = async (
 ): Promise<WorldCupPrediction[]> => {
   const legacyAliasMap = buildLegacyAliasMap(matches);
 
-  if (!isSupabaseConfigured || !supabase) {
+  if (!(await canUseSupabasePredictions(userId))) {
     return readLocalPredictions(userId);
   }
 
@@ -125,7 +135,7 @@ export const saveWorldCupPrediction = async (
     updatedAt: new Date().toISOString(),
   };
 
-  if (!isSupabaseConfigured || !supabase) {
+  if (!(await canUseSupabasePredictions(userId))) {
     const current = readLocalPredictions(userId);
     const next = [
       payload,
@@ -175,7 +185,7 @@ export const getWorldCupLeaderboard = async (
       getCurrentMatchStatus(match) === "ended",
   );
 
-  if (!isSupabaseConfigured || !supabase) {
+  if (!currentUser || !(await canUseSupabasePredictions(currentUser.id))) {
     if (!currentUser) return [];
 
     const predictions = readLocalPredictions(currentUser.id);

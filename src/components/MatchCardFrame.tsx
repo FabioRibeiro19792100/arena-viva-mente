@@ -59,6 +59,7 @@ const TeamMark = ({
 
 interface MatchCardFrameProps {
   className?: string;
+  surface?: "card" | "plain";
   topLeft?: ReactNode;
   topRight?: ReactNode;
   league: string;
@@ -76,6 +77,7 @@ interface MatchCardFrameProps {
 
 export const MatchCardFrame = ({
   className = "",
+  surface = "card",
   topLeft,
   topRight,
   league,
@@ -89,11 +91,14 @@ export const MatchCardFrame = ({
   centerContent,
   bottomContent,
   footerContent,
-}: MatchCardFrameProps) => (
-  <Card
-    className={`flex h-full flex-col overflow-hidden bg-card transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[var(--shadow-card)] ${className}`}
-  >
-    <div className="flex h-full flex-col p-5">
+}: MatchCardFrameProps) => {
+  const wrapperClassName =
+    surface === "plain"
+      ? `flex h-full flex-col ${className}`
+      : `flex h-full flex-col overflow-hidden bg-card transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[var(--shadow-card)] ${className}`;
+
+  const content = (
+    <div className={`flex h-full flex-col ${surface === "plain" ? "p-0" : "p-5"}`}>
       {(topLeft || topRight) && (
         <div className="flex min-h-10 items-start justify-between gap-3">
           <div>{topLeft}</div>
@@ -132,7 +137,13 @@ export const MatchCardFrame = ({
 
       {footerContent ? <div className="flex justify-end pt-1">{footerContent}</div> : null}
     </div>
-  </Card>
-);
+  );
+
+  if (surface === "plain") {
+    return <div className={wrapperClassName}>{content}</div>;
+  }
+
+  return <Card className={wrapperClassName}>{content}</Card>;
+};
 
 export { TeamMark };
