@@ -1,38 +1,30 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { CalendarDays, Search, Trophy, Users } from "lucide-react";
 import { Header } from "@/components/Header";
 import { GameCard } from "@/components/GameCard";
 import { Footer } from "@/components/Footer";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CalendarDays, Search, Trophy } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useMockAuth } from "@/contexts/MockAuthContext";
-import {
-  addReservation,
-  getMatchReservationCounts,
-  getProductState,
-  toggleFavoriteMatch,
-} from "@/lib/productState";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { addReservation, getMatchReservationCounts, getProductState, toggleFavoriteMatch } from "@/lib/productState";
 import { useToast } from "@/hooks/use-toast";
-import {
-  fetchMatchesFeed,
-  type ApiFeedStatus,
-  type DisplayMatch,
-  type QuickFilterType,
-} from "@/lib/matchesApi";
-import { fetchWorldCupPoolMatches } from "@/lib/worldCupPoolApi";
+import { fetchWorldCupPoolMatches, type WorldCupPoolMatch } from "@/lib/worldCupPoolApi";
 import { normalizeSearchText } from "@/lib/matchLabels";
-import { upsertRuntimeMatches } from "@/lib/runtimeMatches";
 import { getCurrentMatchStatus } from "@/data/worldCup2026";
+import { useIsMobile } from "@/hooks/use-mobile";
+
+type QuickFilterType = "all" | "live" | "soon";
+
+const MOBILE_BANCADA_INTRO_KEY = "arena.mobile.bancada-intro.seen";
 
 const Index = () => {
-  const worldCupShortcutLeague = "__world_cup__";
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { toast } = useToast();
   const { user } = useMockAuth();
-  const [selectedSport, setSelectedSport] = useState("all");
-  const [selectedLeague, setSelectedLeague] = useState("all");
+  const isMobile = useIsMobile();
   const [searchQuery, setSearchQuery] = useState("");
   const [quickFilter, setQuickFilter] = useState<QuickFilterType>("all");
   const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
@@ -40,17 +32,16 @@ const Index = () => {
   const [reservationCounts, setReservationCounts] = useState<Record<string, number>>({});
   const [isSyncingFeed, setIsSyncingFeed] = useState(false);
   const [syncTick, setSyncTick] = useState(0);
-  const [apiFeedStatus, setApiFeedStatus] = useState<ApiFeedStatus>({
-    football: "ok",
-    nba: "ok",
-    volleyball: "ok",
-  });
-  const [feedMatches, setFeedMatches] = useState<DisplayMatch[]>([]);
-  const [feedTodayMatches, setFeedTodayMatches] = useState<DisplayMatch[]>([]);
-  const [worldCupMatches, setWorldCupMatches] = useState<DisplayMatch[]>([]);
+  const [worldCupMatches, setWorldCupMatches] = useState<WorldCupPoolMatch[]>([]);
+  const [showBancadaIntro, setShowBancadaIntro] = useState(false);
+  const [mobileView, setMobileView] = useState<"chooser" | "feed">("chooser");
   const isLocalhost =
     typeof window !== "undefined" &&
     (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
+
+  useEffect(() => {
+    setMobileView(isMobile ? "chooser" : "feed");
+  }, [isMobile]);
 
   useEffect(() => {
     const quick = searchParams.get("quick");
@@ -67,6 +58,7 @@ const Index = () => {
       setReservedIds([]);
       return;
     }
+
     void (async () => {
       const state = await getProductState(user.id);
       setFavoriteIds(state.favorites);
@@ -75,7 +67,43 @@ const Index = () => {
   }, [user]);
 
   useEffect(() => {
-    const visibleIds = [...feedTodayMatches, ...feedMatches].map((match) => match.id);
+    let isActive = true;
+
+    void (async () => {
+      const matches = await fetchWorldCupPoolMatches().catch(() => []);
+      if (!isActive) return;
+      setWorldCupMatches(matches);
+    })();
+
+    return () => {
+      isActive = false;
+    };
+  }, [syncTick]);
+
+  const normalizedSearch = useMemo(() => normalizeSearchText(searchQuery), [searchQuery]);
+
+  const filteredMatches = useMemo(() => {
+    const quickMatches = worldCupMatches.filter((match) => {
+      const status = getCurrentMatchStatus(match);
+      if (quickFilter === "live") return status === "live";
+      if (quickFilter === "soon") return status === "scheduled";
+      return true;
+    });
+
+    if (!normalizedSearch) {
+      return quickMatches;
+    }
+
+    return quickMatches.filter((match) => {
+      const searchableText = normalizeSearchText(
+        [match.homeTeam, match.awayTeam, match.league, match.stage, match.venue, match.date].join(" "),
+      );
+      return searchableText.includes(normalizedSearch);
+    });
+  }, [normalizedSearch, quickFilter, worldCupMatches]);
+
+  useEffect(() => {
+    const visibleIds = filteredMatches.map((match) => match.id);
     if (visibleIds.length === 0) {
       setReservationCounts({});
       return;
@@ -93,269 +121,14 @@ const Index = () => {
     return () => {
       isActive = false;
     };
-  }, [feedMatches, feedTodayMatches]);
-
-  useEffect(() => {
-    let isActive = true;
-
-    void (async () => {
-      try {
-        const [payload, worldCupPool] = await Promise.all([
-          fetchMatchesFeed({
-            sport: "all",
-            quick: "all",
-            search: "",
-          }),
-          fetchWorldCupPoolMatches().catch(() => []),
-        ]);
-
-        if (!isActive) return;
-
-        const nextMatches = Array.isArray(payload?.matches) ? payload.matches : [];
-        const nextTodayMatches = Array.isArray(payload?.todayMatches) ? payload.todayMatches : [];
-
-        setFeedMatches(nextMatches);
-        setFeedTodayMatches(nextTodayMatches);
-        setWorldCupMatches(worldCupPool as DisplayMatch[]);
-        upsertRuntimeMatches([...nextMatches, ...nextTodayMatches]);
-
-        if (payload?.apiFeedStatus) {
-          setApiFeedStatus(payload.apiFeedStatus as ApiFeedStatus);
-        }
-      } catch {
-        if (isActive) {
-          setApiFeedStatus({
-            football: "offline",
-            nba: "offline",
-            volleyball: "offline",
-          });
-        }
-      }
-    })();
-
-    return () => {
-      isActive = false;
-    };
-  }, [syncTick]);
-
-  const isWorldCupLeague = (league: string) => {
-    const normalizedLeague = normalizeSearchText(league);
-    return normalizedLeague.includes("world cup") || normalizedLeague.includes("copa do mundo");
-  };
-
-  const leaguePriority = (league: string) => {
-    if (isWorldCupLeague(league)) return 0;
-    if (league === "NBA") return 1;
-    if (/nations league/i.test(league)) return 2;
-    return 10;
-  };
-
-  const groupMatchesByLeague = (items: DisplayMatch[]) =>
-    Array.from(
-      items.reduce((groups, match) => {
-        const current = groups.get(match.league) || [];
-        current.push(match);
-        groups.set(match.league, current);
-        return groups;
-      }, new Map<string, DisplayMatch[]>()),
-    ).sort(([leagueA], [leagueB]) => {
-      const priorityDelta = leaguePriority(leagueA) - leaguePriority(leagueB);
-      if (priorityDelta !== 0) return priorityDelta;
-      return leagueA.localeCompare(leagueB, "pt-BR");
-    });
-
-  const canonicalWorldCupMatches = useMemo(
-    () =>
-      worldCupMatches.map((match) => ({
-        ...match,
-        sport: "futebol",
-      })),
-    [worldCupMatches],
-  );
-
-  const canonicalFeedTodayMatches = useMemo(
-    () => feedTodayMatches.filter((match) => !isWorldCupLeague(match.league)),
-    [feedTodayMatches],
-  );
-
-  const canonicalFeedMatches = useMemo(
-    () => feedMatches.filter((match) => !isWorldCupLeague(match.league)),
-    [feedMatches],
-  );
-
-  const allMatches = useMemo(
-    () => [...canonicalWorldCupMatches, ...canonicalFeedTodayMatches, ...canonicalFeedMatches],
-    [canonicalFeedMatches, canonicalFeedTodayMatches, canonicalWorldCupMatches],
-  );
-  const availableLeagues = useMemo(
-    () =>
-      Array.from(
-        new Set(
-          allMatches
-            .filter((match) => selectedSport === "all" || match.sport === selectedSport)
-            .map((match) => match.league),
-        ),
-      ).sort((a, b) => a.localeCompare(b, "pt-BR")),
-    [allMatches, selectedSport],
-  );
-
-  const normalizedSearch = useMemo(() => normalizeSearchText(searchQuery), [searchQuery]);
-
-  const todayMatchIds = useMemo(
-    () => new Set(canonicalFeedTodayMatches.map((match) => match.id)),
-    [canonicalFeedTodayMatches],
-  );
-  const worldCupMatchIds = useMemo(
-    () => new Set(canonicalWorldCupMatches.map((match) => match.id)),
-    [canonicalWorldCupMatches],
-  );
-
-  const quickFilteredMatches = useMemo(() => {
-    if (selectedLeague === worldCupShortcutLeague) {
-      if (quickFilter === "live") {
-        return canonicalWorldCupMatches.filter((match) => getCurrentMatchStatus(match) === "live");
-      }
-
-      if (quickFilter === "soon") {
-        return canonicalWorldCupMatches.filter((match) => getCurrentMatchStatus(match) === "scheduled");
-      }
-
-      return canonicalWorldCupMatches;
-    }
-
-    if (quickFilter === "live") {
-      return [
-        ...canonicalWorldCupMatches.filter((match) => getCurrentMatchStatus(match) === "live"),
-        ...canonicalFeedTodayMatches.filter((match) => match.status === "live"),
-      ];
-    }
-
-    if (quickFilter === "soon") {
-      return [
-        ...canonicalWorldCupMatches.filter((match) => getCurrentMatchStatus(match) === "scheduled"),
-        ...canonicalFeedTodayMatches.filter((match) => match.status === "scheduled"),
-      ];
-    }
-
-    return [...canonicalWorldCupMatches, ...canonicalFeedTodayMatches, ...canonicalFeedMatches];
-  }, [
-    canonicalFeedMatches,
-    canonicalFeedTodayMatches,
-    canonicalWorldCupMatches,
-    quickFilter,
-    selectedLeague,
-  ]);
-
-  const fullyFilteredMatches = useMemo(
-    () =>
-      quickFilteredMatches.filter((match) => {
-        if (selectedSport !== "all" && match.sport !== selectedSport) {
-          return false;
-        }
-
-        if (
-          selectedLeague === worldCupShortcutLeague &&
-          !isWorldCupLeague(match.league)
-        ) {
-          return false;
-        }
-
-        if (
-          selectedLeague !== "all" &&
-          selectedLeague !== worldCupShortcutLeague &&
-          match.league !== selectedLeague
-        ) {
-          return false;
-        }
-
-        if (!normalizedSearch) {
-          return true;
-        }
-
-        const searchableText = normalizeSearchText(
-          [match.homeTeam, match.awayTeam, match.league, match.stage, match.venue, match.date].join(" "),
-        );
-
-        return searchableText.includes(normalizedSearch);
-      }),
-    [normalizedSearch, quickFilteredMatches, selectedLeague, selectedSport],
-  );
-
-  const filteredTodayMatches = useMemo(
-    () =>
-      selectedLeague === worldCupShortcutLeague
-        ? fullyFilteredMatches
-        : quickFilter === "all"
-          ? fullyFilteredMatches.filter((match) => todayMatchIds.has(match.id))
-          : fullyFilteredMatches,
-    [fullyFilteredMatches, quickFilter, selectedLeague, todayMatchIds],
-  );
-  const filteredMatches = useMemo(
-    () =>
-      selectedLeague === worldCupShortcutLeague
-        ? []
-        : quickFilter === "all"
-          ? fullyFilteredMatches.filter((match) => !todayMatchIds.has(match.id) && !worldCupMatchIds.has(match.id))
-          : [],
-    [fullyFilteredMatches, quickFilter, selectedLeague, todayMatchIds, worldCupMatchIds],
-  );
-  const groupedVisibleMatches = useMemo(
-    () => groupMatchesByLeague([...filteredTodayMatches, ...filteredMatches]),
-    [filteredTodayMatches, filteredMatches],
-  );
-  const totalVisibleMatches = filteredTodayMatches.length + filteredMatches.length;
-  const apiStatusLabel = (() => {
-    if (
-      apiFeedStatus.football === "ok" &&
-      apiFeedStatus.nba === "ok" &&
-      apiFeedStatus.volleyball === "ok"
-    ) {
-      return null;
-    }
-
-    const parts: string[] = [];
-    if (apiFeedStatus.football !== "ok") {
-      parts.push(
-        apiFeedStatus.football === "partial"
-          ? "Futebol parcial"
-          : apiFeedStatus.football === "plan"
-            ? "Futebol indisponível no plano"
-            : apiFeedStatus.football === "suspended"
-              ? "Futebol suspenso"
-            : "Futebol offline",
-      );
-    }
-    if (apiFeedStatus.nba !== "ok") {
-      parts.push(
-        apiFeedStatus.nba === "partial"
-          ? "NBA parcial"
-          : apiFeedStatus.nba === "limit"
-            ? "NBA no limite diário"
-            : apiFeedStatus.nba === "suspended"
-              ? "NBA suspensa"
-            : "NBA offline",
-      );
-    }
-    if (apiFeedStatus.volleyball !== "ok") {
-      parts.push(
-        apiFeedStatus.volleyball === "partial"
-          ? "Vôlei parcial"
-          : apiFeedStatus.volleyball === "limit"
-            ? "Vôlei no limite diário"
-            : apiFeedStatus.volleyball === "suspended"
-              ? "Vôlei suspenso"
-            : "Vôlei offline",
-      );
-    }
-
-    return parts.join(" • ");
-  })();
+  }, [filteredMatches]);
 
   const handleToggleFavorite = (matchId: string) => {
     if (!user) {
       navigate("/login");
       return;
     }
+
     void (async () => {
       await toggleFavoriteMatch(user.id, matchId);
       const state = await getProductState(user.id);
@@ -375,11 +148,9 @@ const Index = () => {
       const state = await getProductState(user.id);
       setFavoriteIds(state.favorites);
       setReservedIds(state.reservations.map((reservation) => reservation.matchId));
-      setReservationCounts(
-        await getMatchReservationCounts([...feedTodayMatches, ...feedMatches].map((item) => item.id)),
-      );
+      setReservationCounts(await getMatchReservationCounts(worldCupMatches.map((item) => item.id)));
 
-      const match = [...feedTodayMatches, ...feedMatches].find((item) => item.id === matchId);
+      const match = worldCupMatches.find((item) => item.id === matchId);
       toast({
         title: "Sala reservada",
         description: match
@@ -389,22 +160,30 @@ const Index = () => {
     })();
   };
 
-  const hasActiveFilters =
-    selectedSport !== "all" ||
-    selectedLeague !== "all" ||
-    quickFilter !== "all" ||
-    searchQuery !== "";
-
-  const activeFilterCount = [
-    selectedSport !== "all",
-    selectedLeague !== "all",
-    quickFilter !== "all",
-    searchQuery.trim() !== "",
-  ].filter(Boolean).length;
+  const handleManualSync = async () => {
+    try {
+      setIsSyncingFeed(true);
+      const response = await fetch("/api/jobs/sync-world-cup-scores");
+      if (!response.ok) {
+        throw new Error("sync_failed");
+      }
+      setSyncTick((value) => value + 1);
+      toast({
+        title: "Agenda sincronizada",
+        description: "Os placares e status mais recentes foram atualizados.",
+      });
+    } catch {
+      toast({
+        title: "Não foi possível sincronizar",
+        description: "Tenta de novo em alguns instantes.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSyncingFeed(false);
+    }
+  };
 
   const resetFilters = () => {
-    setSelectedSport("all");
-    setSelectedLeague("all");
     setQuickFilter("all");
     setSearchQuery("");
     setSearchParams((current) => {
@@ -426,96 +205,174 @@ const Index = () => {
     });
   };
 
-  const toggleWorldCupShortcut = () => {
-    const isActive = selectedSport === "futebol" && selectedLeague === worldCupShortcutLeague;
-
-    if (isActive) {
-      setSelectedSport("all");
-      setSelectedLeague("all");
+  const openBancada = () => {
+    if (!isMobile) {
+      setMobileView("feed");
       return;
     }
 
-    setSelectedSport("futebol");
-    setSelectedLeague(worldCupShortcutLeague);
+    const alreadySawIntro =
+      typeof window !== "undefined" && window.localStorage.getItem(MOBILE_BANCADA_INTRO_KEY) === "1";
+
+    if (alreadySawIntro) {
+      setMobileView("feed");
+      return;
+    }
+
+    setShowBancadaIntro(true);
   };
 
-  const handleManualSync = async () => {
-    try {
-      setIsSyncingFeed(true);
-      const response = await fetch("/api/jobs/sync-matches?mode=live");
-      if (!response.ok) {
-        throw new Error("sync_failed");
-      }
-      setSyncTick((value) => value + 1);
-      toast({
-        title: "Ao vivo sincronizado",
-        description: "Os jogos ao vivo foram atualizados com os dados mais recentes do servidor.",
-      });
-    } catch {
-      toast({
-        title: "Não foi possível sincronizar",
-        description: "Tenta de novo em alguns instantes.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsSyncingFeed(false);
+  const confirmBancadaIntro = () => {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(MOBILE_BANCADA_INTRO_KEY, "1");
     }
+    setShowBancadaIntro(false);
+    setMobileView("feed");
   };
 
-  const getChipLabel = (type: "sport" | "league" | "team" | "date") => {
-    if (type === "sport") {
-      if (selectedSport === "all") return "Esporte";
-      if (selectedSport === "futebol") return "Futebol";
-      if (selectedSport === "basquete") return "Basquete";
-      return "Vôlei";
-    }
-
-    if (type === "league") {
-      if (selectedLeague === "all") return "Campeonato";
-      if (selectedLeague === worldCupShortcutLeague) return "World Cup";
-      return selectedLeague;
-    }
-
-    return "Esporte";
-  };
-
-  useEffect(() => {
-    if (
-      selectedLeague !== "all" &&
-      selectedLeague !== worldCupShortcutLeague &&
-      !availableLeagues.includes(selectedLeague)
-    ) {
-      setSelectedLeague("all");
-    }
-  }, [availableLeagues, selectedLeague, worldCupShortcutLeague]);
+  const chooserVisible = isMobile && mobileView === "chooser";
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="flex min-h-screen flex-col bg-background text-foreground">
       <Header />
 
-      <section className="relative py-6 md:py-8">
-        <div className="container px-6">
-          <div className="md:hidden sticky top-20 z-30 -mx-6 mb-5 border-b border-border/80 bg-background/92 px-6 py-3 backdrop-blur-xl">
-            <div className="space-y-3">
-              {user && (
+      <Dialog open={showBancadaIntro} onOpenChange={setShowBancadaIntro}>
+        <DialogContent className="border-border bg-card sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Como funciona a Bancada</DialogTitle>
+            <DialogDescription>
+              Reserve a sala antes do jogo, entre no pre-jogo quando abrir e acompanhe ao vivo e resumo no mesmo fluxo.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 text-sm text-muted-foreground">
+            <p>Os jogos abrem com antecedência para a torcida se organizar.</p>
+            <p>Depois você acompanha a conversa da sala, o ao vivo e o pós-jogo sem sair do caminho principal.</p>
+          </div>
+          <DialogFooter>
+            <Button onClick={confirmBancadaIntro} className="w-full sm:w-auto">
+              Entrar na Bancada
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <main className="flex-1">
+      {chooserVisible ? (
+        <section className="py-10">
+          <div className="container px-6">
+            <div className="mx-auto max-w-lg space-y-8">
+              <div className="space-y-3 text-left">
+                <h1 className="max-w-md text-3xl font-semibold leading-tight text-foreground">
+                  Comente os jogos em tempo real e banque o especialista
+                </h1>
+                <p className="text-base text-muted-foreground">
+                  Escolha como quer entrar agora.
+                </p>
+              </div>
+
+              <div className="space-y-4">
+                <button
+                  type="button"
+                  onClick={openBancada}
+                  className="w-full border border-border/80 bg-card px-5 py-5 text-left transition-colors hover:bg-muted/30"
+                >
+                  <div className="flex min-h-[112px] items-start gap-4">
+                    <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center border border-border bg-background text-foreground">
+                      <Users className="h-5 w-5" />
+                    </span>
+                    <div className="space-y-1">
+                      <h2 className="text-xl font-semibold text-foreground">Bancada</h2>
+                      <p className="text-sm text-muted-foreground">Um estádio virtual para escolher seu lado, entrar no clima da torcida e comentar ao vivo.</p>
+                    </div>
+                  </div>
+                </button>
+
                 <button
                   type="button"
                   onClick={() => navigate("/bolao")}
-                  className="inline-flex items-center gap-2 py-1 text-sm font-semibold text-foreground transition-colors hover:text-foreground"
+                  className="w-full border border-border/80 bg-card px-5 py-5 text-left transition-colors hover:bg-muted/30"
                 >
-                  <Trophy className="h-4 w-4" />
-                  Bolão da Copa
+                  <div className="flex min-h-[112px] items-start gap-4">
+                    <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center border border-border bg-background text-foreground">
+                      <Trophy className="h-5 w-5" />
+                    </span>
+                    <div className="space-y-1">
+                      <h2 className="text-xl font-semibold text-foreground">Bolão</h2>
+                      <p className="text-sm text-muted-foreground">Dê seus palpites, acompanhe o resultado real e dispute posição no ranking.</p>
+                    </div>
+                  </div>
                 </button>
-              )}
+              </div>
+            </div>
+          </div>
+        </section>
+      ) : (
+        <section className="relative py-6 md:py-8">
+          <div className="container px-6">
+            {isMobile && (
+              <div className="sticky top-20 z-30 -mx-6 mb-5 border-b border-border/80 bg-background/92 px-6 py-3 backdrop-blur-xl">
+                <div className="space-y-3">
+                  <button
+                    type="button"
+                    onClick={() => navigate("/bolao")}
+                    className="inline-flex items-center gap-2 py-1 text-base font-semibold text-foreground transition-colors hover:text-foreground"
+                  >
+                    <Trophy className="h-4 w-4" />
+                    Bolão
+                  </button>
 
+                  <div className="flex flex-wrap items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={resetFilters}
+                      className={`inline-flex items-center gap-2 text-sm underline underline-offset-4 transition-colors ${
+                        quickFilter === "all" ? "font-semibold text-foreground" : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      Todos
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => toggleQuickFilter("live")}
+                      className={`inline-flex items-center gap-2 text-sm underline underline-offset-4 transition-colors ${
+                        quickFilter === "live" ? "font-semibold text-foreground" : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                      Ao vivo agora
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => toggleQuickFilter("soon")}
+                      className={`inline-flex items-center gap-2 text-sm underline underline-offset-4 transition-colors ${
+                        quickFilter === "soon" ? "font-semibold text-foreground" : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      <span className="h-2 w-2 rounded-full bg-amber-500" />
+                      Em breve
+                    </button>
+                  </div>
+
+                  <div className="relative min-w-0">
+                    <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Buscar jogos, seleções ou fase"
+                      className="h-10 border-border bg-card pl-11 placeholder:text-muted-foreground"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="hidden md:block mb-8 space-y-5">
               <div className="flex flex-wrap items-center gap-3">
                 <button
                   type="button"
                   onClick={resetFilters}
                   className={`inline-flex items-center gap-2 text-sm underline underline-offset-4 transition-colors ${
-                    quickFilter === "all"
-                      ? "font-semibold text-foreground"
-                      : "text-muted-foreground hover:text-foreground"
+                    quickFilter === "all" ? "font-semibold text-foreground" : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
                   Todos
@@ -524,9 +381,7 @@ const Index = () => {
                   type="button"
                   onClick={() => toggleQuickFilter("live")}
                   className={`inline-flex items-center gap-2 text-sm underline underline-offset-4 transition-colors ${
-                    quickFilter === "live"
-                      ? "font-semibold text-foreground"
-                      : "text-muted-foreground hover:text-foreground"
+                    quickFilter === "live" ? "font-semibold text-foreground" : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
                   <span className="h-2 w-2 rounded-full bg-emerald-500" />
@@ -536,53 +391,12 @@ const Index = () => {
                   type="button"
                   onClick={() => toggleQuickFilter("soon")}
                   className={`inline-flex items-center gap-2 text-sm underline underline-offset-4 transition-colors ${
-                    quickFilter === "soon"
-                      ? "font-semibold text-foreground"
-                      : "text-muted-foreground hover:text-foreground"
+                    quickFilter === "soon" ? "font-semibold text-foreground" : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
                   <span className="h-2 w-2 rounded-full bg-amber-500" />
                   Em breve
                 </button>
-                <button
-                  type="button"
-                  onClick={toggleWorldCupShortcut}
-                  className={`inline-flex items-center gap-2 text-sm underline underline-offset-4 transition-colors ${
-                    selectedSport === "futebol" && selectedLeague === worldCupShortcutLeague
-                      ? "font-semibold text-foreground"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  Copa do Mundo
-                </button>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <Select value={selectedSport} onValueChange={setSelectedSport}>
-                  <SelectTrigger className="h-10 w-full border-border bg-card text-xs">
-                    <SelectValue>{getChipLabel("sport")}</SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos esportes</SelectItem>
-                    <SelectItem value="futebol">Futebol</SelectItem>
-                    <SelectItem value="basquete">Basquete</SelectItem>
-                    <SelectItem value="volei">Vôlei</SelectItem>
-                  </SelectContent>
-                </Select>
-
-                <Select value={selectedLeague === worldCupShortcutLeague ? "all" : selectedLeague} onValueChange={setSelectedLeague}>
-                  <SelectTrigger className="h-10 w-full border-border bg-card text-xs">
-                    <SelectValue>{getChipLabel("league")}</SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos campeonatos</SelectItem>
-                    {availableLeagues.map((league) => (
-                      <SelectItem key={league} value={league}>
-                        {league}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
               </div>
 
               <div className="relative min-w-0">
@@ -590,118 +404,19 @@ const Index = () => {
                 <Input
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Buscar o que você quiser"
-                  className="h-10 border-border bg-card pl-11 placeholder:text-muted-foreground"
+                  placeholder="Buscar jogos, seleções ou fase"
+                  className="h-11 border-border bg-card pl-11 placeholder:text-muted-foreground"
                 />
               </div>
             </div>
-          </div>
 
-          <div className="hidden md:flex mb-6 flex-wrap items-center gap-3">
-            <button
-              type="button"
-              onClick={resetFilters}
-              className={`inline-flex items-center gap-2 text-sm underline underline-offset-4 transition-colors ${
-                quickFilter === "all"
-                  ? "font-semibold text-foreground"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              Todos
-            </button>
-            <button
-              type="button"
-              onClick={() => toggleQuickFilter("live")}
-              className={`inline-flex items-center gap-2 text-sm underline underline-offset-4 transition-colors ${
-                quickFilter === "live"
-                  ? "font-semibold text-foreground"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <span className="h-2 w-2 rounded-full bg-emerald-500" />
-              Ao vivo agora
-            </button>
-            <button
-              type="button"
-              onClick={() => toggleQuickFilter("soon")}
-              className={`inline-flex items-center gap-2 text-sm underline underline-offset-4 transition-colors ${
-                quickFilter === "soon"
-                  ? "font-semibold text-foreground"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <span className="h-2 w-2 rounded-full bg-amber-500" />
-              Em breve
-            </button>
-            <button
-              type="button"
-              onClick={toggleWorldCupShortcut}
-              className={`inline-flex items-center gap-2 text-sm underline underline-offset-4 transition-colors ${
-                selectedSport === "futebol" && selectedLeague === worldCupShortcutLeague
-                  ? "font-semibold text-foreground"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              Copa do Mundo
-            </button>
-          </div>
-
-          <div className="hidden md:block mb-8">
-            <div className="space-y-3">
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch">
-                <Select value={selectedSport} onValueChange={setSelectedSport}>
-                  <SelectTrigger className="h-11 w-full shrink-0 border-border bg-card text-xs sm:w-[152px]">
-                    <SelectValue>{getChipLabel("sport")}</SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos esportes</SelectItem>
-                    <SelectItem value="futebol">Futebol</SelectItem>
-                    <SelectItem value="basquete">Basquete</SelectItem>
-                    <SelectItem value="volei">Vôlei</SelectItem>
-                  </SelectContent>
-                </Select>
-
-                <Select value={selectedLeague === worldCupShortcutLeague ? "all" : selectedLeague} onValueChange={setSelectedLeague}>
-                  <SelectTrigger className="h-11 w-full shrink-0 border-border bg-card text-xs sm:w-[220px]">
-                    <SelectValue>{getChipLabel("league")}</SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos campeonatos</SelectItem>
-                    {availableLeagues.map((league) => (
-                      <SelectItem key={league} value={league}>
-                        {league}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-
-                <div className="relative min-w-0 flex-1">
-                  <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Buscar o que você quiser"
-                    className="h-11 border-border bg-card pl-11 placeholder:text-muted-foreground"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div>
+            <div>
               <div className="mb-6 md:mb-10 flex flex-wrap items-center justify-between gap-4">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <CalendarDays className="h-4 w-4" />
-                    <span>
-                      {totalVisibleMatches} {totalVisibleMatches === 1 ? "evento encontrado" : "eventos encontrados"}
-                    </span>
-                  </div>
-                  {apiStatusLabel && (
-                    <p className="text-xs text-muted-foreground">
-                      {apiStatusLabel}
-                    </p>
-                  )}
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <CalendarDays className="h-4 w-4" />
+                  <span>
+                    {filteredMatches.length} {filteredMatches.length === 1 ? "jogo encontrado" : "jogos encontrados"}
+                  </span>
                 </div>
 
                 <div className="flex items-center gap-4">
@@ -715,51 +430,37 @@ const Index = () => {
                       {isSyncingFeed ? "Sincronizando..." : "Sincronizar agora"}
                     </button>
                   )}
-
-                  {hasActiveFilters && (
-                    <button
-                      onClick={resetFilters}
-                      className="text-sm text-muted-foreground transition-colors hover:text-foreground"
-                    >
-                      Limpar filtros
-                    </button>
-                  )}
                 </div>
               </div>
 
-              {totalVisibleMatches === 0 ? (
+              {filteredMatches.length === 0 ? (
                 <div className="rounded-2xl border border-border bg-card p-10 text-center text-muted-foreground shadow-[var(--shadow-card)]">
-                  Nenhum evento encontrado com os filtros atuais.
+                  Nenhum jogo foi encontrado com os filtros atuais.
                 </div>
               ) : (
-                <div className="space-y-12">
-                  {groupedVisibleMatches.map(([league, leagueMatches]) => (
-                    <section key={league} className="space-y-5">
-                      <div className="space-y-1">
-                        <h2 className="text-2xl font-semibold text-foreground">{league}</h2>
-                      </div>
-                      <div className="grid grid-cols-1 gap-8 md:grid-cols-2 xl:grid-cols-4">
-                        {leagueMatches.map((game) => (
-                          <GameCard
-                            key={game.id}
-                            {...game}
-                            startTime={game.startTime}
-                            hasRoom={true}
-                            isFavorite={favoriteIds.includes(game.id)}
-                            isReserved={reservedIds.includes(game.id)}
-                            reservationCount={reservationCounts[game.id] || 0}
-                            onToggleFavorite={handleToggleFavorite}
-                            onReserveMatch={handleReserveMatch}
-                          />
-                        ))}
-                      </div>
-                    </section>
-                  ))}
+                <div className="space-y-5">
+                  <div className="grid grid-cols-1 gap-8 md:grid-cols-2 xl:grid-cols-4">
+                    {filteredMatches.map((game) => (
+                      <GameCard
+                        key={game.id}
+                        {...game}
+                        startTime={game.startTime}
+                        hasRoom={true}
+                        isFavorite={favoriteIds.includes(game.id)}
+                        isReserved={reservedIds.includes(game.id)}
+                        reservationCount={reservationCounts[game.id] || 0}
+                        onToggleFavorite={handleToggleFavorite}
+                        onReserveMatch={handleReserveMatch}
+                      />
+                    ))}
+                  </div>
                 </div>
               )}
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
+      </main>
 
       <Footer />
     </div>

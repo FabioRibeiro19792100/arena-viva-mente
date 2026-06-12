@@ -19,9 +19,9 @@ import {
   scoreWorldCupPrediction,
   type WorldCupPrediction,
 } from "@/lib/bolao";
-import { isApiSportsMediaUrl, toProxiedAssetUrl } from "@/lib/media";
 import { fetchWorldCupPoolMatches, type WorldCupPoolMatch } from "@/lib/worldCupPoolApi";
 import { useToast } from "@/hooks/use-toast";
+import { MatchCardFrame } from "@/components/MatchCardFrame";
 
 const toInitialValues = (predictions: WorldCupPrediction[]) =>
   predictions.reduce<Record<string, { home: string; away: string }>>((acc, prediction) => {
@@ -32,35 +32,6 @@ const toInitialValues = (predictions: WorldCupPrediction[]) =>
     return acc;
   }, {});
 
-const TeamMark = ({ name, logo }: { name: string; logo: string }) => {
-  const [currentSrc, setCurrentSrc] = useState(() => toProxiedAssetUrl(logo));
-
-  return (
-    <div className="flex h-16 w-16 shrink-0 items-center justify-center sm:h-20 sm:w-20">
-      <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white ring-1 ring-border/70 sm:h-14 sm:w-14">
-        {currentSrc ? (
-          <img
-            src={currentSrc}
-            alt={name}
-            className="h-full w-full object-cover"
-            loading="lazy"
-            referrerPolicy="no-referrer"
-            onError={() => {
-              if (isApiSportsMediaUrl(logo) && currentSrc !== logo) {
-                setCurrentSrc(logo);
-                return;
-              }
-              setCurrentSrc("");
-            }}
-          />
-        ) : (
-          <span className="text-sm font-semibold text-foreground">{name.slice(0, 2).toUpperCase()}</span>
-        )}
-      </div>
-    </div>
-  );
-};
-
 const statusLabelByMatchStatus = (status: ReturnType<typeof getCurrentMatchStatus>) => {
   if (status === "live") return "Jogo ao vivo";
   if (status === "ended") return "Encerrado";
@@ -69,6 +40,34 @@ const statusLabelByMatchStatus = (status: ReturnType<typeof getCurrentMatchStatu
 
 const hasOfficialScore = (match: WorldCupPoolMatch) =>
   typeof match.homeScore === "number" && typeof match.awayScore === "number";
+
+const getPredictionFeedback = (points: number | null) => {
+  if (points === 5) {
+    return {
+      label: "Cravou o placar",
+      className: "text-emerald-600",
+    };
+  }
+
+  if (points === 3) {
+    return {
+      label: "Acertou o resultado",
+      className: "text-sky-600",
+    };
+  }
+
+  if (points === 0) {
+    return {
+      label: "Errou o palpite",
+      className: "text-rose-600",
+    };
+  }
+
+  return {
+    label: "Palpite salvo",
+    className: "text-muted-foreground",
+  };
+};
 
 const Bolao = () => {
   const { user } = useMockAuth();
@@ -230,7 +229,7 @@ const Bolao = () => {
         <div className="container px-6">
           <div className="mb-8 space-y-3">
             <h1 className="text-3xl font-semibold text-foreground md:text-4xl">
-              Bolão da Copa
+              Bolão
             </h1>
           </div>
 
@@ -324,17 +323,17 @@ const Bolao = () => {
               {isLoading ? (
                 <Card className="border-border/80 shadow-[var(--shadow-card)]">
                   <CardContent className="p-8 text-sm text-muted-foreground">
-                    Carregando bolão da Copa...
+                    Carregando bolão...
                   </CardContent>
                 </Card>
               ) : matches.length === 0 ? (
                 <Card className="border-border/80 shadow-[var(--shadow-card)]">
                   <CardContent className="space-y-2 p-8">
                     <p className="text-sm font-medium text-foreground">
-                      A fase de grupos da Copa ainda não apareceu na base do bolão.
+                      Os jogos do bolão ainda não apareceram na base.
                     </p>
                     <p className="text-sm text-muted-foreground">
-                      Assim que a tabela própria da Copa estiver semeada no ambiente e o sync rodar, os jogos entram aqui.
+                      Assim que a tabela do bolão estiver pronta no ambiente e o sync rodar, os jogos entram aqui.
                     </p>
                   </CardContent>
                 </Card>
@@ -353,84 +352,93 @@ const Bolao = () => {
                         const currentStatus = getCurrentMatchStatus(match);
                         const savedPrediction = predictionsByMatchId[match.id];
                         const points = scoreWorldCupPrediction(match, savedPrediction);
+                        const predictionFeedback = getPredictionFeedback(points);
                         const values = formValues[match.id] || { home: "", away: "" };
                         const isLocked = currentStatus !== "scheduled";
                         const showOfficialScore = hasOfficialScore(match);
 
                         return (
-                          <Card
+                          <MatchCardFrame
                             key={match.id}
-                            className="overflow-hidden border-border/80 bg-card shadow-[var(--shadow-card)]"
-                          >
-                            <CardContent className="flex flex-col gap-5 p-5">
-                              <div className="flex flex-wrap items-start justify-between gap-3">
-                                <div className="space-y-1">
-                                  <p className="text-sm font-medium text-foreground">{match.league}</p>
-                                  <p className="text-xs text-muted-foreground">
-                                    {match.date} • {formatBrasiliaTime(match.startTime)}
-                                  </p>
-                                </div>
-
-                                <div className="flex items-center gap-2">
-                                  <Badge variant="outline" className="border-border bg-muted/45 text-foreground">
-                                    {statusLabelByMatchStatus(currentStatus)}
+                            className="border-border/80 shadow-[var(--shadow-card)]"
+                            topRight={
+                              <div className="flex items-center gap-2">
+                                <Badge variant="outline" className="border-border bg-muted/45 text-foreground">
+                                  {statusLabelByMatchStatus(currentStatus)}
+                                </Badge>
+                                {points !== null && (
+                                  <Badge className="bg-foreground text-background hover:bg-foreground">
+                                    {points} pts
                                   </Badge>
-                                  {points !== null && (
-                                    <Badge className="bg-foreground text-background hover:bg-foreground">
-                                      {points} pts
-                                    </Badge>
+                                )}
+                              </div>
+                            }
+                            league={match.league}
+                            meta={`${match.date} • ${formatBrasiliaTime(match.startTime)}`}
+                            homeTeam={match.homeTeam}
+                            awayTeam={match.awayTeam}
+                            homeTeamLogo={match.homeTeamLogo}
+                            awayTeamLogo={match.awayTeamLogo}
+                            centerContent={
+                              isLocked && showOfficialScore ? (
+                                <div className="space-y-2 text-center">
+                                  <div>
+                                    <p className="text-xl font-semibold tracking-[0.12em] text-muted-foreground">
+                                      {match.homeScore} - {match.awayScore}
+                                    </p>
+                                    <span className="text-xs font-medium text-muted-foreground">Placar oficial</span>
+                                  </div>
+                                  {savedPrediction ? (
+                                    <div className={`text-xs font-medium ${predictionFeedback.className}`}>
+                                      <div>
+                                        Seu palpite: {savedPrediction.predictedHomeScore} x {savedPrediction.predictedAwayScore}
+                                      </div>
+                                      <div>
+                                        {predictionFeedback.label}
+                                        {points !== null ? ` • ${points} pontos` : ""}
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <span className="text-xs font-medium text-muted-foreground">Encerrado</span>
                                   )}
                                 </div>
-                              </div>
-
-                              <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 sm:gap-4">
-                                <div className="flex flex-col items-center gap-3">
-                                  <TeamMark name={match.homeTeam} logo={match.homeTeamLogo} />
-                                  <span className="max-w-[6.5rem] text-center text-[13px] font-semibold leading-tight text-foreground sm:max-w-[8.5rem] sm:text-base">
-                                    {match.homeTeam}
-                                  </span>
+                              ) : (
+                                <div className="space-y-2 text-center">
+                                  <div className="flex items-center gap-2 sm:gap-3">
+                                    <Input
+                                      inputMode="numeric"
+                                      value={values.home}
+                                      onChange={(event) => handleFieldChange(match.id, "home", event.target.value)}
+                                      placeholder="0"
+                                      disabled={isLocked}
+                                      className="h-12 w-14 text-center text-lg font-semibold sm:w-16"
+                                    />
+                                    <span className="text-lg font-semibold text-muted-foreground">x</span>
+                                    <Input
+                                      inputMode="numeric"
+                                      value={values.away}
+                                      onChange={(event) => handleFieldChange(match.id, "away", event.target.value)}
+                                      placeholder="0"
+                                      disabled={isLocked}
+                                      className="h-12 w-14 text-center text-lg font-semibold sm:w-16"
+                                    />
+                                  </div>
+                                  {savedPrediction ? (
+                                    <div className={`text-xs font-medium ${predictionFeedback.className}`}>
+                                      Seu palpite: {savedPrediction.predictedHomeScore} x {savedPrediction.predictedAwayScore}
+                                    </div>
+                                  ) : null}
                                 </div>
-
-                                <div className="flex items-center gap-2 sm:gap-3">
-                                  <Input
-                                    inputMode="numeric"
-                                    value={values.home}
-                                    onChange={(event) => handleFieldChange(match.id, "home", event.target.value)}
-                                    placeholder="0"
-                                    disabled={isLocked}
-                                    className="h-12 w-14 text-center text-lg font-semibold sm:w-16"
-                                  />
-                                  <span className="text-lg font-semibold text-muted-foreground">x</span>
-                                  <Input
-                                    inputMode="numeric"
-                                    value={values.away}
-                                    onChange={(event) => handleFieldChange(match.id, "away", event.target.value)}
-                                    placeholder="0"
-                                    disabled={isLocked}
-                                    className="h-12 w-14 text-center text-lg font-semibold sm:w-16"
-                                  />
-                                </div>
-
-                                <div className="flex flex-col items-center gap-3">
-                                  <TeamMark name={match.awayTeam} logo={match.awayTeamLogo} />
-                                  <span className="max-w-[6.5rem] text-center text-[13px] font-semibold leading-tight text-foreground sm:max-w-[8.5rem] sm:text-base">
-                                    {match.awayTeam}
-                                  </span>
-                                </div>
-                              </div>
-
+                              )
+                            }
+                            bottomContent={
                               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                                 <div className="space-y-1">
-                                  <div className="min-h-5 text-xs text-muted-foreground">
-                                    {savedPrediction
-                                      ? `Seu palpite: ${savedPrediction.predictedHomeScore} x ${savedPrediction.predictedAwayScore}${points !== null ? ` • ${points} pontos` : ""}`
-                                      : "Defina seu placar antes de a partida começar."}
-                                  </div>
-                                  {showOfficialScore && (
-                                    <div className="text-xs font-medium text-foreground">
-                                      Placar oficial: {match.homeScore} x {match.awayScore}
+                                  {!savedPrediction && !isLocked ? (
+                                    <div className="min-h-5 text-xs font-medium text-muted-foreground">
+                                      Defina seu placar antes de a partida começar.
                                     </div>
-                                  )}
+                                  ) : null}
                                 </div>
 
                                 <Button
@@ -441,8 +449,8 @@ const Bolao = () => {
                                   {savingMatchId === match.id ? "Salvando..." : savedPrediction ? "Atualizar" : "Salvar"}
                                 </Button>
                               </div>
-                            </CardContent>
-                          </Card>
+                            }
+                          />
                         );
                       })}
                     </div>

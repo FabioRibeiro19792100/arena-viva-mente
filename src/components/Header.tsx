@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { Heart, LogOut, Menu, Moon, Sun, Ticket, Trophy, User } from "lucide-react";
+import { LogOut, Menu, Moon, Sun, Trophy, User, Users } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useMockAuth } from "@/contexts/MockAuthContext";
 import { useTheme } from "next-themes";
@@ -38,33 +38,20 @@ export const Header = ({ roomMode = false, onRoomMenuClick }: HeaderProps) => {
         <nav className="hidden md:flex items-center gap-6">
           {!roomMode && (
             <>
-              {isAuthenticated && (
-                <button
-                  onClick={() => navigate("/bolao")}
-                  className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors flex items-center gap-2"
-                >
-                  <Trophy className="h-4 w-4" />
-                  Bolão
-                </button>
-              )}
-              {isAuthenticated && (
-                <button
-                  onClick={() => navigate("/reservas")}
-                  className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors flex items-center gap-2"
-                >
-                  <Ticket className="h-4 w-4" />
-                  Reservas
-                </button>
-              )}
-              {isAuthenticated && (
-                <button
-                  onClick={() => navigate("/favoritos")}
-                  className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors flex items-center gap-2"
-                >
-                  <Heart className="h-4 w-4" />
-                  Favoritos
-                </button>
-              )}
+              <button
+                onClick={() => navigate("/")}
+                className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors flex items-center gap-2"
+              >
+                <Users className="h-4 w-4" />
+                Bancada
+              </button>
+              <button
+                onClick={() => navigate("/bolao")}
+                className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors flex items-center gap-2"
+              >
+                <Trophy className="h-4 w-4" />
+                Bolão
+              </button>
             </>
           )}
           <Button
@@ -151,48 +138,14 @@ export const Header = ({ roomMode = false, onRoomMenuClick }: HeaderProps) => {
                   onClick={() => navigateFromMenu("/")}
                   className="flex w-full items-center justify-between text-left text-base text-foreground"
                 >
-                  Todos
+                  Bancada
                 </button>
                 <button
-                  onClick={() => navigateFromMenu("/?quick=live")}
+                  onClick={() => navigateFromMenu("/bolao")}
                   className="flex w-full items-center justify-between text-left text-base text-foreground"
                 >
-                  <span className="inline-flex items-center gap-2">
-                    <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                    Ao vivo agora
-                  </span>
+                  Bolão
                 </button>
-                <button
-                  onClick={() => navigateFromMenu("/?quick=soon")}
-                  className="flex w-full items-center justify-between text-left text-base text-foreground"
-                >
-                  <span className="inline-flex items-center gap-2">
-                    <span className="h-2 w-2 rounded-full bg-amber-500" />
-                    Em breve
-                  </span>
-                </button>
-                {isAuthenticated && (
-                  <>
-                    <button
-                      onClick={() => navigateFromMenu("/bolao")}
-                      className="flex w-full items-center justify-between text-left text-base text-foreground"
-                    >
-                      Bolão
-                    </button>
-                    <button
-                      onClick={() => navigateFromMenu("/reservas")}
-                      className="flex w-full items-center justify-between text-left text-base text-foreground"
-                    >
-                      Minhas reservas
-                    </button>
-                    <button
-                      onClick={() => navigateFromMenu("/favoritos")}
-                      className="flex w-full items-center justify-between text-left text-base text-foreground"
-                    >
-                      Favoritos
-                    </button>
-                  </>
-                )}
               </div>
 
               <div className="border-t border-border pt-6">
