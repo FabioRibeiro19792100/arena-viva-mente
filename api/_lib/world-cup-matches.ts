@@ -1,9 +1,4 @@
-import {
-  parseWorldCupMatchDate,
-  worldCupGroupStageSeedMatches,
-  type MatchStatus,
-  type WorldCupMatch,
-} from "../../src/data/worldCup2026.js";
+import { type MatchStatus, type WorldCupMatch } from "../../src/data/worldCup2026.js";
 import { translateTeamLabel } from "../../src/lib/matchLabels.js";
 import { getSupabaseAdmin } from "./supabase-admin.js";
 
@@ -82,39 +77,6 @@ const buildStatusLabel = (status: MatchStatus, statusDetail: string | null) => {
   if (status === "ended") return "Encerrado";
   return "Agendado";
 };
-
-const buildWorldCupSeedRow = (match: WorldCupMatch, index: number): WorldCupMatchRow => {
-  const kickoff = parseWorldCupMatchDate(match);
-  const kickoffAt = kickoff ? kickoff.toISOString() : new Date().toISOString();
-  const groupName = match.stage.startsWith("Grupo") ? match.stage : null;
-
-  return {
-    id: match.id,
-    stage: match.stage,
-    group_name: groupName,
-    match_number: index + 1,
-    home_team: match.homeTeam,
-    away_team: match.awayTeam,
-    home_flag: match.homeTeamLogo,
-    away_flag: match.awayTeamLogo,
-    kickoff_at: kickoffAt,
-    timezone: "America/Sao_Paulo",
-    venue: match.venue,
-    city: inferCityFromVenue(match.venue),
-    status: "scheduled",
-    status_detail: match.statusLabel || "Agendado",
-    home_score: null,
-    away_score: null,
-    live_clock: null,
-    linked_sports_match_id: null,
-    source: "seed",
-    source_url: WORLD_CUP_SOURCE_URL,
-    source_payload: match,
-    last_score_sync_at: null,
-  };
-};
-
-const seedRows = worldCupGroupStageSeedMatches.map(buildWorldCupSeedRow);
 
 const buildTeamVariants = (teamName: string) => {
   const translated = translateTeamLabel(teamName);
@@ -195,23 +157,24 @@ const isMissingWorldCupTableError = (error: unknown) => {
 
 export const ensureWorldCupGroupStageSeeded = async () => {
   try {
-    const admin = getSupabaseAdmin();
-    const { data, error } = await admin.from("world_cup_matches").select("id");
-    if (error) throw error;
-
-    const existingIds = new Set((data || []).map((row) => row.id));
-    const missingRows = seedRows.filter((row) => !existingIds.has(row.id));
-
-    if (missingRows.length > 0) {
-      await upsertWorldCupRows(missingRows);
+    const html = await fetchWorldCupSourceHtml();
+    const groups = parseGeGroupsData(html);
+    const rowsFromGe = buildWorldCupRowsFromGeGroups(groups);
+    if (rowsFromGe.length === 0) {
+      throw new Error("world_cup_groups_not_found");
     }
+
+    const admin = getSupabaseAdmin();
+    await upsertWorldCupRows(rowsFromGe);
   } catch (error) {
     if (isMissingWorldCupTableError(error)) {
-      return seedRows.length;
+      return 0;
     }
     throw error;
   }
-  return seedRows.length;
+  const admin = getSupabaseAdmin();
+  const { count } = await admin.from("world_cup_matches").select("id", { count: "exact", head: true });
+  return count || 0;
 };
 
 const loadWorldCupRows = async () => {
@@ -262,15 +225,13 @@ const enrichRowsWithLegacyLinks = async (rows: WorldCupMatchRow[]) => {
 };
 
 export const getWorldCupPoolMatches = async () => {
-  let rows = seedRows;
+  let rows: WorldCupMatchRow[] = [];
 
   try {
     await ensureWorldCupGroupStageSeeded();
     rows = await loadWorldCupRows();
   } catch (error) {
-    if (!isMissingWorldCupTableError(error)) {
-      throw error;
-    }
+    throw error;
   }
 
   return (await enrichRowsWithLegacyLinks(rows)).map(mapWorldCupRowToMatch);
@@ -334,10 +295,13 @@ interface ParsedScoreUpdate {
 
 interface GeGroupTeam {
   nome_popular: string;
+  escudo?: string | null;
 }
 
 interface GeGroupMatch {
+  id?: number;
   data_realizacao: string;
+  hora_realizacao?: string | null;
   jogo_ja_comecou: boolean;
   placar_oficial_mandante: number | null;
   placar_oficial_visitante: number | null;
@@ -351,6 +315,9 @@ interface GeGroupMatch {
       id?: string | null;
       label?: string | null;
     } | null;
+  } | null;
+  sede?: {
+    nome_popular?: string | null;
   } | null;
 }
 
@@ -419,6 +386,76 @@ const parseGeGroupsData = (html: string) => {
   } catch {
     return [] as GeGroup[];
   }
+};
+
+const fetchWorldCupSourceHtml = async () => {
+  const response = await fetch(WORLD_CUP_SOURCE_URL, {
+    headers: {
+      "user-agent":
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36",
+      accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`world_cup_source_failed:${response.status}`);
+  }
+
+  return response.text();
+};
+
+const parseGeKickoffAt = (value: string) => {
+  const [datePart, timePart = "00:00"] = value.split("T");
+  const [year, month, day] = datePart.split("-").map(Number);
+  const [hours, minutes] = timePart.split(":").map(Number);
+  return new Date(Date.UTC(year, month - 1, day, hours + 3, minutes || 0)).toISOString();
+};
+
+const buildWorldCupRowsFromGeGroups = (groups: GeGroup[]) => {
+  let matchNumber = 1;
+
+  return groups.flatMap((group) =>
+    (group.lista_jogos || []).map<WorldCupMatchRow>((match) => {
+      const kickoffAt = parseGeKickoffAt(match.data_realizacao);
+      const status = inferMatchStatusFromGe(match);
+      const currentMatchNumber = matchNumber++;
+
+      return {
+        id: `wc2026-${String(currentMatchNumber).padStart(2, "0")}`,
+        stage: group.nome_grupo || "World Cup",
+        group_name: group.nome_grupo || null,
+        match_number: currentMatchNumber,
+        home_team: match.equipes.mandante.nome_popular,
+        away_team: match.equipes.visitante.nome_popular,
+        home_flag: match.equipes.mandante.escudo || null,
+        away_flag: match.equipes.visitante.escudo || null,
+        kickoff_at: kickoffAt,
+        timezone: "America/Sao_Paulo",
+        venue: match.sede?.nome_popular?.trim() || null,
+        city: null,
+        status,
+        status_detail: buildStatusDetailFromGe(match, status),
+        home_score:
+          typeof match.placar_oficial_mandante === "number" ? match.placar_oficial_mandante : null,
+        away_score:
+          typeof match.placar_oficial_visitante === "number" ? match.placar_oficial_visitante : null,
+        live_clock: null,
+        linked_sports_match_id: null,
+        source: "ge",
+        source_url: WORLD_CUP_SOURCE_URL,
+        source_payload: {
+          source: "grupos_fase",
+          group: group.nome_grupo || null,
+          geMatch: match,
+        },
+        last_score_sync_at:
+          typeof match.placar_oficial_mandante === "number" ||
+          typeof match.placar_oficial_visitante === "number"
+            ? new Date().toISOString()
+            : null,
+      };
+    }),
+  );
 };
 
 const inferMatchStatusFromGe = (match: GeGroupMatch): MatchStatus => {
@@ -557,19 +594,7 @@ const parseGeScoreUpdates = (html: string, matches: WorldCupMatchRow[]): ParsedS
 export const syncWorldCupScoresFromGe = async () => {
   await ensureWorldCupGroupStageSeeded();
   const worldCupRows = await loadWorldCupRows();
-  const response = await fetch(WORLD_CUP_SOURCE_URL, {
-    headers: {
-      "user-agent":
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36",
-      accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-    },
-  });
-
-  if (!response.ok) {
-    throw new Error(`world_cup_source_failed:${response.status}`);
-  }
-
-  const html = await response.text();
+  const html = await fetchWorldCupSourceHtml();
   const parsedUpdates = parseGeScoreUpdates(html, worldCupRows);
 
   if (parsedUpdates.length === 0) {

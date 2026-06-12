@@ -308,19 +308,22 @@ export const parseWorldCupMatchDate = (match: Pick<WorldCupMatch, "date" | "star
   if (monthIndex === undefined) return null;
 
   const [hours = "0", minutes = "0"] = match.startTime.split(":");
-  return new Date(
+  const utcTime = Date.UTC(
     Number(year),
     monthIndex,
     Number(day),
-    Number(hours),
+    Number(hours) + 3,
     Number(minutes),
   );
+  return new Date(utcTime);
 };
 
 export const formatBrasiliaTime = (startTime?: string) =>
   startTime ? `${startTime} BRT` : "";
 
 const LIVE_WINDOW_MS = 3 * 60 * 60 * 1000;
+const ROOM_OPEN_BEFORE_KICKOFF_MS = 30 * 60 * 1000;
+const ROOM_CLOSE_AFTER_MATCH_MS = 30 * 60 * 1000;
 
 export const getCurrentMatchStatus = (match: Pick<WorldCupMatch, "id" | "date" | "startTime" | "status">): MatchStatus => {
   if (match.id === testOpenMatch.id) {
@@ -365,12 +368,24 @@ export const getMatchAvailableSpots = (
 export const getMatchStatusLabel = (match: Pick<WorldCupMatch, "id" | "date" | "startTime" | "status">) => {
   const status = getCurrentMatchStatus(match);
   if (status === "live") return "Sala ao vivo";
+  if (isMatchRoomOpen(match)) return "Pré-jogo aberto";
   if (status === "scheduled") return "Reserva disponível";
   return "Jogo encerrado";
 };
 
 export const isMatchRoomOpen = (match: Pick<WorldCupMatch, "id" | "date" | "startTime" | "status">) =>
-  getCurrentMatchStatus(match) === "live";
+  (() => {
+    if (match.id === testOpenMatch.id) return true;
+
+    const kickoff = parseWorldCupMatchDate(match);
+    if (!kickoff) return getCurrentMatchStatus(match) === "live";
+
+    const now = Date.now();
+    const opensAt = kickoff.getTime() - ROOM_OPEN_BEFORE_KICKOFF_MS;
+    const closesAt = kickoff.getTime() + LIVE_WINDOW_MS + ROOM_CLOSE_AFTER_MATCH_MS;
+
+    return now >= opensAt && now <= closesAt;
+  })();
 
 export const isSummaryAvailableForMatch = (match: Pick<WorldCupMatch, "date" | "startTime">) => {
   const kickoff = parseWorldCupMatchDate(match);

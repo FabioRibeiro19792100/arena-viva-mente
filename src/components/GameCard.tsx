@@ -4,6 +4,7 @@ import { Card } from "@/components/ui/card";
 import {
   formatBrasiliaTime,
   getCurrentMatchStatus,
+  isMatchRoomOpen,
   parseWorldCupMatchDate,
   type MatchStatus,
 } from "@/data/worldCup2026";
@@ -123,6 +124,7 @@ export const GameCard = ({
   const normalizedReservationCount = Math.max(0, reservationCount);
 
   const currentStatus = getCurrentMatchStatus({ id, date, startTime: startTime || "", status });
+  const roomOpen = hasRoom && isMatchRoomOpen({ id, date, startTime: startTime || "", status });
   const canFavorite = currentStatus !== "ended";
   const shouldShowScore =
     (currentStatus === "live" || currentStatus === "ended") &&
@@ -149,7 +151,7 @@ export const GameCard = ({
   }, [shouldShowCountdown]);
 
   const liveRoomClass =
-    hasRoom && currentStatus === "live"
+    roomOpen
       ? "border-emerald-500/55 shadow-[0_0_0_1px_rgba(34,197,94,0.35),0_0_28px_rgba(34,197,94,0.12)]"
       : "border-border/80";
 
@@ -167,7 +169,7 @@ export const GameCard = ({
   })();
 
   const renderTopAction = () => {
-    if (!hasRoom || currentStatus === "live") {
+    if (!hasRoom || roomOpen) {
       return null;
     }
 
@@ -214,7 +216,7 @@ export const GameCard = ({
 
   const handleShare = async () => {
     const path =
-      currentStatus === "live" && hasRoom
+      roomOpen
         ? `/arquibancada/${id}`
         : currentStatus === "ended"
           ? `/resumo/${id}`
@@ -262,7 +264,7 @@ export const GameCard = ({
           </button>
 
           <div className="flex min-h-8 items-center justify-end gap-2">
-            {hasRoom && currentStatus === "live" ? (
+            {roomOpen ? (
               <div className="flex flex-col items-end gap-1">
                 <button
                   type="button"
@@ -273,7 +275,7 @@ export const GameCard = ({
                   Entrar
                 </button>
                 <span className="text-[11px] text-muted-foreground">
-                  {normalizedReservationCount} na sala
+                  {currentStatus === "live" ? `${normalizedReservationCount} na sala` : "Pré-jogo liberado"}
                 </span>
               </div>
             ) : (
