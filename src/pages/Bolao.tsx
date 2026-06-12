@@ -848,20 +848,19 @@ const Bolao = () => {
 
     if (isDesktopDeck) {
       return (
-        <div className="grid w-full gap-8 border-y border-border/70 py-8 lg:grid-cols-[minmax(0,1fr)_320px]">
-          <div className="space-y-8">
-            <div className="flex items-start justify-end gap-4">
-              <div className="flex items-center gap-3 text-sm">
-                {currentStatus !== "scheduled" ? (
-                  <span className="font-medium text-muted-foreground">
-                    {statusLabelByMatchStatus(currentStatus)}
-                  </span>
-                ) : null}
-                {points !== null ? <span className="font-medium text-foreground">{points} pts</span> : null}
-              </div>
+        <div className="w-full space-y-8 border-y border-border/70 py-8">
+          <div className="flex items-start justify-end gap-4">
+            <div className="flex items-center gap-3 text-sm">
+              {currentStatus !== "scheduled" ? (
+                <span className="font-medium text-muted-foreground">
+                  {statusLabelByMatchStatus(currentStatus)}
+                </span>
+              ) : null}
+              {points !== null ? <span className="font-medium text-foreground">{points} pts</span> : null}
             </div>
+          </div>
 
-            <div className="mx-auto grid w-full max-w-4xl grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-8">
+          <div className="mx-auto grid w-full max-w-4xl grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-8">
               <div className="flex flex-col items-center text-center">
                 <TeamMark
                   src={match.homeTeamLogo}
@@ -959,9 +958,8 @@ const Bolao = () => {
                 </button>
               </div>
             ) : null}
-          </div>
 
-          <div className="flex items-center">
+          <div className="mx-auto flex max-w-sm items-center justify-center">
             <MatchCountriesMap
               homeTeam={match.homeTeam}
               awayTeam={match.awayTeam}
@@ -1227,10 +1225,10 @@ const Bolao = () => {
     <div className={`flex min-h-screen flex-col bg-background text-foreground ${isMobilePredictionDeck ? "h-[100svh] overflow-hidden" : ""}`}>
       <Header />
 
-      <section className={`flex-1 ${isMobilePredictionDeck ? "overflow-hidden py-0" : "py-6 md:py-14"}`}>
+      <section className={`flex-1 ${isMobilePredictionDeck ? "overflow-hidden py-0" : "py-4 md:py-8"}`}>
         <div className={`container ${isMobilePredictionDeck ? "px-4" : "px-6"} ${isMobilePredictionDeck ? "flex h-full min-h-0 flex-col" : ""}`}>
           {!isMobile ? (
-            <div className="mb-6 flex items-start justify-between gap-6 md:mb-10">
+            <div className="mb-4 flex items-start justify-between gap-6 md:mb-6">
               <h1 className="text-2xl font-semibold text-foreground md:text-4xl">
                 Bolão
               </h1>
@@ -1260,7 +1258,7 @@ const Bolao = () => {
             </div>
           ) : null}
 
-          <div className={`${isMobilePredictionDeck ? "mx-auto flex h-full min-h-0 w-full max-w-[420px] flex-1 flex-col" : "mb-6 space-y-4 md:mb-10 md:space-y-6"}`}>
+          <div className={`${isMobilePredictionDeck ? "mx-auto flex h-full min-h-0 w-full max-w-[420px] flex-1 flex-col" : "mb-4 space-y-4 md:mb-6 md:space-y-5"}`}>
             <div className={`flex gap-4 text-sm ${isMobilePredictionDeck ? "shrink-0 items-center justify-center py-4 text-center" : "hidden"}`}>
               <button
                 type="button"
@@ -1420,7 +1418,6 @@ const Bolao = () => {
                         <h2 className="text-xl font-semibold text-foreground md:text-2xl">
                           {pendingMatches.length === 0 ? "Todos os palpites foram preenchidos" : `${activeDeckIndex + 1} de ${deckMatches.length}`}
                         </h2>
-                        <p className="text-sm text-muted-foreground">{activeDeckMatch.stage}</p>
                       </div>
                     )}
 
