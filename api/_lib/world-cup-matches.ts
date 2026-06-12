@@ -241,7 +241,6 @@ export const getWorldCupPoolMatches = async () => {
 
   try {
     await ensureWorldCupGroupStageSeeded();
-    await syncWorldCupScoresFromSportsSnapshot().catch(() => ({ updated: 0 }));
     await syncWorldCupScoresFromGe().catch(() => ({ updated: 0, source: WORLD_CUP_SOURCE_URL }));
     rows = await loadWorldCupRows();
   } catch (error) {
@@ -418,8 +417,9 @@ const fetchWorldCupSourceHtml = async () => {
   return response.text();
 };
 
-const parseGeKickoffAt = (value: string) => {
-  const [datePart, timePart = "00:00"] = value.split("T");
+const parseGeKickoffAt = (value: string, fallbackTime?: string | null) => {
+  const [datePart, timePartFromValue = "00:00"] = value.split("T");
+  const timePart = (fallbackTime?.slice(0, 5) || timePartFromValue || "00:00").slice(0, 5);
   const [year, month, day] = datePart.split("-").map(Number);
   const [hours, minutes] = timePart.split(":").map(Number);
   return new Date(Date.UTC(year, month - 1, day, hours + 3, minutes || 0)).toISOString();
@@ -430,7 +430,7 @@ const buildWorldCupRowsFromGeGroups = (groups: GeGroup[]) => {
 
   return groups.flatMap((group) =>
     (group.lista_jogos || []).map<WorldCupMatchRow>((match) => {
-      const kickoffAt = parseGeKickoffAt(match.data_realizacao);
+      const kickoffAt = parseGeKickoffAt(match.data_realizacao, match.hora_realizacao);
       const status = inferMatchStatusFromGe(match);
       const currentMatchNumber = matchNumber++;
 
@@ -496,7 +496,13 @@ const buildCanonicalWorldCupRows = (
   }
 
   return worldCupGroupStageSeedMatches.map<WorldCupMatchRow>((match, index) => {
-    const kickoff = parseWorldCupMatchDate(match)?.toISOString();
+    const seedKickoff = parseWorldCupMatchDate(match)?.toISOString();
+    const geRow = seedKickoff
+      ? buildMatchKeys(match.homeTeam, match.awayTeam, seedKickoff)
+          .map((key) => geByKey.get(key))
+          .find(Boolean)
+      : null;
+    const kickoff = geRow?.kickoff_at || seedKickoff;
     if (!kickoff) {
       throw new Error(`invalid_world_cup_seed_kickoff:${match.id}`);
     }
@@ -512,9 +518,6 @@ const buildCanonicalWorldCupRows = (
       ).some((key) => canonicalKeys.includes(key))
         ? existingCandidate
         : null;
-    const geRow = buildMatchKeys(match.homeTeam, match.awayTeam, kickoff)
-      .map((key) => geByKey.get(key))
-      .find(Boolean);
     const hasGeScore =
       typeof geRow?.home_score === "number" && typeof geRow?.away_score === "number";
 
