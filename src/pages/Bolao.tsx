@@ -704,6 +704,7 @@ const Bolao = () => {
     const isDeckEditable = !savedPrediction || isSessionEditable;
     const showOfficialScore = hasOfficialScore(match);
     const isMobileDeck = isMobile && predictionView === "deck";
+    const isDesktopDeck = !isMobile && predictionView === "deck";
     const displayHomeValue =
       values.home !== "" ? values.home : savedPrediction ? String(savedPrediction.predictedHomeScore) : "--";
     const displayAwayValue =
@@ -840,6 +841,140 @@ const Bolao = () => {
                 </div>
               </div>
             ) : null}
+          </div>
+        </div>
+      );
+    }
+
+    if (isDesktopDeck) {
+      return (
+        <div className="grid w-full gap-8 border-y border-border/70 py-8 lg:grid-cols-[minmax(0,1fr)_320px]">
+          <div className="space-y-8">
+            <div className="flex items-start justify-between gap-4">
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-muted-foreground">{match.stage}</p>
+                <p className="text-sm text-muted-foreground">
+                  {match.date} • {formatBrasiliaTime(match.startTime)}
+                </p>
+              </div>
+              <div className="flex items-center gap-3 text-sm">
+                {currentStatus !== "scheduled" ? (
+                  <span className="font-medium text-muted-foreground">
+                    {statusLabelByMatchStatus(currentStatus)}
+                  </span>
+                ) : null}
+                {points !== null ? <span className="font-medium text-foreground">{points} pts</span> : null}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-8">
+              <div className="flex flex-col items-center text-center">
+                <TeamMark
+                  src={match.homeTeamLogo}
+                  alt={match.homeTeam}
+                  defined
+                  imageClassName="h-24 w-auto max-w-[128px] object-contain drop-shadow-sm"
+                />
+                <p className="mt-4 text-xl font-semibold text-foreground">{match.homeTeam}</p>
+              </div>
+
+              <div className="min-w-[180px] text-center">
+                {isLocked && showOfficialScore ? (
+                  <div className="space-y-3">
+                    <div className="text-4xl font-semibold tracking-[0.08em] text-foreground">
+                      {match.homeScore} - {match.awayScore}
+                    </div>
+                    <div className="text-sm font-medium text-muted-foreground">Placar oficial</div>
+                    {savedPrediction ? (
+                      <div className={`space-y-1 text-sm font-medium ${predictionFeedback.className}`}>
+                        <div>
+                          Seu palpite: {savedPrediction.predictedHomeScore} x {savedPrediction.predictedAwayScore}
+                        </div>
+                        <div>
+                          {predictionFeedback.label}
+                          {points !== null ? ` • ${points} pontos` : ""}
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : isDeckEditable ? (
+                  <div className="space-y-4">
+                    <button
+                      type="button"
+                      onClick={() => openScorePicker(match, "deck")}
+                      className="rounded-2xl border border-border/80 bg-background px-5 py-4 transition-colors hover:bg-muted/30"
+                    >
+                      <div className="text-4xl font-semibold tracking-[0.08em] text-foreground">
+                        {displayHomeValue} - {displayAwayValue}
+                      </div>
+                      <div className="mt-2 text-sm font-medium text-muted-foreground">
+                        {savingMatchId === match.id
+                          ? "Salvando..."
+                          : savedFeedbackMatchId === match.id
+                            ? "Salvo"
+                            : "Toque para escolher"}
+                      </div>
+                    </button>
+                    {savedPrediction ? (
+                      <div className={`text-sm font-medium ${predictionFeedback.className}`}>
+                        Seu palpite: {savedPrediction.predictedHomeScore} x {savedPrediction.predictedAwayScore}
+                      </div>
+                    ) : null}
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="text-4xl font-semibold tracking-[0.08em] text-foreground">
+                      {displayHomeValue} - {displayAwayValue}
+                    </div>
+                    <div className="space-y-1 text-sm font-medium text-muted-foreground">
+                      <div>Seu palpite: {savedPrediction?.predictedHomeScore} x {savedPrediction?.predictedAwayScore}</div>
+                      <div>Palpite travado nesta sessão.</div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex flex-col items-center text-center">
+                <TeamMark
+                  src={match.awayTeamLogo}
+                  alt={match.awayTeam}
+                  defined
+                  imageClassName="h-24 w-auto max-w-[128px] object-contain drop-shadow-sm"
+                />
+                <p className="mt-4 text-xl font-semibold text-foreground">{match.awayTeam}</p>
+              </div>
+            </div>
+
+            {!isLocked && isDeckEditable ? (
+              <div className="flex flex-wrap items-center justify-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setAiProposal(buildAiProposal(match, predictions))}
+                  className="inline-flex items-center justify-center gap-2 rounded-full border border-border/70 bg-muted/25 px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted/40"
+                >
+                  <Sparkles className="h-4 w-4" />
+                  <span>IA, qual seu palpite?</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => applyRandomProposal(match)}
+                  className="inline-flex items-center justify-center gap-2 rounded-full border border-border/70 bg-muted/25 px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted/40"
+                >
+                  <Sparkles className="h-4 w-4" />
+                  <span>Mete o louco(a)</span>
+                </button>
+              </div>
+            ) : null}
+          </div>
+
+          <div className="flex items-center">
+            <MatchCountriesMap
+              homeTeam={match.homeTeam}
+              awayTeam={match.awayTeam}
+              homeTeamLogo={match.homeTeamLogo}
+              awayTeamLogo={match.awayTeamLogo}
+              showLegend
+            />
           </div>
         </div>
       );
@@ -1205,7 +1340,7 @@ const Bolao = () => {
               </Card>
               </div>
             ) : (
-              <div className={`${isMobilePredictionDeck ? "flex min-h-0 flex-1 flex-col" : "space-y-8"}`}>
+              <div className={`${isMobilePredictionDeck ? "grid min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)_auto]" : "space-y-8"}`}>
               <div className={`flex gap-3 ${isMobilePredictionDeck ? "shrink-0 flex-col items-center py-2 text-center" : "items-center justify-between"}`}>
                 {predictionView === "deck" ? (
                   <div className="space-y-1">
@@ -1273,7 +1408,7 @@ const Bolao = () => {
                 </Card>
               ) : (
                 predictionView === "deck" && activeDeckMatch ? (
-                  <section className={`${isMobilePredictionDeck ? "flex min-h-0 flex-1 flex-col text-center" : "space-y-4 md:space-y-5"}`}>
+                  <section className={`${isMobilePredictionDeck ? "relative grid min-h-0 grid-rows-[1fr] pb-8 text-center" : "space-y-4 md:space-y-5"}`}>
                     {!isMobile && (
                       <div className="space-y-1">
                         <h2 className="text-xl font-semibold text-foreground md:text-2xl">
@@ -1284,7 +1419,7 @@ const Bolao = () => {
                     )}
 
                     <div
-                      className={isMobilePredictionDeck ? "flex min-h-0 flex-1 items-start overflow-hidden" : isMobile ? "flex h-[calc(100svh-232px)] min-h-[540px] flex-col overflow-hidden" : ""}
+                      className={isMobilePredictionDeck ? "flex min-h-0 items-center overflow-hidden" : isMobile ? "flex h-[calc(100svh-232px)] min-h-[540px] flex-col overflow-hidden" : ""}
                       onTouchStart={(event) => {
                         touchStartXRef.current = event.touches[0]?.clientX ?? null;
                         touchDeltaXRef.current = 0;
@@ -1334,7 +1469,7 @@ const Bolao = () => {
                       }}
                       >
                       <div
-                        className={isMobilePredictionDeck ? "flex h-full min-h-0 w-full flex-1 items-start pt-[8svh]" : isMobile ? "flex-1" : ""}
+                        className={isMobilePredictionDeck ? "flex h-full min-h-0 w-full items-center" : isMobile ? "flex-1" : ""}
                         style={
                           isMobile
                             ? {
@@ -1350,7 +1485,7 @@ const Bolao = () => {
                     </div>
 
                     {isMobile ? (
-                      <div className={`${isMobilePredictionDeck ? "shrink-0 pt-4 pb-[max(10px,env(safe-area-inset-bottom))]" : "pb-2"} flex items-center justify-center text-center text-xs font-medium text-muted-foreground`}>
+                      <div className={`${isMobilePredictionDeck ? "pointer-events-none absolute inset-x-0 bottom-[max(8px,env(safe-area-inset-bottom))] px-4" : "pb-2"} flex items-center justify-center text-center text-xs font-medium text-muted-foreground`}>
                         Deslize para o lado para ver o proximo jogo
                       </div>
                     ) : null}
