@@ -1403,7 +1403,7 @@ const Bolao = () => {
                 </Card>
               ) : (
                 predictionView === "deck" && activeDeckMatch ? (
-                  <section className={`${isMobilePredictionDeck ? "relative grid min-h-0 grid-rows-[1fr] pb-8 text-center" : "space-y-4 md:space-y-5"}`}>
+                  <section className={`${isMobilePredictionDeck ? "grid min-h-0 grid-rows-[430px_32px] justify-items-center text-center" : "space-y-4 md:space-y-5"}`}>
                     {!isMobile && (
                       <div className="space-y-1">
                         <h2 className="text-xl font-semibold text-foreground md:text-2xl">
@@ -1413,7 +1413,7 @@ const Bolao = () => {
                     )}
 
                     <div
-                      className={isMobilePredictionDeck ? "flex min-h-0 items-center overflow-hidden" : isMobile ? "flex h-[calc(100svh-232px)] min-h-[540px] flex-col overflow-hidden" : ""}
+                      className={isMobilePredictionDeck ? "flex h-[430px] w-full items-start justify-center overflow-hidden" : isMobile ? "flex h-[calc(100svh-232px)] min-h-[540px] flex-col overflow-hidden" : ""}
                       onTouchStart={(event) => {
                         touchStartXRef.current = event.touches[0]?.clientX ?? null;
                         touchDeltaXRef.current = 0;
@@ -1463,7 +1463,7 @@ const Bolao = () => {
                       }}
                       >
                       <div
-                        className={isMobilePredictionDeck ? "flex h-full min-h-0 w-full items-center" : isMobile ? "flex-1" : ""}
+                        className={isMobilePredictionDeck ? "flex h-full w-full items-start justify-center pt-2" : isMobile ? "flex-1" : ""}
                         style={
                           isMobile
                             ? {
@@ -1479,7 +1479,7 @@ const Bolao = () => {
                     </div>
 
                     {isMobile ? (
-                      <div className={`${isMobilePredictionDeck ? "pointer-events-none absolute inset-x-0 bottom-[max(8px,env(safe-area-inset-bottom))] px-4" : "pb-2"} flex items-center justify-center text-center text-xs font-medium text-muted-foreground`}>
+                      <div className={`${isMobilePredictionDeck ? "flex h-8 items-end justify-center px-4 pb-[max(2px,env(safe-area-inset-bottom))]" : "pb-2"} text-center text-xs font-medium text-muted-foreground`}>
                         Deslize para o lado para ver o proximo jogo
                       </div>
                     ) : null}
