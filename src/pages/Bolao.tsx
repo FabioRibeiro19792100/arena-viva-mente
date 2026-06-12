@@ -711,7 +711,7 @@ const Bolao = () => {
 
     if (isMobileDeck) {
       return (
-        <div className="flex h-full w-full flex-col">
+        <div className="grid h-full w-full grid-rows-[auto_minmax(0,1fr)_auto]">
           <div className="shrink-0 space-y-2 text-center">
             <div className="flex items-center justify-center gap-2 text-xs font-medium text-muted-foreground">
               <span>{match.stage}</span>
@@ -731,24 +731,24 @@ const Bolao = () => {
             ) : null}
           </div>
 
-          <div className="flex flex-1 items-center justify-center py-2">
-            <div className="grid w-full grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-4">
-              <div className="flex flex-col items-center text-center">
+          <div className="flex min-h-0 items-center justify-center py-3">
+            <div className="grid w-full grid-cols-[minmax(0,1fr)_108px_minmax(0,1fr)] items-center gap-2 px-1">
+              <div className="flex min-w-0 flex-col items-center text-center">
                 <TeamMark
                   src={match.homeTeamLogo}
                   alt={match.homeTeam}
                   defined
-                  imageClassName="h-20 w-auto max-w-[110px] object-contain drop-shadow-sm"
+                  imageClassName="h-14 w-auto max-w-[76px] object-contain drop-shadow-sm"
                 />
-                <p className="mt-3 max-w-full truncate text-[1.05rem] font-semibold text-foreground">
+                <p className="mt-3 max-w-[92px] text-center text-[0.9rem] font-semibold leading-tight text-foreground break-words">
                   {match.homeTeam}
                 </p>
               </div>
 
-              <div className="flex min-w-[108px] flex-col items-center justify-center text-center">
+              <div className="flex min-w-0 flex-col items-center justify-center text-center">
                 {isLocked && showOfficialScore ? (
                   <>
-                    <div className="text-5xl font-semibold tracking-[0.1em] text-foreground">
+                    <div className="whitespace-nowrap text-[2.3rem] font-semibold tracking-[0.02em] text-foreground">
                       {match.homeScore} - {match.awayScore}
                     </div>
                     <div className="mt-2 text-sm font-medium text-muted-foreground">Placar oficial</div>
@@ -771,10 +771,10 @@ const Bolao = () => {
                       onClick={() => openScorePicker(match, "deck")}
                       className="px-0 py-2"
                     >
-                      <div className="text-6xl font-semibold tracking-[0.1em] text-foreground">
+                      <div className="whitespace-nowrap text-[2.45rem] font-semibold tracking-[0.02em] text-foreground">
                         {displayHomeValue} - {displayAwayValue}
                       </div>
-                      <div className="mt-2 text-sm font-medium text-muted-foreground">
+                      <div className="mt-2 text-xs font-medium leading-tight text-muted-foreground">
                         {savingMatchId === match.id
                           ? "Salvando..."
                           : savedFeedbackMatchId === match.id
@@ -790,7 +790,7 @@ const Bolao = () => {
                   </>
                 ) : (
                   <>
-                    <div className="text-6xl font-semibold tracking-[0.1em] text-foreground">
+                    <div className="whitespace-nowrap text-[2.45rem] font-semibold tracking-[0.02em] text-foreground">
                       {displayHomeValue} - {displayAwayValue}
                     </div>
                     <div className="mt-3 space-y-1 text-xs font-medium text-muted-foreground">
@@ -801,21 +801,21 @@ const Bolao = () => {
                 )}
               </div>
 
-              <div className="flex flex-col items-center text-center">
+              <div className="flex min-w-0 flex-col items-center text-center">
                 <TeamMark
                   src={match.awayTeamLogo}
                   alt={match.awayTeam}
                   defined
-                  imageClassName="h-20 w-auto max-w-[110px] object-contain drop-shadow-sm"
+                  imageClassName="h-14 w-auto max-w-[76px] object-contain drop-shadow-sm"
                 />
-                <p className="mt-3 max-w-full truncate text-[1.05rem] font-semibold text-foreground">
+                <p className="mt-3 max-w-[92px] text-center text-[0.9rem] font-semibold leading-tight text-foreground break-words">
                   {match.awayTeam}
                 </p>
               </div>
             </div>
           </div>
 
-          <div className="mt-auto shrink-0 space-y-4 pt-16 pb-1">
+          <div className="shrink-0 space-y-4 pt-10 pb-2">
             {!isLocked && isDeckEditable ? (
               <div className="space-y-2">
                 <div className="flex justify-center">
@@ -1093,11 +1093,11 @@ const Bolao = () => {
   if (!user) return null;
 
   return (
-    <div className={`flex min-h-screen flex-col bg-background text-foreground ${isMobilePredictionDeck ? "overflow-hidden" : ""}`}>
+    <div className={`flex min-h-screen flex-col bg-background text-foreground ${isMobilePredictionDeck ? "h-[100svh] overflow-hidden" : ""}`}>
       <Header />
 
-      <section className={`flex-1 ${isMobilePredictionDeck ? "min-h-[calc(100svh-112px)] overflow-hidden py-2" : "py-6 md:py-14"}`}>
-        <div className={`container px-6 ${isMobilePredictionDeck ? "flex h-full min-h-[calc(100svh-128px)] flex-col" : ""}`}>
+      <section className={`flex-1 ${isMobilePredictionDeck ? "overflow-hidden py-0" : "py-6 md:py-14"}`}>
+        <div className={`container ${isMobilePredictionDeck ? "px-4" : "px-6"} ${isMobilePredictionDeck ? "flex h-full min-h-0 flex-col" : ""}`}>
           {!isMobile && (
             <div className="mb-4 space-y-2 md:mb-8 md:space-y-3">
               <h1 className="text-2xl font-semibold text-foreground md:text-4xl">
@@ -1112,8 +1112,8 @@ const Bolao = () => {
             </p>
           </div>
 
-          <div className={`${isMobilePredictionDeck ? "mx-auto flex min-h-0 flex-1 w-full max-w-[420px] flex-col space-y-3" : "mb-6 space-y-4 md:mb-10 md:space-y-6"}`}>
-            <div className={`flex gap-4 text-sm ${isMobilePredictionDeck ? "items-center justify-center text-center" : "items-center"}`}>
+          <div className={`${isMobilePredictionDeck ? "mx-auto flex h-full min-h-0 w-full max-w-[420px] flex-1 flex-col" : "mb-6 space-y-4 md:mb-10 md:space-y-6"}`}>
+            <div className={`flex gap-4 text-sm ${isMobilePredictionDeck ? "shrink-0 items-center justify-center py-4 text-center" : "items-center"}`}>
               <button
                 type="button"
                 onClick={() => {
@@ -1203,8 +1203,8 @@ const Bolao = () => {
               </Card>
               </div>
             ) : (
-              <div className={`${isMobilePredictionDeck ? "flex min-h-0 flex-1 flex-col space-y-3" : "space-y-8"}`}>
-              <div className={`flex gap-3 ${isMobilePredictionDeck ? "flex-col items-center text-center" : "items-center justify-between"}`}>
+              <div className={`${isMobilePredictionDeck ? "flex min-h-0 flex-1 flex-col" : "space-y-8"}`}>
+              <div className={`flex gap-3 ${isMobilePredictionDeck ? "shrink-0 flex-col items-center py-2 text-center" : "items-center justify-between"}`}>
                 {predictionView === "deck" ? (
                   <div className="space-y-1">
                     <span className="block text-sm font-medium text-foreground">
@@ -1282,12 +1282,7 @@ const Bolao = () => {
                     )}
 
                     <div
-                      className={isMobilePredictionDeck ? "flex min-h-[calc(100svh-320px)] flex-1 items-start overflow-hidden" : isMobile ? "flex h-[calc(100svh-232px)] min-h-[540px] flex-col overflow-hidden" : ""}
-                      style={
-                        isMobilePredictionDeck
-                          ? { paddingTop: "clamp(1rem, calc(40svh - 190px), 7rem)" }
-                          : undefined
-                      }
+                      className={isMobilePredictionDeck ? "flex min-h-0 flex-1 items-center overflow-hidden" : isMobile ? "flex h-[calc(100svh-232px)] min-h-[540px] flex-col overflow-hidden" : ""}
                       onTouchStart={(event) => {
                         touchStartXRef.current = event.touches[0]?.clientX ?? null;
                         touchDeltaXRef.current = 0;
@@ -1337,7 +1332,7 @@ const Bolao = () => {
                       }}
                       >
                       <div
-                        className={isMobilePredictionDeck ? "flex h-full min-h-[calc(100svh-320px)] w-full flex-1 items-start" : isMobile ? "flex-1" : ""}
+                        className={isMobilePredictionDeck ? "flex h-full min-h-0 w-full flex-1 items-center" : isMobile ? "flex-1" : ""}
                         style={
                           isMobile
                             ? {
@@ -1353,7 +1348,7 @@ const Bolao = () => {
                     </div>
 
                     {isMobile ? (
-                      <div className={`${isMobilePredictionDeck ? "mt-auto pt-3 pb-[max(8px,env(safe-area-inset-bottom))]" : "pb-2"} flex items-center justify-center text-center text-xs font-medium text-muted-foreground`}>
+                      <div className={`${isMobilePredictionDeck ? "shrink-0 pt-4 pb-[max(10px,env(safe-area-inset-bottom))]" : "pb-2"} flex items-center justify-center text-center text-xs font-medium text-muted-foreground`}>
                         Deslize para o lado para ver o proximo jogo
                       </div>
                     ) : null}
