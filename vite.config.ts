@@ -7,6 +7,7 @@ import matchByIdHandler from "./api/matches/[id]";
 import matchInsightsHandler from "./api/matches/[id]/insights";
 import syncMatchesHandler from "./api/jobs/sync-matches";
 import worldCupMatchesHandler from "./api/world-cup-matches/index";
+import worldCupLeaderboardHandler from "./api/world-cup-leaderboard/index";
 import syncWorldCupScoresHandler from "./api/jobs/sync-world-cup-scores";
 import logoHandler from "./api/assets/logo";
 
@@ -69,6 +70,11 @@ const localApiPlugin = () => ({
 
         if (pathname === "/api/world-cup-matches") {
           await worldCupMatchesHandler(req, res);
+          return;
+        }
+
+        if (pathname === "/api/world-cup-leaderboard") {
+          await worldCupLeaderboardHandler(req, res);
           return;
         }
 

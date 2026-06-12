@@ -149,6 +149,22 @@ const canUseSupabasePredictions = async (userId: string) => {
   return session?.user?.id === userId;
 };
 
+const fetchApiLeaderboard = async (scope: WorldCupLeaderboardScope) => {
+  if (typeof window === "undefined") return null;
+
+  try {
+    const response = await fetch(`/api/world-cup-leaderboard?scope=${scope}`);
+    if (!response.ok) {
+      return null;
+    }
+
+    const payload = (await response.json()) as { entries?: WorldCupLeaderboardEntry[] };
+    return payload.entries || [];
+  } catch {
+    return null;
+  }
+};
+
 const getMatchOutcome = (homeScore: number, awayScore: number) => {
   if (homeScore === awayScore) return "draw";
   return homeScore > awayScore ? "home" : "away";
@@ -529,6 +545,11 @@ export const getWorldCupLeaderboard = async (
   currentUser?: MockUser | null,
   scope: WorldCupLeaderboardScope = "general",
 ): Promise<WorldCupLeaderboardEntry[]> => {
+  const apiLeaderboard = await fetchApiLeaderboard(scope);
+  if (apiLeaderboard) {
+    return apiLeaderboard;
+  }
+
   const scopedMatches = normalizeLeaderboardMatches(matches, scope);
   const legacyAliasMap = buildLegacyAliasMap(matches);
 
