@@ -712,8 +712,8 @@ const Bolao = () => {
 
     if (isMobileDeck) {
       return (
-        <div className="flex h-full w-full flex-col">
-          <div className="shrink-0 text-center">
+        <div className="mx-auto grid h-[410px] w-full max-w-[360px] grid-rows-[44px_1fr_118px]">
+          <div className="text-center">
             <div className="flex items-center justify-center gap-2 text-xs font-medium text-muted-foreground">
               <span>{match.stage}</span>
               <span>•</span>
@@ -730,7 +730,7 @@ const Bolao = () => {
             </div>
           </div>
 
-          <div className="flex shrink-0 items-start justify-center pt-6">
+          <div className="flex items-start justify-center pt-6">
             <div className="grid w-full grid-cols-[minmax(0,1fr)_108px_minmax(0,1fr)] items-center gap-2 px-1">
               <div className="flex min-w-0 flex-col items-center text-center">
                 <TeamMark
@@ -739,7 +739,7 @@ const Bolao = () => {
                   defined
                   imageClassName="h-14 w-auto max-w-[76px] object-contain drop-shadow-sm"
                 />
-                <p className="mt-3 max-w-[92px] text-center text-[0.9rem] font-semibold leading-tight text-foreground break-words">
+                <p className="mt-3 flex h-[44px] max-w-[92px] items-start justify-center text-center text-[0.9rem] font-semibold leading-tight text-foreground break-words">
                   {match.homeTeam}
                 </p>
               </div>
@@ -811,14 +811,14 @@ const Bolao = () => {
                   defined
                   imageClassName="h-14 w-auto max-w-[76px] object-contain drop-shadow-sm"
                 />
-                <p className="mt-3 max-w-[92px] text-center text-[0.9rem] font-semibold leading-tight text-foreground break-words">
+                <p className="mt-3 flex h-[44px] max-w-[92px] items-start justify-center text-center text-[0.9rem] font-semibold leading-tight text-foreground break-words">
                   {match.awayTeam}
                 </p>
               </div>
             </div>
           </div>
 
-          <div className="shrink-0 space-y-4 pt-8 pb-2">
+          <div className="space-y-4 pt-8 pb-2">
             {!isLocked && isDeckEditable ? (
               <div className="space-y-2">
                 <div className="flex justify-center">
@@ -850,13 +850,7 @@ const Bolao = () => {
       return (
         <div className="grid w-full gap-8 border-y border-border/70 py-8 lg:grid-cols-[minmax(0,1fr)_320px]">
           <div className="space-y-8">
-            <div className="flex items-start justify-between gap-4">
-              <div className="space-y-1">
-                <p className="text-sm font-medium text-muted-foreground">{match.stage}</p>
-                <p className="text-sm text-muted-foreground">
-                  {match.date} • {formatBrasiliaTime(match.startTime)}
-                </p>
-              </div>
+            <div className="flex items-start justify-end gap-4">
               <div className="flex items-center gap-3 text-sm">
                 {currentStatus !== "scheduled" ? (
                   <span className="font-medium text-muted-foreground">
@@ -1341,27 +1335,31 @@ const Bolao = () => {
               </div>
             ) : (
               <div className={`${isMobilePredictionDeck ? "grid min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)_auto]" : "space-y-8"}`}>
-              <div className={`flex gap-3 ${isMobilePredictionDeck ? "shrink-0 flex-col items-center py-2 text-center" : "items-center justify-between"}`}>
+              <div className={`flex gap-3 ${isMobilePredictionDeck ? "shrink-0 items-center justify-center py-2 text-center" : "items-center justify-end"}`}>
                 {predictionView === "deck" ? (
-                  <div className="space-y-1">
-                    <span className="block text-sm font-medium text-foreground">
+                  isMobilePredictionDeck ? (
+                    <span className="text-sm font-medium text-foreground">
                       {pendingMatches.length === 0
                         ? "Nenhum jogo faltando"
-                        : `Faltam ${pendingMatches.length} ${pendingMatches.length === 1 ? "jogo" : "jogos"} para completar seus palpites.`}
+                        : `${pendingMatches.length} ${pendingMatches.length === 1 ? "jogo" : "jogos"} faltando`}
+                      {deckMatches.length > 0 ? ` • ${completedDeckCount}/${deckMatches.length}` : ""}
                     </span>
-                    <span className="block text-xs text-muted-foreground">
-                      Você já preencheu {completedDeckCount} de {deckMatches.length} jogos.
-                    </span>
-                  </div>
+                  ) : activeDeckMatch ? (
+                    <div className="text-right">
+                      <div className="text-sm font-medium text-foreground">
+                        {deckMatches.length > 0 ? `${completedDeckCount}/${deckMatches.length}` : ""}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {activeDeckMatch.stage} • {activeDeckMatch.date} • {formatBrasiliaTime(activeDeckMatch.startTime)}
+                      </div>
+                    </div>
+                  ) : <span />
                 ) : (
-                  <div className="space-y-1">
-                    <span className="block text-sm font-medium text-foreground">
-                      Você possui {creditSummary.availableCredits} {creditSummary.availableCredits === 1 ? "crédito" : "créditos"} de edição disponíveis.
+                  isMobilePredictionDeck ? (
+                    <span className="text-sm font-medium text-foreground">
+                      {creditSummary.availableCredits} {creditSummary.availableCredits === 1 ? "crédito de edição" : "créditos de edição"}
                     </span>
-                    <span className="block text-xs text-muted-foreground">
-                      Use seus créditos apenas em jogos futuros já salvos.
-                    </span>
-                  </div>
+                  ) : <span />
                 )}
                 {predictionView === "saved" ? (
                   <button
