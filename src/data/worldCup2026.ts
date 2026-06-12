@@ -377,14 +377,17 @@ export const isMatchRoomOpen = (match: Pick<WorldCupMatch, "id" | "date" | "star
   (() => {
     if (match.id === testOpenMatch.id) return true;
 
+    const currentStatus = getCurrentMatchStatus(match);
+    if (currentStatus === "ended") return false;
+    if (currentStatus === "live") return true;
+
     const kickoff = parseWorldCupMatchDate(match);
-    if (!kickoff) return getCurrentMatchStatus(match) === "live";
+    if (!kickoff) return false;
 
     const now = Date.now();
     const opensAt = kickoff.getTime() - ROOM_OPEN_BEFORE_KICKOFF_MS;
-    const closesAt = kickoff.getTime() + LIVE_WINDOW_MS + ROOM_CLOSE_AFTER_MATCH_MS;
 
-    return now >= opensAt && now <= closesAt;
+    return now >= opensAt && now < kickoff.getTime();
   })();
 
 export const isSummaryAvailableForMatch = (match: Pick<WorldCupMatch, "date" | "startTime">) => {
