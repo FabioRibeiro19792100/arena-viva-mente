@@ -88,13 +88,69 @@ const buildTeamVariants = (teamName: string) => {
   return Array.from(new Set([teamName, translated].filter(Boolean)));
 };
 
-const slugifyGePathPart = (value: string) =>
-  translateTeamLabel(value)
+const geTeamSlugByName: Record<string, string> = {
+  Algeria: "argelia",
+  Argentina: "argentina",
+  Australia: "australia",
+  Austria: "austria",
+  Belgium: "belgica",
+  "Bosnia and Herzegovina": "bosnia-herzegovina",
+  Brazil: "brasil",
+  Canada: "canada",
+  Colombia: "colombia",
+  Croatia: "croacia",
+  Curacao: "curacao",
+  "Czech Republic": "republica-tcheca",
+  Ecuador: "equador",
+  Egypt: "egito",
+  England: "inglaterra",
+  France: "franca",
+  Germany: "alemanha",
+  Ghana: "gana",
+  Haiti: "haiti",
+  Iran: "ira",
+  Iraq: "iraque",
+  "Ivory Coast": "costa-do-marfim",
+  Japan: "japao",
+  Jordan: "jordania",
+  Mexico: "mexico",
+  Morocco: "marrocos",
+  Netherlands: "holanda",
+  "New Zealand": "nova-zelandia",
+  Norway: "noruega",
+  Panama: "panama",
+  Paraguay: "paraguai",
+  Portugal: "portugal",
+  Qatar: "catar",
+  "Saudi Arabia": "arabia-saudita",
+  Scotland: "escocia",
+  Senegal: "senegal",
+  "South Africa": "africa-do-sul",
+  "South Korea": "coreia-do-sul",
+  Spain: "espanha",
+  Sweden: "suecia",
+  Switzerland: "suica",
+  Tunisia: "tunisia",
+  Turkey: "turquia",
+  Uruguay: "uruguai",
+  "United States": "estados-unidos",
+  Uzbekistan: "uzbequistao",
+  "DR Congo": "rd-congo",
+  "Cape Verde": "cabo-verde",
+};
+
+const slugifyGePathPart = (value: string) => {
+  const canonical = geTeamSlugByName[value];
+  if (canonical) return canonical;
+
+  return translateTeamLabel(value)
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
+    .replace(/\be\b/g, " ")
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
+};
 
 const buildMatchKey = (homeTeam: string, awayTeam: string, kickoffAt: string) => {
   const localDate = new Intl.DateTimeFormat("en-CA", {
