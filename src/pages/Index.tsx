@@ -164,7 +164,29 @@ const Index = () => {
       return leagueA.localeCompare(leagueB, "pt-BR");
     });
 
-  const allMatches = useMemo(() => [...feedTodayMatches, ...feedMatches], [feedTodayMatches, feedMatches]);
+  const canonicalWorldCupMatches = useMemo(
+    () =>
+      worldCupMatches.map((match) => ({
+        ...match,
+        sport: "futebol",
+      })),
+    [worldCupMatches],
+  );
+
+  const canonicalFeedTodayMatches = useMemo(
+    () => feedTodayMatches.filter((match) => !isWorldCupLeague(match.league)),
+    [feedTodayMatches],
+  );
+
+  const canonicalFeedMatches = useMemo(
+    () => feedMatches.filter((match) => !isWorldCupLeague(match.league)),
+    [feedMatches],
+  );
+
+  const allMatches = useMemo(
+    () => [...canonicalWorldCupMatches, ...canonicalFeedTodayMatches, ...canonicalFeedMatches],
+    [canonicalFeedMatches, canonicalFeedTodayMatches, canonicalWorldCupMatches],
+  );
   const availableLeagues = useMemo(
     () =>
       Array.from(
@@ -179,32 +201,50 @@ const Index = () => {
 
   const normalizedSearch = useMemo(() => normalizeSearchText(searchQuery), [searchQuery]);
 
-  const todayMatchIds = useMemo(() => new Set(feedTodayMatches.map((match) => match.id)), [feedTodayMatches]);
-  const worldCupMatchIds = useMemo(() => new Set(worldCupMatches.map((match) => match.id)), [worldCupMatches]);
+  const todayMatchIds = useMemo(
+    () => new Set(canonicalFeedTodayMatches.map((match) => match.id)),
+    [canonicalFeedTodayMatches],
+  );
+  const worldCupMatchIds = useMemo(
+    () => new Set(canonicalWorldCupMatches.map((match) => match.id)),
+    [canonicalWorldCupMatches],
+  );
 
   const quickFilteredMatches = useMemo(() => {
     if (selectedLeague === worldCupShortcutLeague) {
       if (quickFilter === "live") {
-        return worldCupMatches.filter((match) => getCurrentMatchStatus(match) === "live");
+        return canonicalWorldCupMatches.filter((match) => getCurrentMatchStatus(match) === "live");
       }
 
       if (quickFilter === "soon") {
-        return worldCupMatches.filter((match) => getCurrentMatchStatus(match) === "scheduled");
+        return canonicalWorldCupMatches.filter((match) => getCurrentMatchStatus(match) === "scheduled");
       }
 
-      return worldCupMatches;
+      return canonicalWorldCupMatches;
     }
 
     if (quickFilter === "live") {
-      return feedTodayMatches.filter((match) => match.status === "live");
+      return [
+        ...canonicalWorldCupMatches.filter((match) => getCurrentMatchStatus(match) === "live"),
+        ...canonicalFeedTodayMatches.filter((match) => match.status === "live"),
+      ];
     }
 
     if (quickFilter === "soon") {
-      return feedTodayMatches.filter((match) => match.status === "scheduled");
+      return [
+        ...canonicalWorldCupMatches.filter((match) => getCurrentMatchStatus(match) === "scheduled"),
+        ...canonicalFeedTodayMatches.filter((match) => match.status === "scheduled"),
+      ];
     }
 
-    return [...feedTodayMatches, ...feedMatches];
-  }, [feedMatches, feedTodayMatches, quickFilter, selectedLeague, worldCupMatches]);
+    return [...canonicalWorldCupMatches, ...canonicalFeedTodayMatches, ...canonicalFeedMatches];
+  }, [
+    canonicalFeedMatches,
+    canonicalFeedTodayMatches,
+    canonicalWorldCupMatches,
+    quickFilter,
+    selectedLeague,
+  ]);
 
   const fullyFilteredMatches = useMemo(
     () =>
