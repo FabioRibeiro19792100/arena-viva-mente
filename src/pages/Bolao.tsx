@@ -138,7 +138,7 @@ const getPredictionProfile = (predictions: WorldCupPrediction[]) => {
     return {
       avgGoals: 2.4,
       drawRate: 0.28,
-      tendencyLabel: "Sem histórico seu ainda, a leitura ficou no cenário mais seguro.",
+      tendencyLabel: "Sem histórico seu ainda, a sugestão ficou no cenário mais seguro.",
     };
   }
 
@@ -154,13 +154,11 @@ const getPredictionProfile = (predictions: WorldCupPrediction[]) => {
   const avgGoals = totals.goals / predictions.length;
   const drawRate = totals.draws / predictions.length;
 
-  let tendencyLabel = "Seu histórico recente está equilibrado, sem puxar demais o placar.";
+  let tendencyLabel = "Seu histórico recente não puxou a sugestão para nenhum extremo.";
   if (avgGoals <= 2.1) {
     tendencyLabel = "Seus palpites costumam ser mais curtos, então a sugestão segurou os gols.";
   } else if (avgGoals >= 3.4) {
     tendencyLabel = "Seus palpites costumam abrir mais gols, então a sugestão soltou mais o jogo.";
-  } else if (drawRate >= 0.4) {
-    tendencyLabel = "Você costuma respeitar equilíbrio, então o empate ganhou peso.";
   }
 
   return { avgGoals, drawRate, tendencyLabel };
@@ -170,6 +168,8 @@ const buildAiProposal = (
   match: WorldCupPoolMatch,
   existingPredictions: WorldCupPrediction[],
 ): AiProposal => {
+  const homeTeamLabel = translateTeamLabel(match.homeTeam);
+  const awayTeamLabel = translateTeamLabel(match.awayTeam);
   const homeRank = FIFA_RANKING_2026[getRankingKey(match.homeTeam)] ?? null;
   const awayRank = FIFA_RANKING_2026[getRankingKey(match.awayTeam)] ?? null;
   const rankGap = homeRank !== null && awayRank !== null ? awayRank - homeRank : 0;
@@ -219,7 +219,7 @@ const buildAiProposal = (
 
   const rankReason =
     homeRank !== null && awayRank !== null
-      ? `${match.homeTeam} está em ${homeRank}º e ${match.awayTeam} em ${awayRank}º no ranking FIFA local de ${FIFA_RANKING_SNAPSHOT_DATE}.`
+      ? `${homeTeamLabel} está em ${homeRank}º e ${awayTeamLabel} em ${awayRank}º no ranking FIFA local de ${FIFA_RANKING_SNAPSHOT_DATE}.`
       : "Sem ranking local fechado para um dos lados, a sugestão ficou no cenário mais neutro.";
 
   const matchupReason =
@@ -227,8 +227,8 @@ const buildAiProposal = (
       ? Math.abs(rankGap) <= 4
         ? "A distância entre os dois é curta, então a leitura pede margem apertada."
         : rankGap > 0
-          ? `${match.homeTeam} chega acima no ranking e por isso a sugestão pende para esse lado.`
-          : `${match.awayTeam} chega acima no ranking e por isso a sugestão pende para esse lado.`
+          ? `${homeTeamLabel} chega acima no ranking e por isso a sugestão pende para esse lado.`
+          : `${awayTeamLabel} chega acima no ranking e por isso a sugestão pende para esse lado.`
       : isGroupStage
         ? "Na fase de grupos, a leitura ficou mais conservadora."
         : "Sem comparação forte, a sugestão ficou no placar mais plausível.";
