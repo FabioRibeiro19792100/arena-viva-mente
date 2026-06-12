@@ -149,18 +149,6 @@ const canUseSupabasePredictions = async (userId: string) => {
   return session?.user?.id === userId;
 };
 
-const fetchRemoteLeaderboard = async (
-  scope: WorldCupLeaderboardScope,
-): Promise<WorldCupLeaderboardEntry[]> => {
-  const response = await fetch(`/api/world-cup-leaderboard?scope=${scope}`);
-  if (!response.ok) {
-    throw new Error(`world_cup_leaderboard_failed:${response.status}`);
-  }
-
-  const payload = (await response.json()) as { leaderboard?: WorldCupLeaderboardEntry[] };
-  return payload.leaderboard || [];
-};
-
 const getMatchOutcome = (homeScore: number, awayScore: number) => {
   if (homeScore === awayScore) return "draw";
   return homeScore > awayScore ? "home" : "away";
@@ -545,14 +533,6 @@ export const getWorldCupLeaderboard = async (
   const legacyAliasMap = buildLegacyAliasMap(matches);
 
   if (!currentUser || !(await canUseSupabasePredictions(currentUser.id))) {
-    if (isSupabaseConfigured) {
-      try {
-        return await fetchRemoteLeaderboard(scope);
-      } catch (error) {
-        console.error("Erro ao buscar ranking remoto do bolão:", error);
-      }
-    }
-
     if (!currentUser) return [];
 
     const predictions = readLocalPredictions(currentUser.id);
