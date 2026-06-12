@@ -1108,7 +1108,6 @@ const Bolao = () => {
     const officialScore = hasOfficialScore(match)
       ? `${match.homeScore} x ${match.awayScore}`
       : null;
-
     return (
       <div
         key={match.id}
@@ -1141,18 +1140,17 @@ const Bolao = () => {
         <div className="flex min-w-0 flex-1 items-center justify-end gap-2">
           <div className="min-w-0 flex-1 text-right">
             <span className="block truncate text-sm font-medium text-foreground">{match.awayTeam}</span>
-            <span className="block text-[11px] text-muted-foreground">{editState.helper}</span>
             {editState.canEdit ? (
               <button
                 type="button"
                 onClick={() => openScorePicker(match, "credit-edit")}
                 className="mt-1 text-[11px] font-medium text-foreground underline underline-offset-4"
               >
-                {editState.label}
+                Editar
               </button>
-            ) : (
-              <span className="mt-1 block text-[11px] font-medium text-muted-foreground">{editState.label}</span>
-            )}
+            ) : getCurrentMatchStatus(match) !== "scheduled" ? (
+              <span className="mt-1 block text-[11px] font-medium text-muted-foreground">Jogo iniciado</span>
+            ) : null}
           </div>
           <div className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-sm">
             <TeamMark
@@ -1179,7 +1177,7 @@ const Bolao = () => {
     return (
       <div
         key={match.id}
-        className="grid grid-cols-[minmax(0,1.8fr)_120px_120px_110px_minmax(0,1.2fr)] items-center gap-4 border-b border-border/60 px-4 py-4"
+        className="grid grid-cols-[minmax(0,1.8fr)_110px_110px_120px] items-center gap-4 border-b border-border/60 px-4 py-4"
       >
         <div className="min-w-0">
           <p className="truncate text-sm font-medium text-foreground">
@@ -1190,29 +1188,24 @@ const Bolao = () => {
           </p>
         </div>
         <div className="text-center">
-          <p className="text-xs text-muted-foreground">Seu palpite</p>
           <p className="text-sm font-semibold text-foreground">
             {savedPrediction.predictedHomeScore} x {savedPrediction.predictedAwayScore}
           </p>
         </div>
         <div className="text-center">
-          <p className="text-xs text-muted-foreground">Oficial</p>
           <p className="text-sm font-semibold text-foreground">{officialScore}</p>
         </div>
-        <div className="text-center">
-          <p className={`text-sm font-medium ${predictionFeedback.className}`}>{predictionFeedback.label}</p>
-        </div>
         <div className="min-w-0 text-right">
-          <p className="text-sm font-medium text-foreground">{editState.label}</p>
-          <p className="text-xs text-muted-foreground">{editState.helper}</p>
           {editState.canEdit ? (
             <button
               type="button"
               onClick={() => openScorePicker(match, "credit-edit")}
-              className="mt-1 text-xs font-medium text-foreground underline underline-offset-4"
+              className="text-xs font-medium text-foreground underline underline-offset-4"
             >
-              Editar placar
+              Editar
             </button>
+          ) : getCurrentMatchStatus(match) !== "scheduled" ? (
+            <span className="text-xs font-medium text-muted-foreground">Jogo iniciado</span>
           ) : null}
         </div>
       </div>
@@ -1362,9 +1355,7 @@ const Bolao = () => {
                   ) : <span />
                 ) : (
                   isMobilePredictionDeck ? (
-                    <span className="text-sm font-medium text-foreground">
-                      {creditSummary.availableCredits} {creditSummary.availableCredits === 1 ? "crédito de edição" : "créditos de edição"}
-                    </span>
+                    <span />
                   ) : <span />
                 )}
                 {predictionView === "saved" ? (
