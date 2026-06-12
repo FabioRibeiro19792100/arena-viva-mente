@@ -113,6 +113,23 @@ const buildMatchKeys = (homeTeam: string, awayTeam: string, kickoffAt: string) =
   return Array.from(keys);
 };
 
+const matchesTeamPair = (
+  homeTeam: string,
+  awayTeam: string,
+  candidateHomeTeam: string,
+  candidateAwayTeam: string,
+) => {
+  const homeVariants = buildTeamVariants(homeTeam).map(normalizeText);
+  const awayVariants = buildTeamVariants(awayTeam).map(normalizeText);
+  const candidateHomeVariants = buildTeamVariants(candidateHomeTeam).map(normalizeText);
+  const candidateAwayVariants = buildTeamVariants(candidateAwayTeam).map(normalizeText);
+
+  return (
+    homeVariants.some((value) => candidateHomeVariants.includes(value)) &&
+    awayVariants.some((value) => candidateAwayVariants.includes(value))
+  );
+};
+
 const mapWorldCupRowToMatch = (row: WorldCupMatchRow): WorldCupPoolMatch => ({
   id: row.id,
   homeTeam: row.home_team,
@@ -487,21 +504,19 @@ const buildCanonicalWorldCupRows = (
   geRows: WorldCupMatchRow[],
 ) => {
   const existingById = new Map(existingRows.map((row) => [row.id, row]));
-  const geByKey = new Map<string, WorldCupMatchRow>();
-
-  for (const row of geRows) {
-    for (const key of buildMatchKeys(row.home_team, row.away_team, row.kickoff_at)) {
-      geByKey.set(key, row);
-    }
-  }
 
   return worldCupGroupStageSeedMatches.map<WorldCupMatchRow>((match, index) => {
     const seedKickoff = parseWorldCupMatchDate(match)?.toISOString();
-    const geRow = seedKickoff
-      ? buildMatchKeys(match.homeTeam, match.awayTeam, seedKickoff)
-          .map((key) => geByKey.get(key))
-          .find(Boolean)
-      : null;
+    const geRow =
+      geRows.find(
+        (row) =>
+          row.stage === match.stage &&
+          matchesTeamPair(match.homeTeam, match.awayTeam, row.home_team, row.away_team),
+      ) ||
+      geRows.find((row) =>
+        matchesTeamPair(match.homeTeam, match.awayTeam, row.home_team, row.away_team),
+      ) ||
+      null;
     const kickoff = geRow?.kickoff_at || seedKickoff;
     if (!kickoff) {
       throw new Error(`invalid_world_cup_seed_kickoff:${match.id}`);
