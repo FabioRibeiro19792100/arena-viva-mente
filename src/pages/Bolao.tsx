@@ -1184,7 +1184,7 @@ const Bolao = () => {
     return (
       <div
         key={match.id}
-        className="grid grid-cols-[minmax(0,1.8fr)_120px_120px_110px_minmax(0,1.2fr)] items-center gap-4 border-b border-border/60 px-4 py-4"
+        className="grid grid-cols-[minmax(0,1fr)_120px_120px_140px_140px] items-center gap-4 border-b border-border/60 px-4 py-4"
       >
         <div className="min-w-0">
           <p className="truncate text-sm font-medium text-foreground">
@@ -1207,7 +1207,7 @@ const Bolao = () => {
             {predictionFeedback.label}
           </p>
         </div>
-        <div className="min-w-0 text-right">
+        <div className="text-right">
           {editState.canEdit ? (
             <button
               type="button"
@@ -1520,7 +1520,7 @@ const Bolao = () => {
                   </div>
                 ) : (
                   <div className="overflow-hidden border border-border/70 bg-card shadow-[var(--shadow-card)]">
-                    <div className="grid grid-cols-[minmax(0,1.8fr)_120px_120px_110px_minmax(0,1.2fr)] gap-4 border-b border-border/70 px-4 py-3 text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">
+                    <div className="grid grid-cols-[minmax(0,1fr)_120px_120px_140px_140px] gap-4 border-b border-border/70 px-4 py-3 text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">
                       <span>Jogo</span>
                       <span className="text-center">Palpite</span>
                       <span className="text-center">Oficial</span>
