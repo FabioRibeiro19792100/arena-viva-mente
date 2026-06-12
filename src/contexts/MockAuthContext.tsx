@@ -333,7 +333,7 @@ export const MockAuthProvider = ({ children }: { children: React.ReactNode }) =>
         const finalName = name?.trim() || "Torcedor local";
         const finalTeam = favoriteTeam?.trim() || "Neutro";
         const nextUser: MockUser = {
-          id: `dev-local-${Date.now()}`,
+          id: "dev-local",
           name: finalName,
           username: sanitizeUsername(finalName),
           email: "local@arenatikitaka.dev",

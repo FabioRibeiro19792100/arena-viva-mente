@@ -53,34 +53,90 @@ export class WorldCupCreditMutationError extends Error {
 
 const LOCAL_PREDICTIONS_PREFIX = "arena-viva-mente.world-cup-predictions";
 const LOCAL_CREDITS_PREFIX = "arena-viva-mente.world-cup-prediction-credits";
+const DEV_LOCAL_USER_ID = "dev-local";
 
 const localPredictionsKey = (userId: string) => `${LOCAL_PREDICTIONS_PREFIX}.${userId}`;
 const localCreditsKey = (userId: string) => `${LOCAL_CREDITS_PREFIX}.${userId}`;
 
+const isDevLocalUser = (userId: string) => userId === DEV_LOCAL_USER_ID || userId.startsWith("dev-local-");
+
+const collectLegacyDevLocalKeys = (prefix: string) => {
+  const keys: string[] = [];
+
+  try {
+    for (let index = 0; index < localStorage.length; index += 1) {
+      const key = localStorage.key(index);
+      if (key && key.startsWith(`${prefix}.dev-local`)) {
+        keys.push(key);
+      }
+    }
+  } catch {
+    return [];
+  }
+
+  return keys;
+};
+
+const getPredictionStorageKeys = (userId: string) => {
+  if (!isDevLocalUser(userId)) {
+    return [localPredictionsKey(userId)];
+  }
+
+  return Array.from(
+    new Set([localPredictionsKey(DEV_LOCAL_USER_ID), localPredictionsKey(userId), ...collectLegacyDevLocalKeys(LOCAL_PREDICTIONS_PREFIX)]),
+  );
+};
+
+const getCreditStorageKeys = (userId: string) => {
+  if (!isDevLocalUser(userId)) {
+    return [localCreditsKey(userId)];
+  }
+
+  return Array.from(
+    new Set([localCreditsKey(DEV_LOCAL_USER_ID), localCreditsKey(userId), ...collectLegacyDevLocalKeys(LOCAL_CREDITS_PREFIX)]),
+  );
+};
+
 const readLocalPredictions = (userId: string): WorldCupPrediction[] => {
   try {
-    const stored = localStorage.getItem(localPredictionsKey(userId));
-    return stored ? (JSON.parse(stored) as WorldCupPrediction[]) : [];
+    const merged = getPredictionStorageKeys(userId).flatMap((key) => {
+      const stored = localStorage.getItem(key);
+      return stored ? (JSON.parse(stored) as WorldCupPrediction[]) : [];
+    });
+
+    return dedupePredictionsByMatchId(merged);
   } catch {
     return [];
   }
 };
 
 const saveLocalPredictions = (userId: string, predictions: WorldCupPrediction[]) => {
-  localStorage.setItem(localPredictionsKey(userId), JSON.stringify(predictions));
+  const targetKey = isDevLocalUser(userId) ? localPredictionsKey(DEV_LOCAL_USER_ID) : localPredictionsKey(userId);
+  localStorage.setItem(targetKey, JSON.stringify(predictions));
 };
 
 const readLocalCreditLedger = (userId: string): WorldCupCreditLedgerEntry[] => {
   try {
-    const stored = localStorage.getItem(localCreditsKey(userId));
-    return stored ? (JSON.parse(stored) as WorldCupCreditLedgerEntry[]) : [];
+    const merged = getCreditStorageKeys(userId).flatMap((key) => {
+      const stored = localStorage.getItem(key);
+      return stored ? (JSON.parse(stored) as WorldCupCreditLedgerEntry[]) : [];
+    });
+
+    return Array.from(
+      new Map(
+        merged
+          .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+          .map((entry) => [entry.eventKey, entry]),
+      ).values(),
+    );
   } catch {
     return [];
   }
 };
 
 const saveLocalCreditLedger = (userId: string, entries: WorldCupCreditLedgerEntry[]) => {
-  localStorage.setItem(localCreditsKey(userId), JSON.stringify(entries));
+  const targetKey = isDevLocalUser(userId) ? localCreditsKey(DEV_LOCAL_USER_ID) : localCreditsKey(userId);
+  localStorage.setItem(targetKey, JSON.stringify(entries));
 };
 
 const canUseSupabasePredictions = async (userId: string) => {
@@ -91,6 +147,18 @@ const canUseSupabasePredictions = async (userId: string) => {
   } = await supabase.auth.getSession();
 
   return session?.user?.id === userId;
+};
+
+const fetchRemoteLeaderboard = async (
+  scope: WorldCupLeaderboardScope,
+): Promise<WorldCupLeaderboardEntry[]> => {
+  const response = await fetch(`/api/world-cup-leaderboard?scope=${scope}`);
+  if (!response.ok) {
+    throw new Error(`world_cup_leaderboard_failed:${response.status}`);
+  }
+
+  const payload = (await response.json()) as { leaderboard?: WorldCupLeaderboardEntry[] };
+  return payload.leaderboard || [];
 };
 
 const getMatchOutcome = (homeScore: number, awayScore: number) => {
@@ -477,6 +545,14 @@ export const getWorldCupLeaderboard = async (
   const legacyAliasMap = buildLegacyAliasMap(matches);
 
   if (!currentUser || !(await canUseSupabasePredictions(currentUser.id))) {
+    if (isSupabaseConfigured) {
+      try {
+        return await fetchRemoteLeaderboard(scope);
+      } catch (error) {
+        console.error("Erro ao buscar ranking remoto do bolão:", error);
+      }
+    }
+
     if (!currentUser) return [];
 
     const predictions = readLocalPredictions(currentUser.id);
