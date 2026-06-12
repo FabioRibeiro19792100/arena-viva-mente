@@ -348,8 +348,11 @@ const Bolao = () => {
   const [pickerValues, setPickerValues] = useState<{ home: number; away: number } | null>(null);
   const [aiProposal, setAiProposal] = useState<AiProposal | null>(null);
   const saveTimeoutRef = useRef<number | null>(null);
+  const swipeTimeoutRef = useRef<number | null>(null);
   const touchStartXRef = useRef<number | null>(null);
   const touchDeltaXRef = useRef(0);
+  const [dragOffsetX, setDragOffsetX] = useState(0);
+  const [isDraggingCard, setIsDraggingCard] = useState(false);
 
   const loadBolaoData = async () => {
     if (!user) return;
@@ -550,6 +553,9 @@ const Bolao = () => {
       if (saveTimeoutRef.current !== null) {
         window.clearTimeout(saveTimeoutRef.current);
       }
+      if (swipeTimeoutRef.current !== null) {
+        window.clearTimeout(swipeTimeoutRef.current);
+      }
     },
     [],
   );
@@ -610,6 +616,12 @@ const Bolao = () => {
   const goToNextDeckMatch = () => {
     if (activeDeckIndex >= pendingMatches.length - 1) return;
     setActiveDeckMatchId(pendingMatches[activeDeckIndex + 1]?.id || null);
+  };
+
+  const commitPickerValues = () => {
+    if (!activePickerMatch || !pickerValues) return;
+    queuePredictionSave(activePickerMatch, pickerValues);
+    setActivePickerMatchId(null);
   };
 
   const activeDeckMatch =
@@ -852,40 +864,6 @@ const Bolao = () => {
 
             {activeTab === "ranking" ? (
               <div className="space-y-6">
-              {currentUserRankingEntry && (
-                <Card className="border-border/80 shadow-[var(--shadow-card)]">
-                  <CardContent className="space-y-4 p-5">
-                    <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Meu desempenho</p>
-                    <div className="flex items-center gap-4">
-                      <Avatar className="h-12 w-12 border border-border">
-                        <AvatarImage src={currentUserRankingEntry.avatarUrl || undefined} alt={currentUserRankingEntry.name} />
-                        <AvatarFallback>{currentUserRankingEntry.name.slice(0, 2).toUpperCase()}</AvatarFallback>
-                      </Avatar>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-base font-semibold text-foreground">{currentUserRankingEntry.name}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {currentUserRankingEntry.totalPoints} pontos totais
-                        </p>
-                      </div>
-                    </div>
-                    <div className="grid gap-3 sm:grid-cols-3">
-                      <div className="border border-border/70 px-3 py-3">
-                        <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Pontos</p>
-                        <p className="mt-1 text-2xl font-semibold text-foreground">{currentUserRankingEntry.totalPoints}</p>
-                      </div>
-                      <div className="border border-border/70 px-3 py-3">
-                        <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Placares exatos</p>
-                        <p className="mt-1 text-2xl font-semibold text-foreground">{currentUserRankingEntry.exactScoreHits}</p>
-                      </div>
-                      <div className="border border-border/70 px-3 py-3">
-                        <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Resultados</p>
-                        <p className="mt-1 text-2xl font-semibold text-foreground">{currentUserRankingEntry.outcomeHits}</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-
               <Card className="border-border/80 shadow-[var(--shadow-card)]">
                 <CardContent className="space-y-5 p-5">
                   <div className="space-y-1">
@@ -899,15 +877,24 @@ const Bolao = () => {
                       leaderboard.slice(0, 12).map((entry, index) => (
                         <div
                           key={entry.userId}
-                          className="flex items-center gap-3 border border-border/70 px-3 py-3"
+                          className={`flex items-center gap-3 border px-3 py-3 ${
+                            entry.userId === user?.id
+                              ? "border-foreground/70 bg-muted/25"
+                              : "border-border/70"
+                          }`}
                         >
-                          <span className="w-5 text-sm font-medium text-muted-foreground">{index + 1}</span>
+                          <span className="w-5 text-sm font-medium text-muted-foreground">
+                            {index + 1}
+                          </span>
                           <Avatar className="h-9 w-9 border border-border">
                             <AvatarImage src={entry.avatarUrl || undefined} alt={entry.name} />
                             <AvatarFallback>{entry.name.slice(0, 2).toUpperCase()}</AvatarFallback>
                           </Avatar>
                           <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-medium text-foreground">{entry.name}</p>
+                            <p className="truncate text-sm font-medium text-foreground">
+                              {entry.name}
+                              {entry.userId === user?.id ? " • Você" : ""}
+                            </p>
                             <p className="text-xs text-muted-foreground">
                               {entry.exactScoreHits} exatos · {entry.outcomeHits} resultados
                             </p>
@@ -992,23 +979,51 @@ const Bolao = () => {
                       onTouchStart={(event) => {
                         touchStartXRef.current = event.touches[0]?.clientX ?? null;
                         touchDeltaXRef.current = 0;
+                        setIsDraggingCard(true);
                       }}
                       onTouchMove={(event) => {
                         if (touchStartXRef.current === null) return;
                         touchDeltaXRef.current = (event.touches[0]?.clientX ?? 0) - touchStartXRef.current;
+                        setDragOffsetX(touchDeltaXRef.current);
                       }}
                       onTouchEnd={() => {
                         if (!isMobile) return;
-                        if (touchDeltaXRef.current <= -48) {
-                          goToNextDeckMatch();
-                        } else if (touchDeltaXRef.current >= 48) {
-                          goToPreviousDeckMatch();
+                        const delta = touchDeltaXRef.current;
+
+                        if (delta <= -48 && activeDeckIndex < pendingMatches.length - 1) {
+                          setDragOffsetX(-window.innerWidth * 0.95);
+                          setIsDraggingCard(false);
+                          swipeTimeoutRef.current = window.setTimeout(() => {
+                            goToNextDeckMatch();
+                            setDragOffsetX(0);
+                          }, 170);
+                        } else if (delta >= 48 && activeDeckIndex > 0) {
+                          setDragOffsetX(window.innerWidth * 0.95);
+                          setIsDraggingCard(false);
+                          swipeTimeoutRef.current = window.setTimeout(() => {
+                            goToPreviousDeckMatch();
+                            setDragOffsetX(0);
+                          }, 170);
+                        } else {
+                          setIsDraggingCard(false);
+                          setDragOffsetX(0);
                         }
                         touchStartXRef.current = null;
                         touchDeltaXRef.current = 0;
                       }}
                     >
-                      <div className={isMobile ? "flex-1" : ""}>
+                      <div
+                        className={isMobile ? "flex-1" : ""}
+                        style={
+                          isMobile
+                            ? {
+                                transform: `translateX(${dragOffsetX}px) rotate(${dragOffsetX / 28}deg)`,
+                                opacity: Math.max(0.45, 1 - Math.abs(dragOffsetX) / 420),
+                                transition: isDraggingCard ? "none" : "transform 180ms ease, opacity 180ms ease",
+                              }
+                            : undefined
+                        }
+                      >
                         {renderPredictionCard(activeDeckMatch)}
                       </div>
                     </div>
@@ -1079,32 +1094,23 @@ const Bolao = () => {
                 label={activePickerMatch.homeTeam}
                 value={pickerValues.home}
                 onChange={(nextHome) => {
-                  const nextValues =
-                    pickerValues && activePickerMatch
-                      ? { home: nextHome, away: pickerValues.away }
-                      : null;
                   setPickerValues((current) => (current ? { ...current, home: nextHome } : current));
-                  if (nextValues) {
-                    queuePredictionSave(activePickerMatch, nextValues);
-                  }
                 }}
               />
               <ScoreWheel
                 label={activePickerMatch.awayTeam}
                 value={pickerValues.away}
                 onChange={(nextAway) => {
-                  const nextValues =
-                    pickerValues && activePickerMatch
-                      ? { home: pickerValues.home, away: nextAway }
-                      : null;
                   setPickerValues((current) => (current ? { ...current, away: nextAway } : current));
-                  if (nextValues) {
-                    queuePredictionSave(activePickerMatch, nextValues);
-                  }
                 }}
               />
             </div>
           )}
+          <div className="px-6 pb-8">
+            <Button className="w-full" onClick={commitPickerValues}>
+              OK
+            </Button>
+          </div>
         </DrawerContent>
       </Drawer>
 
