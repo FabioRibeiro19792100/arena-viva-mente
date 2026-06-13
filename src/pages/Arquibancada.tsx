@@ -31,6 +31,7 @@ import {
   formatBrasiliaTime,
   getCurrentMatchStatus,
   getMatchStatusLabel,
+  isMatchRoomOpen,
   isSummaryAvailableForMatch,
 } from "@/data/worldCup2026";
 import { useMockAuth } from "@/contexts/MockAuthContext";
@@ -106,6 +107,7 @@ const Arquibancada = () => {
   const activeGame = game;
   const isLoadingGame = !hasResolvedGame && !activeGame;
   const currentStatus = activeGame ? getCurrentMatchStatus(activeGame) : "scheduled";
+  const roomOpen = activeGame ? isMatchRoomOpen(activeGame) : false;
   const statusLabel = activeGame ? getMatchStatusLabel(activeGame) : "Reserva disponível";
   const hasPostGameSummary = activeGame ? isSummaryAvailableForMatch(activeGame) : false;
 
@@ -128,7 +130,7 @@ const Arquibancada = () => {
   }, [id]);
 
   const refreshMessages = async ({ showLoader = false }: { showLoader?: boolean } = {}) => {
-    if (currentStatus !== "live") return;
+    if (!roomOpen) return;
 
     if (showLoader) {
       setIsMessagesLoading(true);
@@ -163,7 +165,7 @@ const Arquibancada = () => {
   };
 
   const syncNewMessageIndicators = async () => {
-    if (currentStatus !== "live" || isRefreshing || isMessagesLoading) return;
+    if (!roomOpen || isRefreshing || isMessagesLoading) return;
 
     try {
       const currentMessages = messagesRef.current;
@@ -257,7 +259,7 @@ const Arquibancada = () => {
   useEffect(() => {
     if (isLoadingGame || !activeGame) return;
     if (!user) return;
-    if (currentStatus !== "live") {
+    if (!roomOpen) {
       setShowOnboarding(false);
       return;
     }
@@ -283,7 +285,7 @@ const Arquibancada = () => {
 
   useEffect(() => {
     if (isLoadingGame || !activeGame) return;
-    if (currentStatus !== "live") {
+    if (!roomOpen) {
       setMessages([]);
       setIsMessagesLoading(false);
       setPendingMessageCount(0);
@@ -295,7 +297,7 @@ const Arquibancada = () => {
 
   useEffect(() => {
     if (isLoadingGame || !activeGame) return;
-    if (currentStatus !== "live" || !isSupabaseConfigured || !supabase) {
+    if (!roomOpen || !isSupabaseConfigured || !supabase) {
       return;
     }
 
@@ -328,7 +330,7 @@ const Arquibancada = () => {
 
   useEffect(() => {
     if (isLoadingGame || !activeGame) return;
-    if (currentStatus !== "live") {
+    if (!roomOpen) {
       return;
     }
 
@@ -343,7 +345,7 @@ const Arquibancada = () => {
 
   useEffect(() => {
     if (isLoadingGame || !activeGame) return;
-    if (currentStatus !== "live") return;
+    if (!roomOpen) return;
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") {
@@ -923,7 +925,7 @@ const Arquibancada = () => {
     <div className="min-h-screen bg-background text-foreground">
       <Header roomMode onRoomMenuClick={() => setShowMobilePanel((current) => !current)} />
 
-      {currentStatus === "live" && (
+      {roomOpen && (
         <TeamOnboarding
           open={showOnboarding}
           onComplete={handleOnboardingComplete}
@@ -934,7 +936,7 @@ const Arquibancada = () => {
         />
       )}
 
-      {currentStatus !== "live" ? (
+      {!roomOpen && currentStatus !== "live" ? (
         <div className="container mx-auto max-w-4xl px-6 py-24">
           <Card className="border-border/80 shadow-[var(--shadow-card)]">
             <CardContent className="space-y-6 p-8 md:p-10">
