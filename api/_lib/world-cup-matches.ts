@@ -4,6 +4,80 @@ import { getSupabaseAdmin } from "./supabase-admin.js";
 
 const WORLD_CUP_SOURCE_URL = "https://ge.globo.com/futebol/copa-do-mundo/";
 const WORLD_CUP_LEAGUE_NAME = "World Cup";
+const CANONICAL_GROUP_STAGE_MATCHES = [
+  ["wc2026-01", "Grupo A", "Mexico", "South Africa"],
+  ["wc2026-02", "Grupo A", "South Korea", "Czech Republic"],
+  ["wc2026-03", "Grupo B", "Canada", "Bosnia and Herzegovina"],
+  ["wc2026-04", "Grupo D", "United States", "Paraguay"],
+  ["wc2026-05", "Grupo C", "Haiti", "Scotland"],
+  ["wc2026-06", "Grupo D", "Australia", "Turkey"],
+  ["wc2026-07", "Grupo C", "Brazil", "Morocco"],
+  ["wc2026-08", "Grupo B", "Qatar", "Switzerland"],
+  ["wc2026-09", "Grupo E", "Ivory Coast", "Ecuador"],
+  ["wc2026-10", "Grupo E", "Germany", "Curaçao"],
+  ["wc2026-11", "Grupo F", "Netherlands", "Japan"],
+  ["wc2026-12", "Grupo F", "Sweden", "Tunisia"],
+  ["wc2026-13", "Grupo H", "Saudi Arabia", "Uruguay"],
+  ["wc2026-14", "Grupo H", "Spain", "Cape Verde"],
+  ["wc2026-15", "Grupo G", "Iran", "New Zealand"],
+  ["wc2026-16", "Grupo G", "Belgium", "Egypt"],
+  ["wc2026-17", "Grupo I", "France", "Senegal"],
+  ["wc2026-18", "Grupo I", "Iraq", "Norway"],
+  ["wc2026-19", "Grupo J", "Argentina", "Algeria"],
+  ["wc2026-20", "Grupo J", "Austria", "Jordan"],
+  ["wc2026-21", "Grupo L", "Ghana", "Panama"],
+  ["wc2026-22", "Grupo L", "England", "Croatia"],
+  ["wc2026-23", "Grupo K", "Portugal", "DR Congo"],
+  ["wc2026-24", "Grupo K", "Uzbekistan", "Colombia"],
+  ["wc2026-25", "Grupo A", "Czech Republic", "South Africa"],
+  ["wc2026-26", "Grupo B", "Switzerland", "Bosnia and Herzegovina"],
+  ["wc2026-27", "Grupo B", "Canada", "Qatar"],
+  ["wc2026-28", "Grupo A", "Mexico", "South Korea"],
+  ["wc2026-29", "Grupo C", "Brazil", "Haiti"],
+  ["wc2026-30", "Grupo C", "Scotland", "Morocco"],
+  ["wc2026-31", "Grupo D", "Turkey", "Paraguay"],
+  ["wc2026-32", "Grupo D", "United States", "Australia"],
+  ["wc2026-33", "Grupo E", "Germany", "Ivory Coast"],
+  ["wc2026-34", "Grupo E", "Ecuador", "Curaçao"],
+  ["wc2026-35", "Grupo F", "Netherlands", "Sweden"],
+  ["wc2026-36", "Grupo F", "Tunisia", "Japan"],
+  ["wc2026-37", "Grupo H", "Uruguay", "Cape Verde"],
+  ["wc2026-38", "Grupo H", "Spain", "Saudi Arabia"],
+  ["wc2026-39", "Grupo G", "Belgium", "Iran"],
+  ["wc2026-40", "Grupo G", "New Zealand", "Egypt"],
+  ["wc2026-41", "Grupo I", "Norway", "Senegal"],
+  ["wc2026-42", "Grupo I", "France", "Iraq"],
+  ["wc2026-43", "Grupo J", "Argentina", "Austria"],
+  ["wc2026-44", "Grupo J", "Jordan", "Algeria"],
+  ["wc2026-45", "Grupo L", "England", "Ghana"],
+  ["wc2026-46", "Grupo L", "Panama", "Croatia"],
+  ["wc2026-47", "Grupo K", "Portugal", "Uzbekistan"],
+  ["wc2026-48", "Grupo K", "Colombia", "DR Congo"],
+  ["wc2026-49", "Grupo C", "Scotland", "Brazil"],
+  ["wc2026-50", "Grupo C", "Morocco", "Haiti"],
+  ["wc2026-51", "Grupo B", "Switzerland", "Canada"],
+  ["wc2026-52", "Grupo B", "Bosnia and Herzegovina", "Qatar"],
+  ["wc2026-53", "Grupo A", "Czech Republic", "Mexico"],
+  ["wc2026-54", "Grupo A", "South Africa", "South Korea"],
+  ["wc2026-55", "Grupo E", "Curaçao", "Ivory Coast"],
+  ["wc2026-56", "Grupo E", "Ecuador", "Germany"],
+  ["wc2026-57", "Grupo F", "Japan", "Sweden"],
+  ["wc2026-58", "Grupo F", "Tunisia", "Netherlands"],
+  ["wc2026-59", "Grupo D", "Turkey", "United States"],
+  ["wc2026-60", "Grupo D", "Paraguay", "Australia"],
+  ["wc2026-61", "Grupo I", "Norway", "France"],
+  ["wc2026-62", "Grupo I", "Senegal", "Iraq"],
+  ["wc2026-63", "Grupo G", "Egypt", "Iran"],
+  ["wc2026-64", "Grupo G", "New Zealand", "Belgium"],
+  ["wc2026-65", "Grupo H", "Cape Verde", "Saudi Arabia"],
+  ["wc2026-66", "Grupo H", "Uruguay", "Spain"],
+  ["wc2026-67", "Grupo L", "Panama", "England"],
+  ["wc2026-68", "Grupo L", "Croatia", "Ghana"],
+  ["wc2026-69", "Grupo J", "Algeria", "Austria"],
+  ["wc2026-70", "Grupo J", "Jordan", "Argentina"],
+  ["wc2026-71", "Grupo K", "Colombia", "Portugal"],
+  ["wc2026-72", "Grupo K", "DR Congo", "Uzbekistan"],
+] as const;
 
 export interface WorldCupMatchRow {
   id: string;
@@ -189,6 +263,16 @@ const matchesTeamPair = (
   );
 };
 
+const buildCanonicalGroupStageKey = (stage: string, homeTeam: string, awayTeam: string) =>
+  `${normalizeText(stage)}__${normalizeText(homeTeam)}__${normalizeText(awayTeam)}`;
+
+const canonicalGroupStageByKey = new Map(
+  CANONICAL_GROUP_STAGE_MATCHES.map(([id, stage, homeTeam, awayTeam], index) => [
+    buildCanonicalGroupStageKey(stage, homeTeam, awayTeam),
+    { id, matchNumber: index + 1 },
+  ]),
+);
+
 const mapWorldCupRowToMatch = (row: WorldCupMatchRow): WorldCupPoolMatch => ({
   id: row.id,
   homeTeam: row.home_team,
@@ -279,42 +363,6 @@ const loadExistingWorldCupRowsSafe = async () => {
   }
 };
 
-const enrichRowsWithLegacyLinks = async (rows: WorldCupMatchRow[]) => {
-  const rowsMissingLinks = rows.filter((row) => !row.linked_sports_match_id);
-  if (rowsMissingLinks.length === 0) {
-    return rows;
-  }
-
-  const admin = getSupabaseAdmin();
-  const { data, error } = await admin
-    .from("sports_matches")
-    .select("id, home_team, away_team, starts_at")
-    .eq("sport", "futebol")
-    .or("league_name.ilike.%World Cup%,league_name.ilike.%Copa do Mundo%");
-
-  if (error) {
-    return rows;
-  }
-
-  const sportsByKey = new Map<string, string>();
-
-  for (const row of data || []) {
-    for (const key of buildMatchKeys(row.home_team, row.away_team, row.starts_at)) {
-      sportsByKey.set(key, row.id);
-    }
-  }
-
-  return rows.map((row) => ({
-    ...row,
-    linked_sports_match_id:
-      row.linked_sports_match_id ||
-      buildMatchKeys(row.home_team, row.away_team, row.kickoff_at)
-        .map((key) => sportsByKey.get(key))
-        .find(Boolean) ||
-      null,
-  }));
-};
-
 export const getWorldCupPoolMatches = async () => {
   let rows: WorldCupMatchRow[] = [];
 
@@ -327,7 +375,7 @@ export const getWorldCupPoolMatches = async () => {
     throw error;
   }
 
-  return (await enrichRowsWithLegacyLinks(applyEmergencyScoreOverrides(rows))).map(mapWorldCupRowToMatch);
+  return applyEmergencyScoreOverrides(rows).map(mapWorldCupRowToMatch);
 };
 
 export const syncWorldCupScoresFromSportsSnapshot = async () => {
@@ -681,19 +729,27 @@ const applyGeMatchPageOverrides = async (rows: WorldCupMatchRow[]) => {
 };
 
 const buildWorldCupRowsFromGeGroups = (groups: GeGroup[]) => {
-  let matchNumber = 1;
-
   return groups.flatMap((group) =>
-    (group.lista_jogos || []).map<WorldCupMatchRow>((match) => {
+    (group.lista_jogos || []).flatMap<WorldCupMatchRow>((match) => {
       const kickoffAt = parseGeKickoffAt(match.data_realizacao, match.hora_realizacao);
       const status = inferMatchStatusFromGe(match);
-      const currentMatchNumber = matchNumber++;
+      const canonicalMatch = canonicalGroupStageByKey.get(
+        buildCanonicalGroupStageKey(
+          group.nome_grupo || "World Cup",
+          match.equipes.mandante.nome_popular,
+          match.equipes.visitante.nome_popular,
+        ),
+      );
 
-      return {
-        id: `wc2026-${String(currentMatchNumber).padStart(2, "0")}`,
+      if (!canonicalMatch) {
+        return [];
+      }
+
+      return [{
+        id: canonicalMatch.id,
         stage: group.nome_grupo || "World Cup",
         group_name: group.nome_grupo || null,
-        match_number: currentMatchNumber,
+        match_number: canonicalMatch.matchNumber,
         home_team: match.equipes.mandante.nome_popular,
         away_team: match.equipes.visitante.nome_popular,
         home_flag: match.equipes.mandante.escudo || null,
@@ -722,7 +778,7 @@ const buildWorldCupRowsFromGeGroups = (groups: GeGroup[]) => {
           typeof match.placar_oficial_visitante === "number"
             ? new Date().toISOString()
             : null,
-      };
+      }];
     }),
   );
 };
@@ -741,7 +797,7 @@ const buildCanonicalWorldCupRows = (
   existingRows: WorldCupMatchRow[],
   geRows: WorldCupMatchRow[],
 ) => {
-  return geRows.map<WorldCupMatchRow>((geRow, index) => {
+  return geRows.map<WorldCupMatchRow>((geRow) => {
     const existingRow =
       existingRows.find(
         (row) =>
@@ -752,7 +808,6 @@ const buildCanonicalWorldCupRows = (
 
     return {
       ...geRow,
-      match_number: index + 1,
       linked_sports_match_id: existingRow?.linked_sports_match_id || null,
       created_at: existingRow?.created_at,
       updated_at: existingRow?.updated_at,
