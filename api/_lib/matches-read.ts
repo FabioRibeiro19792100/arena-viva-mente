@@ -8,6 +8,7 @@ import {
   type SyncStatus,
   type SportsMatchRow,
 } from "./sports-matches.js";
+import { getWorldCupPoolMatches } from "./world-cup-matches.js";
 import { ensureStaticMatchesSeeded } from "./sports-sync.js";
 import { syncScheduledMatches } from "./sports-sync.js";
 import { syncMatchesByIds } from "./sports-sync.js";
@@ -48,6 +49,8 @@ const syncStatusPriority: Record<SyncStatus, number> = {
   limit: 3,
   suspended: 4,
 };
+
+const isWorldCupPoolId = (id: string) => /^wc2026-/.test(id);
 
 const readSyncStatuses = async () => {
   const admin = getSupabaseAdmin();
@@ -200,19 +203,32 @@ export const getMatchesFeed = async (input: {
 export const getMatchesByIds = async (ids: string[]) => {
   if (ids.length === 0) return [];
 
+  const worldCupIds = ids.filter(isWorldCupPoolId);
+  const otherIds = ids.filter((id) => !isWorldCupPoolId(id));
+  const worldCupMatches =
+    worldCupIds.length > 0
+      ? (await getWorldCupPoolMatches()).filter((match) => worldCupIds.includes(match.id))
+      : [];
+
+  if (otherIds.length === 0) {
+    return ids
+      .map((id) => worldCupMatches.find((match) => match.id === id))
+      .filter(Boolean);
+  }
+
   await ensureStaticMatchesSeeded();
   const admin = getSupabaseAdmin();
-  let { data, error } = await admin.from("sports_matches").select("*").in("id", ids);
+  let { data, error } = await admin.from("sports_matches").select("*").in("id", otherIds);
   if (error) {
     throw error;
   }
 
   const existingIds = new Set(((data || []) as SportsMatchRow[]).map((row) => row.id));
-  const missingIds = ids.filter((id) => !existingIds.has(id) && id.startsWith("api-"));
+  const missingIds = otherIds.filter((id) => !existingIds.has(id) && id.startsWith("api-"));
 
   if (missingIds.length > 0) {
     await syncMatchesByIds(missingIds);
-    const refreshed = await admin.from("sports_matches").select("*").in("id", ids);
+    const refreshed = await admin.from("sports_matches").select("*").in("id", otherIds);
     data = refreshed.data;
     error = refreshed.error;
     if (error) {
@@ -220,11 +236,20 @@ export const getMatchesByIds = async (ids: string[]) => {
     }
   }
 
-  const rows = ((data || []) as SportsMatchRow[]).sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id));
-  return rows.map(mapSportsMatchRowToDisplayMatch);
+  const rows = ((data || []) as SportsMatchRow[]).sort((a, b) => otherIds.indexOf(a.id) - otherIds.indexOf(b.id));
+  const otherMatches = rows.map(mapSportsMatchRowToDisplayMatch);
+
+  return ids
+    .map((id) => worldCupMatches.find((match) => match.id === id) || otherMatches.find((match) => match.id === id))
+    .filter(Boolean);
 };
 
 export const getMatchByIdFromDb = async (id: string) => {
+  if (isWorldCupPoolId(id)) {
+    const matches = await getWorldCupPoolMatches();
+    return matches.find((match) => match.id === id) || null;
+  }
+
   await ensureStaticMatchesSeeded();
   const admin = getSupabaseAdmin();
   let { data, error } = await admin.from("sports_matches").select("*").eq("id", id).maybeSingle();
