@@ -325,6 +325,9 @@ export const ensureWorldCupGroupStageSeeded = async () => {
     const existingRows = await loadExistingWorldCupRowsSafe();
     const geRows = await loadGeSeedRowsSafe();
     if (geRows.length === 0) {
+      if (existingRows.length > 0) {
+        return existingRows.length;
+      }
       throw new Error("world_cup_ge_seed_unavailable");
     }
     const canonicalRows = buildCanonicalWorldCupRows(existingRows, geRows);
