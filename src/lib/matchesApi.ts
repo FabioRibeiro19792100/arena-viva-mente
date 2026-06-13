@@ -1,5 +1,6 @@
 import type { WorldCupMatch } from "@/data/worldCup2026";
 import type { MatchInsightsPayload } from "@/lib/matchInsights";
+import { fetchWorldCupPoolMatches } from "@/lib/worldCupPoolApi";
 
 export type SportType = "futebol" | "basquete" | "volei";
 export type QuickFilterType = "all" | "live" | "soon";
@@ -25,6 +26,8 @@ const fetchJson = async <T>(url: string): Promise<T> => {
   return response.json();
 };
 
+const isWorldCupPoolId = (id: string) => /^wc2026-/.test(id);
+
 export const fetchMatchesFeed = async (params: {
   sport: "all" | SportType;
   quick: QuickFilterType;
@@ -45,12 +48,38 @@ export const fetchMatchesFeed = async (params: {
 
 export const fetchMatchesByIds = async (ids: string[]) => {
   if (ids.length === 0) return [];
+  const worldCupIds = ids.filter(isWorldCupPoolId);
+  const otherIds = ids.filter((id) => !isWorldCupPoolId(id));
+  const worldCupMatches =
+    worldCupIds.length > 0
+      ? (await fetchWorldCupPoolMatches()).filter((match) => worldCupIds.includes(match.id))
+      : [];
+
+  if (otherIds.length === 0) {
+    return ids
+      .map((id) => worldCupMatches.find((match) => match.id === id))
+      .filter(Boolean) as DisplayMatch[];
+  }
+
   const query = new URLSearchParams({ ids: ids.join(",") });
   const payload = await fetchJson<MatchesFeedResponse>(`/api/matches?${query.toString()}`);
-  return payload.matches || [];
+  const otherMatches = payload.matches || [];
+
+  return ids
+    .map((id) => worldCupMatches.find((match) => match.id === id) || otherMatches.find((match) => match.id === id))
+    .filter(Boolean) as DisplayMatch[];
 };
 
 export const fetchMatchById = async (id: string) => {
+  if (isWorldCupPoolId(id)) {
+    const matches = await fetchWorldCupPoolMatches();
+    const match = matches.find((item) => item.id === id);
+    if (!match) {
+      throw new Error("request_failed:404");
+    }
+    return match as DisplayMatch;
+  }
+
   const payload = await fetchJson<{ match: DisplayMatch }>(`/api/matches/${encodeURIComponent(id)}`);
   return payload.match;
 };
