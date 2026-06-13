@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { Header } from "@/components/Header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -74,6 +74,7 @@ const mergeMessages = (current: MatchMessage[], incoming: MatchMessage[]) => {
 
 const Arquibancada = () => {
   const { id } = useParams();
+  const location = useLocation();
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user } = useMockAuth();
@@ -108,6 +109,8 @@ const Arquibancada = () => {
   const isLoadingGame = !hasResolvedGame && !activeGame;
   const currentStatus = activeGame ? getCurrentMatchStatus(activeGame) : "scheduled";
   const roomOpen = activeGame ? isMatchRoomOpen(activeGame) : false;
+  const effectiveRoomOpen =
+    roomOpen || Boolean((location.state as { forceRoomOpen?: boolean } | null)?.forceRoomOpen);
   const statusLabel = activeGame ? getMatchStatusLabel(activeGame) : "Reserva disponível";
   const hasPostGameSummary = activeGame ? isSummaryAvailableForMatch(activeGame) : false;
 
@@ -130,7 +133,7 @@ const Arquibancada = () => {
   }, [id]);
 
   const refreshMessages = async ({ showLoader = false }: { showLoader?: boolean } = {}) => {
-    if (!roomOpen) return;
+    if (!effectiveRoomOpen) return;
 
     if (showLoader) {
       setIsMessagesLoading(true);
@@ -165,7 +168,7 @@ const Arquibancada = () => {
   };
 
   const syncNewMessageIndicators = async () => {
-    if (!roomOpen || isRefreshing || isMessagesLoading) return;
+    if (!effectiveRoomOpen || isRefreshing || isMessagesLoading) return;
 
     try {
       const currentMessages = messagesRef.current;
@@ -259,7 +262,7 @@ const Arquibancada = () => {
   useEffect(() => {
     if (isLoadingGame || !activeGame) return;
     if (!user) return;
-    if (!roomOpen) {
+    if (!effectiveRoomOpen) {
       setShowOnboarding(false);
       return;
     }
@@ -281,11 +284,11 @@ const Arquibancada = () => {
     return () => {
       isActive = false;
     };
-  }, [activeGame?.id, currentStatus, isLoadingGame, user]);
+  }, [activeGame?.id, currentStatus, effectiveRoomOpen, isLoadingGame, user]);
 
   useEffect(() => {
     if (isLoadingGame || !activeGame) return;
-    if (!roomOpen) {
+    if (!effectiveRoomOpen) {
       setMessages([]);
       setIsMessagesLoading(false);
       setPendingMessageCount(0);
@@ -293,11 +296,11 @@ const Arquibancada = () => {
     }
 
     void refreshMessages({ showLoader: true });
-  }, [activeGame?.id, currentStatus, isLoadingGame]);
+  }, [activeGame?.id, currentStatus, effectiveRoomOpen, isLoadingGame]);
 
   useEffect(() => {
     if (isLoadingGame || !activeGame) return;
-    if (!roomOpen || !isSupabaseConfigured || !supabase) {
+    if (!effectiveRoomOpen || !isSupabaseConfigured || !supabase) {
       return;
     }
 
@@ -326,11 +329,11 @@ const Arquibancada = () => {
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [activeGame?.id, currentStatus, isLoadingGame, user?.id]);
+  }, [activeGame?.id, currentStatus, effectiveRoomOpen, isLoadingGame, user?.id]);
 
   useEffect(() => {
     if (isLoadingGame || !activeGame) return;
-    if (!roomOpen) {
+    if (!effectiveRoomOpen) {
       return;
     }
 
@@ -341,11 +344,11 @@ const Arquibancada = () => {
     return () => {
       window.clearInterval(interval);
     };
-  }, [activeGame?.id, currentStatus, isLoadingGame, isMessagesLoading, isRefreshing, user?.id]);
+  }, [activeGame?.id, currentStatus, effectiveRoomOpen, isLoadingGame, isMessagesLoading, isRefreshing, user?.id]);
 
   useEffect(() => {
     if (isLoadingGame || !activeGame) return;
-    if (!roomOpen) return;
+    if (!effectiveRoomOpen) return;
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") {
@@ -360,7 +363,7 @@ const Arquibancada = () => {
       window.removeEventListener("focus", handleVisibilityChange);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [activeGame?.id, currentStatus, isLoadingGame, isMessagesLoading, isRefreshing, user?.id]);
+  }, [activeGame?.id, currentStatus, effectiveRoomOpen, isLoadingGame, isMessagesLoading, isRefreshing, user?.id]);
 
   useEffect(() => {
     if (!shouldAutoScrollRef.current) {
@@ -925,7 +928,7 @@ const Arquibancada = () => {
     <div className="min-h-screen bg-background text-foreground">
       <Header roomMode onRoomMenuClick={() => setShowMobilePanel((current) => !current)} />
 
-      {roomOpen && (
+      {effectiveRoomOpen && (
         <TeamOnboarding
           open={showOnboarding}
           onComplete={handleOnboardingComplete}
@@ -936,7 +939,7 @@ const Arquibancada = () => {
         />
       )}
 
-      {!roomOpen && currentStatus !== "live" ? (
+      {!effectiveRoomOpen && currentStatus !== "live" ? (
         <div className="container mx-auto max-w-4xl px-6 py-24">
           <Card className="border-border/80 shadow-[var(--shadow-card)]">
             <CardContent className="space-y-6 p-8 md:p-10">

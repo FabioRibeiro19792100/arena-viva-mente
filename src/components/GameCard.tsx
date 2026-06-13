@@ -213,7 +213,7 @@ export const GameCard = ({
               type="button"
               aria-label="Entrar"
               className="h-9 rounded-full border border-border/90 bg-background px-4 text-sm font-medium text-foreground transition-colors hover:bg-muted"
-              onClick={() => navigate(`/arquibancada/${id}`)}
+              onClick={() => navigate(`/arquibancada/${id}`, { state: { forceRoomOpen: true } })}
             >
               Entrar
             </button>
