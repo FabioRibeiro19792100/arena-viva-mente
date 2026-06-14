@@ -1,5 +1,5 @@
 import { type MatchStatus, type WorldCupMatch } from "../../src/data/worldCup2026.js";
-import { translateTeamLabel } from "../../src/lib/matchLabels.js";
+import { teamNamePtBr, translateTeamLabel } from "../../src/lib/matchLabels.js";
 import { getSupabaseAdmin } from "./supabase-admin.js";
 
 const WORLD_CUP_SOURCE_URL = "https://ge.globo.com/futebol/copa-do-mundo/";
@@ -117,6 +117,15 @@ const normalizeText = (value: string) =>
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, " ")
     .trim();
+
+const teamNameCanonical = new Map(
+  Object.entries(teamNamePtBr).flatMap(([canonicalName, ptBrName]) => [
+    [canonicalName, canonicalName],
+    [ptBrName, canonicalName],
+  ]),
+);
+
+const toCanonicalTeamName = (name: string) => teamNameCanonical.get(name) || name;
 
 const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
@@ -264,7 +273,7 @@ const matchesTeamPair = (
 };
 
 const buildCanonicalGroupStageKey = (stage: string, homeTeam: string, awayTeam: string) =>
-  `${normalizeText(stage)}__${normalizeText(homeTeam)}__${normalizeText(awayTeam)}`;
+  `${normalizeText(stage)}__${normalizeText(toCanonicalTeamName(homeTeam))}__${normalizeText(toCanonicalTeamName(awayTeam))}`;
 
 const canonicalGroupStageByKey = new Map(
   CANONICAL_GROUP_STAGE_MATCHES.map(([id, stage, homeTeam, awayTeam], index) => [
@@ -286,6 +295,27 @@ const getWorldCupRowFreshness = (row: WorldCupMatchRow) => {
   return [hasScore ? 1 : 0, statusWeight, sourceWeight, timeWeight] as const;
 };
 
+const sanitizeFutureWorldCupRow = (row: WorldCupMatchRow) => {
+  const kickoffMs = Date.parse(row.kickoff_at);
+  if (!Number.isFinite(kickoffMs)) return row;
+
+  if (kickoffMs > Date.now() + 15 * 60 * 1000) {
+    return {
+      ...row,
+      status: "scheduled" as const,
+      status_detail:
+        row.status_detail && /fique por dentro|agendado/i.test(row.status_detail)
+          ? row.status_detail
+          : "Agendado",
+      home_score: null,
+      away_score: null,
+      live_clock: null,
+    };
+  }
+
+  return row;
+};
+
 const preferWorldCupRow = (left: WorldCupMatchRow, right: WorldCupMatchRow) => {
   const leftFreshness = getWorldCupRowFreshness(left);
   const rightFreshness = getWorldCupRowFreshness(right);
@@ -303,13 +333,15 @@ const canonicalizeWorldCupRows = (rows: WorldCupMatchRow[]) => {
 
   for (const row of rows) {
     const canonicalMeta = getCanonicalMatchMeta(row.stage, row.home_team, row.away_team);
-    const canonicalRow = canonicalMeta
+    const canonicalRow = sanitizeFutureWorldCupRow(
+      canonicalMeta
       ? {
           ...row,
           id: canonicalMeta.id,
           match_number: canonicalMeta.matchNumber,
         }
-      : row;
+      : row,
+    );
 
     const existing = byCanonicalId.get(canonicalRow.id);
     byCanonicalId.set(canonicalRow.id, existing ? preferWorldCupRow(existing, canonicalRow) : canonicalRow);
