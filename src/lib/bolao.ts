@@ -54,6 +54,13 @@ export class WorldCupCreditMutationError extends Error {
 const LOCAL_PREDICTIONS_PREFIX = "arena-viva-mente.world-cup-predictions";
 const LOCAL_CREDITS_PREFIX = "arena-viva-mente.world-cup-prediction-credits";
 const DEV_LOCAL_USER_ID = "dev-local";
+const LEGACY_WORLD_CUP_MATCH_ID_MAP: Record<string, string> = {
+  "api-football-1489369": "wc2026-01",
+  "api-football-1538999": "wc2026-02",
+};
+
+const normalizeWorldCupPredictionMatchId = (matchId: string) =>
+  LEGACY_WORLD_CUP_MATCH_ID_MAP[matchId] || matchId;
 
 const localPredictionsKey = (userId: string) => `${LOCAL_PREDICTIONS_PREFIX}.${userId}`;
 const localCreditsKey = (userId: string) => `${LOCAL_CREDITS_PREFIX}.${userId}`;
@@ -170,19 +177,18 @@ const getMatchOutcome = (homeScore: number, awayScore: number) => {
   return homeScore > awayScore ? "home" : "away";
 };
 
-const buildLegacyAliasMap = (matches: WorldCupPoolMatch[]) =>
-  new Map(
-    matches
-      .filter((match) => match.linkedSportsMatchId)
-      .map((match) => [match.linkedSportsMatchId as string, match.id]),
-  );
-
 const dedupePredictionsByMatchId = (predictions: WorldCupPrediction[]) =>
   Array.from(
     new Map(
       [...predictions]
         .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
-        .map((prediction) => [prediction.matchId, prediction]),
+        .map((prediction) => [
+          normalizeWorldCupPredictionMatchId(prediction.matchId),
+          {
+            ...prediction,
+            matchId: normalizeWorldCupPredictionMatchId(prediction.matchId),
+          },
+        ]),
     ).values(),
   );
 
@@ -346,8 +352,6 @@ export const getWorldCupPredictions = async (
   userId: string,
   matches: WorldCupPoolMatch[] = [],
 ): Promise<WorldCupPrediction[]> => {
-  const legacyAliasMap = buildLegacyAliasMap(matches);
-
   if (!(await canUseSupabasePredictions(userId))) {
     return readLocalPredictions(userId);
   }
@@ -365,7 +369,7 @@ export const getWorldCupPredictions = async (
 
   return dedupePredictionsByMatchId(
     data.map((row) => ({
-      matchId: legacyAliasMap.get(row.match_id) || row.match_id,
+      matchId: normalizeWorldCupPredictionMatchId(row.match_id),
       predictedHomeScore: row.predicted_home_score,
       predictedAwayScore: row.predicted_away_score,
       updatedAt: row.updated_at,
@@ -378,10 +382,10 @@ export const saveWorldCupPrediction = async (
   matchId: string,
   predictedHomeScore: number,
   predictedAwayScore: number,
-  legacyMatchIds: string[] = [],
 ) => {
+  const normalizedMatchId = normalizeWorldCupPredictionMatchId(matchId);
   const payload: WorldCupPrediction = {
-    matchId,
+    matchId: normalizedMatchId,
     predictedHomeScore,
     predictedAwayScore,
     updatedAt: new Date().toISOString(),
@@ -391,9 +395,7 @@ export const saveWorldCupPrediction = async (
     const current = readLocalPredictions(userId);
     const next = [
       payload,
-      ...current.filter(
-        (prediction) => prediction.matchId !== matchId && !legacyMatchIds.includes(prediction.matchId),
-      ),
+      ...current.filter((prediction) => prediction.matchId !== normalizedMatchId),
     ];
     saveLocalPredictions(userId, next);
     return;
@@ -401,7 +403,7 @@ export const saveWorldCupPrediction = async (
 
   const { error } = await supabase.from("world_cup_predictions").upsert({
     user_id: userId,
-    match_id: matchId,
+    match_id: normalizedMatchId,
     predicted_home_score: predictedHomeScore,
     predicted_away_score: predictedAwayScore,
     updated_at: payload.updatedAt,
@@ -410,18 +412,6 @@ export const saveWorldCupPrediction = async (
   if (error) {
     console.error("Erro ao salvar palpite do bolão:", error);
     throw error;
-  }
-
-  if (legacyMatchIds.length > 0) {
-    const { error: cleanupError } = await supabase
-      .from("world_cup_predictions")
-      .delete()
-      .eq("user_id", userId)
-      .in("match_id", legacyMatchIds);
-
-    if (cleanupError) {
-      console.error("Erro ao limpar palpites antigos do bolão:", cleanupError);
-    }
   }
 };
 
@@ -448,7 +438,6 @@ export const consumeWorldCupEditCredit = async (
   nextValues: { home: number; away: number },
   matches: WorldCupPoolMatch[],
   currentPrediction: WorldCupPrediction,
-  legacyMatchIds: string[] = [],
 ) => {
   if (getCurrentMatchStatus(match) !== "scheduled") {
     throw new WorldCupCreditMutationError(
@@ -491,7 +480,6 @@ export const consumeWorldCupEditCredit = async (
       match.id,
       nextValues.home,
       nextValues.away,
-      legacyMatchIds,
     );
 
     return {
@@ -522,7 +510,6 @@ export const consumeWorldCupEditCredit = async (
       match.id,
       nextValues.home,
       nextValues.away,
-      legacyMatchIds,
     );
   } catch (error) {
     await supabase
@@ -551,7 +538,6 @@ export const getWorldCupLeaderboard = async (
   }
 
   const scopedMatches = normalizeLeaderboardMatches(matches, scope);
-  const legacyAliasMap = buildLegacyAliasMap(matches);
 
   if (!currentUser || !(await canUseSupabasePredictions(currentUser.id))) {
     if (!currentUser) return [];
@@ -632,12 +618,11 @@ export const getWorldCupLeaderboard = async (
   const dedupedRows = Array.from(
     new Map(
       (predictionsResult.data || [])
-        .map((row) => ({
-          ...row,
-          match_id: legacyAliasMap.get(row.match_id) || row.match_id,
-        }))
         .sort((a, b) => b.updated_at.localeCompare(a.updated_at))
-        .map((row) => [`${row.user_id}:${row.match_id}`, row]),
+        .map((row) => [
+          `${row.user_id}:${normalizeWorldCupPredictionMatchId(row.match_id)}`,
+          { ...row, match_id: normalizeWorldCupPredictionMatchId(row.match_id) },
+        ]),
     ).values(),
   );
 

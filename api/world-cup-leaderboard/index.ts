@@ -2,6 +2,13 @@ import { getSupabaseAdmin } from "../_lib/supabase-admin.js";
 import { getWorldCupPoolMatches } from "../_lib/world-cup-matches.js";
 
 type Scope = "general" | "brazil";
+const LEGACY_WORLD_CUP_MATCH_ID_MAP: Record<string, string> = {
+  "api-football-1489369": "wc2026-01",
+  "api-football-1538999": "wc2026-02",
+};
+
+const normalizeWorldCupPredictionMatchId = (matchId: string) =>
+  LEGACY_WORLD_CUP_MATCH_ID_MAP[matchId] || matchId;
 
 const endedMatchStatus = "ended";
 
@@ -93,12 +100,6 @@ export default async function handler(req: any, res: any) {
       });
     }
 
-    const legacyAliasMap = new Map(
-      matches
-        .filter((match) => match.linkedSportsMatchId)
-        .map((match) => [match.linkedSportsMatchId as string, match.id]),
-    );
-
     const profilesById = new Map(
       (profilesResult.data || []).map((profile) => [
         profile.id,
@@ -119,12 +120,11 @@ export default async function handler(req: any, res: any) {
     const dedupedRows = Array.from(
       new Map(
         (predictionsResult.data || [])
-          .map((row) => ({
-            ...row,
-            match_id: legacyAliasMap.get(row.match_id) || row.match_id,
-          }))
           .sort((a, b) => b.updated_at.localeCompare(a.updated_at))
-          .map((row) => [`${row.user_id}:${row.match_id}`, row]),
+          .map((row) => [
+            `${row.user_id}:${normalizeWorldCupPredictionMatchId(row.match_id)}`,
+            { ...row, match_id: normalizeWorldCupPredictionMatchId(row.match_id) },
+          ]),
       ).values(),
     );
 
