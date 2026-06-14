@@ -1,4 +1,9 @@
-import { type MatchStatus, type WorldCupMatch } from "../../src/data/worldCup2026.js";
+import {
+  parseWorldCupMatchDate,
+  type MatchStatus,
+  type WorldCupMatch,
+  worldCupGroupStageSeedMatches,
+} from "../../src/data/worldCup2026.js";
 import { teamNamePtBr, translateTeamLabel } from "../../src/lib/matchLabels.js";
 import { getSupabaseAdmin } from "./supabase-admin.js";
 
@@ -369,6 +374,44 @@ const mapWorldCupRowToMatch = (row: WorldCupMatchRow): WorldCupPoolMatch => ({
   linkedSportsMatchId: row.linked_sports_match_id ?? undefined,
 });
 
+const buildSeedBackedWorldCupRow = (match: WorldCupMatch, matchNumber: number): WorldCupMatchRow => {
+  const kickoff = parseWorldCupMatchDate(match);
+
+  if (!kickoff) {
+    throw new Error(`world_cup_seed_kickoff_parse_failed:${match.id}`);
+  }
+
+  const [venueName, ...cityParts] = match.venue.split(",").map((part) => part.trim());
+  const city = cityParts.length > 0 ? cityParts.join(", ") : null;
+
+  return {
+    id: match.id,
+    stage: match.stage,
+    group_name: match.stage,
+    match_number: matchNumber,
+    home_team: match.homeTeam,
+    away_team: match.awayTeam,
+    home_flag: match.homeTeamLogo,
+    away_flag: match.awayTeamLogo,
+    kickoff_at: kickoff.toISOString(),
+    timezone: "America/Sao_Paulo",
+    venue: venueName || match.venue || null,
+    city,
+    status: "scheduled",
+    status_detail: "Agendado",
+    home_score: null,
+    away_score: null,
+    live_clock: null,
+    linked_sports_match_id: null,
+    source: "canonical_registry",
+    source_url: null,
+    source_payload: {
+      source: "canonical_registry",
+    },
+    last_score_sync_at: null,
+  };
+};
+
 const upsertWorldCupRows = async (rows: WorldCupMatchRow[]) => {
   if (rows.length === 0) return;
   const admin = getSupabaseAdmin();
@@ -401,12 +444,6 @@ export const ensureWorldCupGroupStageSeeded = async () => {
   try {
     const existingRows = await loadExistingWorldCupRowsSafe();
     const geRows = await loadGeSeedRowsSafe();
-    if (geRows.length === 0) {
-      if (existingRows.length > 0) {
-        return existingRows.length;
-      }
-      throw new Error("world_cup_ge_seed_unavailable");
-    }
     const canonicalRows = buildCanonicalWorldCupRows(existingRows, geRows);
     await upsertWorldCupRows(canonicalRows);
   } catch (error) {
@@ -467,6 +504,7 @@ export const getWorldCupPoolMatches = async () => {
     await syncWorldCupScoresFromGe().catch(() => ({ updated: 0, source: WORLD_CUP_SOURCE_URL }));
     rows = await loadWorldCupRows();
     rows = await applyGeMatchPageOverrides(rows);
+    rows = buildCanonicalWorldCupRows(rows, []);
   } catch (error) {
     throw error;
   }
@@ -896,21 +934,39 @@ const buildCanonicalWorldCupRows = (
   existingRows: WorldCupMatchRow[],
   geRows: WorldCupMatchRow[],
 ) => {
-  return geRows.map<WorldCupMatchRow>((geRow) => {
+  return worldCupGroupStageSeedMatches.map<WorldCupMatchRow>((seedMatch, index) => {
+    const seedRow = buildSeedBackedWorldCupRow(seedMatch, index + 1);
+    const geRow =
+      geRows.find(
+        (row) =>
+          row.id === seedRow.id ||
+          (row.stage === seedRow.stage &&
+            matchesTeamPair(row.home_team, row.away_team, seedRow.home_team, seedRow.away_team)),
+      ) || null;
     const existingRow =
       existingRows.find(
         (row) =>
-          row.id === geRow.id ||
-          (row.stage === geRow.stage &&
-            matchesTeamPair(row.home_team, row.away_team, geRow.home_team, geRow.away_team)),
+          row.id === seedRow.id ||
+          (row.stage === seedRow.stage &&
+            matchesTeamPair(row.home_team, row.away_team, seedRow.home_team, seedRow.away_team)),
       ) || null;
 
-    return {
-      ...geRow,
-      linked_sports_match_id: existingRow?.linked_sports_match_id || null,
-      created_at: existingRow?.created_at,
-      updated_at: existingRow?.updated_at,
-    };
+    const freshestRow = [existingRow, geRow].filter(Boolean).reduce<WorldCupMatchRow | null>(
+      (best, candidate) => (best ? preferWorldCupRow(best, candidate!) : candidate!),
+      null,
+    );
+
+    return sanitizeFutureWorldCupRow({
+      ...seedRow,
+      ...freshestRow,
+      id: seedRow.id,
+      stage: seedRow.stage,
+      group_name: seedRow.group_name,
+      match_number: seedRow.match_number,
+      linked_sports_match_id: freshestRow?.linked_sports_match_id || null,
+      created_at: freshestRow?.created_at,
+      updated_at: freshestRow?.updated_at,
+    });
   });
 };
 
