@@ -273,6 +273,51 @@ const canonicalGroupStageByKey = new Map(
   ]),
 );
 
+const getCanonicalMatchMeta = (stage: string, homeTeam: string, awayTeam: string) =>
+  canonicalGroupStageByKey.get(buildCanonicalGroupStageKey(stage, homeTeam, awayTeam)) || null;
+
+const getWorldCupRowFreshness = (row: WorldCupMatchRow) => {
+  const hasScore = typeof row.home_score === "number" && typeof row.away_score === "number";
+  const statusWeight = row.status === "ended" ? 3 : row.status === "live" ? 2 : 1;
+  const sourceWeight =
+    row.source === "ge_match_page" ? 4 : row.source === "ge" ? 3 : row.source === "fallback" ? 2 : 1;
+  const timeWeight = Date.parse(row.last_score_sync_at || row.updated_at || row.created_at || "") || 0;
+
+  return [hasScore ? 1 : 0, statusWeight, sourceWeight, timeWeight] as const;
+};
+
+const preferWorldCupRow = (left: WorldCupMatchRow, right: WorldCupMatchRow) => {
+  const leftFreshness = getWorldCupRowFreshness(left);
+  const rightFreshness = getWorldCupRowFreshness(right);
+
+  for (let index = 0; index < leftFreshness.length; index += 1) {
+    if (leftFreshness[index] > rightFreshness[index]) return left;
+    if (leftFreshness[index] < rightFreshness[index]) return right;
+  }
+
+  return left;
+};
+
+const canonicalizeWorldCupRows = (rows: WorldCupMatchRow[]) => {
+  const byCanonicalId = new Map<string, WorldCupMatchRow>();
+
+  for (const row of rows) {
+    const canonicalMeta = getCanonicalMatchMeta(row.stage, row.home_team, row.away_team);
+    const canonicalRow = canonicalMeta
+      ? {
+          ...row,
+          id: canonicalMeta.id,
+          match_number: canonicalMeta.matchNumber,
+        }
+      : row;
+
+    const existing = byCanonicalId.get(canonicalRow.id);
+    byCanonicalId.set(canonicalRow.id, existing ? preferWorldCupRow(existing, canonicalRow) : canonicalRow);
+  }
+
+  return Array.from(byCanonicalId.values()).sort((left, right) => left.match_number - right.match_number);
+};
+
 const mapWorldCupRowToMatch = (row: WorldCupMatchRow): WorldCupPoolMatch => ({
   id: row.id,
   homeTeam: row.home_team,
@@ -351,7 +396,23 @@ const loadWorldCupRows = async () => {
     .order("match_number", { ascending: true });
 
   if (error) throw error;
-  return (data || []) as WorldCupMatchRow[];
+
+  const rawRows = (data || []) as WorldCupMatchRow[];
+  const canonicalRows = canonicalizeWorldCupRows(rawRows);
+  const needsRepair =
+    rawRows.length !== canonicalRows.length ||
+    rawRows.some((row) => {
+      const canonicalMeta = getCanonicalMatchMeta(row.stage, row.home_team, row.away_team);
+      return Boolean(
+        canonicalMeta && (row.id !== canonicalMeta.id || row.match_number !== canonicalMeta.matchNumber),
+      );
+    });
+
+  if (needsRepair && canonicalRows.length > 0) {
+    await upsertWorldCupRows(canonicalRows);
+  }
+
+  return canonicalRows;
 };
 
 const loadExistingWorldCupRowsSafe = async () => {
@@ -435,6 +496,11 @@ interface ParsedScoreUpdate {
   status_detail: string | null;
   live_clock: string | null;
   source_payload: unknown;
+}
+
+interface GeMatchedRowContext {
+  row: WorldCupMatchRow;
+  canonicalKey: string;
 }
 
 interface GeMatchPageOverride {
@@ -736,12 +802,10 @@ const buildWorldCupRowsFromGeGroups = (groups: GeGroup[]) => {
     (group.lista_jogos || []).flatMap<WorldCupMatchRow>((match) => {
       const kickoffAt = parseGeKickoffAt(match.data_realizacao, match.hora_realizacao);
       const status = inferMatchStatusFromGe(match);
-      const canonicalMatch = canonicalGroupStageByKey.get(
-        buildCanonicalGroupStageKey(
-          group.nome_grupo || "World Cup",
-          match.equipes.mandante.nome_popular,
-          match.equipes.visitante.nome_popular,
-        ),
+      const canonicalMatch = getCanonicalMatchMeta(
+        group.nome_grupo || "World Cup",
+        match.equipes.mandante.nome_popular,
+        match.equipes.visitante.nome_popular,
       );
 
       if (!canonicalMatch) {
@@ -890,17 +954,33 @@ const extractSnippet = (text: string, anchor: string) => {
 };
 
 const parseGeScoreUpdates = (html: string, matches: WorldCupMatchRow[]): ParsedScoreUpdate[] => {
+  const matchesByCanonicalKey = new Map<string, GeMatchedRowContext>(
+    matches.map((row) => {
+      const canonicalKey = buildCanonicalGroupStageKey(row.stage, row.home_team, row.away_team);
+      return [canonicalKey, { row, canonicalKey }];
+    }),
+  );
   const groups = parseGeGroupsData(html);
   const updatesFromGroups = groups.flatMap((group) =>
     (group.lista_jogos || []).flatMap((match) => {
-      const geKeys = buildMatchKeys(
+      const canonicalKey = buildCanonicalGroupStageKey(
+        group.nome_grupo || "World Cup",
         match.equipes.mandante.nome_popular,
         match.equipes.visitante.nome_popular,
-        match.data_realizacao,
       );
-      const row = matches.find((item) =>
-        buildMatchKeys(item.home_team, item.away_team, item.kickoff_at).some((key) => geKeys.includes(key)),
-      );
+
+      const matchedByCanonicalKey = matchesByCanonicalKey.get(canonicalKey)?.row || null;
+      const row =
+        matchedByCanonicalKey ||
+        matches.find((item) =>
+          item.stage === (group.nome_grupo || item.stage) &&
+          matchesTeamPair(
+            item.home_team,
+            item.away_team,
+            match.equipes.mandante.nome_popular,
+            match.equipes.visitante.nome_popular,
+          ),
+        );
 
       if (!row) return [];
 
