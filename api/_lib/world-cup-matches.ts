@@ -357,8 +357,8 @@ const canonicalizeWorldCupRows = (rows: WorldCupMatchRow[]) => {
 
 const mapWorldCupRowToMatch = (row: WorldCupMatchRow): WorldCupPoolMatch => ({
   id: row.id,
-  homeTeam: row.home_team,
-  awayTeam: row.away_team,
+  homeTeam: translateTeamLabel(row.home_team),
+  awayTeam: translateTeamLabel(row.away_team),
   league: WORLD_CUP_LEAGUE_NAME,
   stage: row.stage,
   status: row.status,

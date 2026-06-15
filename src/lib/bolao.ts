@@ -1,6 +1,7 @@
 import type { MockUser } from "@/contexts/MockAuthContext";
 import { getCurrentMatchStatus, type WorldCupMatch } from "@/data/worldCup2026";
 import { isSupabaseConfigured, supabase } from "@/integrations/supabase/client";
+import { normalizeSearchText } from "@/lib/matchLabels";
 import type { WorldCupPoolMatch } from "@/lib/worldCupPoolApi";
 
 export interface WorldCupPrediction {
@@ -207,7 +208,11 @@ const normalizeLeaderboardMatches = (
   );
 
   if (scope === "brazil") {
-    return scorableMatches.filter((match) => match.homeTeam === "Brazil" || match.awayTeam === "Brazil");
+    return scorableMatches.filter(
+      (match) =>
+        normalizeSearchText(match.homeTeam) === "brasil" ||
+        normalizeSearchText(match.awayTeam) === "brasil",
+    );
   }
 
   return scorableMatches;

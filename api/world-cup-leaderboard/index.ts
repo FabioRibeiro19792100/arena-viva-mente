@@ -9,6 +9,12 @@ const LEGACY_WORLD_CUP_MATCH_ID_MAP: Record<string, string> = {
 
 const normalizeWorldCupPredictionMatchId = (matchId: string) =>
   LEGACY_WORLD_CUP_MATCH_ID_MAP[matchId] || matchId;
+const normalizeTeamLabel = (value: string) =>
+  value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
 
 const endedMatchStatus = "ended";
 
@@ -65,7 +71,7 @@ const normalizeMatchesForScope = (scope: Scope) =>
 
       if (!isEnded) return false;
       if (scope === "brazil") {
-        return match.homeTeam === "Brazil" || match.awayTeam === "Brazil";
+        return normalizeTeamLabel(match.homeTeam) === "brasil" || normalizeTeamLabel(match.awayTeam) === "brasil";
       }
 
       return true;
