@@ -8,6 +8,7 @@ export const teamNamePtBr: Record<string, string> = {
   "Bosnia and Herzegovina": "Bósnia e Herzegovina",
   Brazil: "Brasil",
   Canada: "Canadá",
+  "Cape Verde": "Cabo Verde",
   Colombia: "Colômbia",
   Congo: "Congo",
   Croatia: "Croácia",
