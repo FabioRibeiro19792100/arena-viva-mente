@@ -1004,6 +1004,19 @@ const applyEmergencyScoreOverrides = (rows: WorldCupMatchRow[]) => {
         last_score_sync_at: new Date().toISOString(),
       },
     ],
+    [
+      "wc2026-14",
+      {
+        status: "ended",
+        status_detail: "Encerrado",
+        home_score: 0,
+        away_score: 0,
+        live_clock: null,
+        source: "fallback",
+        source_url: WORLD_CUP_SOURCE_URL,
+        last_score_sync_at: new Date().toISOString(),
+      },
+    ],
   ]);
 
   return rows.map((row) => {
