@@ -166,9 +166,21 @@ const buildStatusLabel = (status: MatchStatus, statusDetail: string | null) => {
   return "Agendado";
 };
 
+const additionalTeamVariants: Record<string, string[]> = {
+  "Bosnia and Herzegovina": ["Bósnia", "Bosnia", "Bósnia e Herzegovina"],
+  "Bósnia e Herzegovina": ["Bósnia", "Bosnia", "Bosnia and Herzegovina"],
+};
+
 const buildTeamVariants = (teamName: string) => {
   const translated = translateTeamLabel(teamName);
-  return Array.from(new Set([teamName, translated].filter(Boolean)));
+  return Array.from(
+    new Set([
+      teamName,
+      translated,
+      ...(additionalTeamVariants[teamName] || []),
+      ...(translated ? additionalTeamVariants[translated] || [] : []),
+    ].filter(Boolean)),
+  );
 };
 
 const geTeamSlugByName: Record<string, string> = {
@@ -813,7 +825,12 @@ const shouldRefreshFromGeMatchPage = (row: WorldCupMatchRow) => {
   const now = Date.now();
   const kickoffMs = new Date(row.kickoff_at).getTime();
   const dayMs = 24 * 60 * 60 * 1000;
-  return kickoffMs >= now - 2 * dayMs && kickoffMs <= now + dayMs;
+  const isNearKickoffWindow = kickoffMs >= now - 2 * dayMs && kickoffMs <= now + dayMs;
+  const isPastUnresolved =
+    kickoffMs < now &&
+    (row.status !== "ended" || typeof row.home_score !== "number" || typeof row.away_score !== "number");
+
+  return isNearKickoffWindow || isPastUnresolved;
 };
 
 const applyGeMatchPageOverrides = async (rows: WorldCupMatchRow[]) => {
