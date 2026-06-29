@@ -95,6 +95,15 @@ const getPredictionFeedback = (points: number | null) => {
   };
 };
 
+const KNOCKOUT_STAGE_ORDER = [
+  "Round of 32",
+  "Round of 16",
+  "Quarter-final",
+  "Semi-final",
+  "Third place",
+  "Final",
+] as const;
+
 const SCORE_OPTIONS = Array.from({ length: 11 }, (_, index) => index);
 const WHEEL_ITEM_HEIGHT = 44;
 const TEAM_RANKING_ALIASES: Record<string, string> = {
@@ -474,12 +483,31 @@ const Bolao = () => {
     [matches],
   );
 
+  const activeKnockoutStage = useMemo(() => {
+    for (const stage of KNOCKOUT_STAGE_ORDER) {
+      const hasOpenWindow = knockoutMatches.some(
+        (match) => match.stage === stage && getCurrentMatchStatus(match) !== "ended",
+      );
+
+      if (hasOpenWindow) {
+        return stage;
+      }
+    }
+
+    return KNOCKOUT_STAGE_ORDER[0];
+  }, [knockoutMatches]);
+
+  const activeKnockoutStageMatches = useMemo(
+    () => knockoutMatches.filter((match) => match.stage === activeKnockoutStage),
+    [activeKnockoutStage, knockoutMatches],
+  );
+
   const deckMatches = useMemo(
     () =>
-      knockoutMatches
+      activeKnockoutStageMatches
         .filter((match) => getCurrentMatchStatus(match) === "scheduled")
         .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()),
-    [knockoutMatches],
+    [activeKnockoutStageMatches],
   );
 
   const pendingMatches = useMemo(
@@ -494,10 +522,10 @@ const Bolao = () => {
 
   const savedMatches = useMemo(
     () =>
-      knockoutMatches
+      activeKnockoutStageMatches
         .filter((match) => Boolean(predictionsByMatchId[match.id]))
         .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()),
-    [knockoutMatches, predictionsByMatchId],
+    [activeKnockoutStageMatches, predictionsByMatchId],
   );
 
   useEffect(() => {
