@@ -450,7 +450,6 @@ export const getWorldCupPoolMatches = async () => {
   await ensureWorldCupGroupStageSeeded();
   await syncWorldCupScoresFromGe().catch(() => ({ updated: 0, source: WORLD_CUP_SOURCE_URL }));
   let rows = await loadWorldCupRows();
-  rows = await applyGeMatchPageOverrides(rows);
   rows = resolveKnockoutRowsFromStandings(rows);
   try {
     const html = await fetchWorldCupSourceHtml();
@@ -458,6 +457,9 @@ export const getWorldCupPoolMatches = async () => {
   } catch {
     // If GE is temporarily unavailable, keep the latest local rows.
   }
+  rows = buildCanonicalWorldCupRows(rows, []);
+  rows = resolveKnockoutRowsFromStandings(rows);
+  rows = await applyGeMatchPageOverrides(rows);
   rows = buildCanonicalWorldCupRows(rows, []);
   rows = resolveKnockoutRowsFromStandings(rows);
 
@@ -534,6 +536,33 @@ interface GeMatchPageOverride {
   home_score: number | null;
   away_score: number | null;
   source_payload: unknown;
+}
+
+interface GeChampionshipMatchEntry {
+  url?: string | null;
+  broadcastStatus?: {
+    id?: string | null;
+    label?: string | null;
+  } | null;
+  period?: {
+    id?: string | null;
+    label?: string | null;
+  } | null;
+  match?: {
+    moment?: string | null;
+    startDate?: string | null;
+    startHour?: string | null;
+    scoreboard?: {
+      home?: number | null;
+      away?: number | null;
+    } | null;
+    homeTeam?: {
+      popularName?: string | null;
+    } | null;
+    awayTeam?: {
+      popularName?: string | null;
+    } | null;
+  } | null;
 }
 
 interface GeGroupTeam {
@@ -660,6 +689,17 @@ const extractJsonArray = (source: string, anchor: string) => {
   }
 
   return null;
+};
+
+const parseGeChampionshipData = (html: string) => {
+  const rawChampionship = extractJsonArray(html, "championship:");
+  if (!rawChampionship) return [] as GeChampionshipMatchEntry[];
+
+  try {
+    return JSON.parse(rawChampionship) as GeChampionshipMatchEntry[];
+  } catch {
+    return [] as GeChampionshipMatchEntry[];
+  }
 };
 
 const parseGeGroupsData = (html: string) => {
@@ -1026,7 +1066,27 @@ const extractJsonLdBlocks = (html: string) =>
       }
     });
 
+const inferMatchStatusFromGeChampionshipEntry = (entry: GeChampionshipMatchEntry): MatchStatus | null => {
+  const broadcastId = entry.broadcastStatus?.id?.trim().toUpperCase() || "";
+  const periodId = entry.period?.id?.trim().toUpperCase() || "";
+  const moment = entry.match?.moment?.trim().toUpperCase() || "";
+
+  if (broadcastId === "ENCERRADA" || periodId === "POS_JOGO") return "ended";
+  if (broadcastId === "PRE_JOGO" || broadcastId === "PRE_DIA") return "scheduled";
+  if (moment === "PAST") return "ended";
+  if (moment === "FUTURE") return "scheduled";
+  if (moment === "NOW") return "live";
+
+  return null;
+};
+
 const parseGeMatchPageOverride = (html: string): GeMatchPageOverride | null => {
+  const canonicalUrlMatch = html.match(/<link rel="canonical" href="([^"]+)"/i);
+  const canonicalUrl = canonicalUrlMatch?.[1]?.trim() || null;
+  const championshipEntries = parseGeChampionshipData(html);
+  const matchedEntry =
+    (canonicalUrl && championshipEntries.find((entry) => entry.url === canonicalUrl)) || null;
+
   const jsonLdBlocks = extractJsonLdBlocks(html);
   const sportsEvent =
     jsonLdBlocks.find((item) =>
@@ -1068,6 +1128,47 @@ const parseGeMatchPageOverride = (html: string): GeMatchPageOverride | null => {
     typeof (sportsEvent.location.address as { addressRegion?: unknown }).addressRegion === "string"
       ? String((sportsEvent.location.address as { addressRegion: string }).addressRegion).trim()
       : null;
+
+  const championshipKickoffAt =
+    matchedEntry?.match?.startDate
+      ? parseGeKickoffAt(
+        matchedEntry.match.startDate,
+        typeof matchedEntry.match.startHour === "string" ? matchedEntry.match.startHour : null,
+      )
+      : null;
+  const championshipStatus = matchedEntry ? inferMatchStatusFromGeChampionshipEntry(matchedEntry) : null;
+  const championshipStatusDetail =
+    matchedEntry?.period?.label?.trim() ||
+    matchedEntry?.broadcastStatus?.label?.trim() ||
+    null;
+  const championshipHomeScore =
+    typeof matchedEntry?.match?.scoreboard?.home === "number" ? matchedEntry.match.scoreboard.home : null;
+  const championshipAwayScore =
+    typeof matchedEntry?.match?.scoreboard?.away === "number" ? matchedEntry.match.scoreboard.away : null;
+
+  if (matchedEntry && (championshipKickoffAt || championshipStatus || championshipHomeScore !== null || championshipAwayScore !== null)) {
+    return {
+      kickoff_at: championshipKickoffAt || startDate,
+      venue,
+      city,
+      status: championshipStatus,
+      status_detail:
+        championshipStatus === "ended"
+          ? championshipStatusDetail || "Encerrado"
+          : championshipStatus === "live"
+            ? championshipStatusDetail || "Ao vivo"
+            : championshipStatus === "scheduled"
+              ? championshipStatusDetail || "Agendado"
+              : championshipStatusDetail,
+      home_score: championshipHomeScore,
+      away_score: championshipAwayScore,
+      source_payload: {
+        source: "ge_match_page_championship",
+        canonicalUrl,
+        championshipEntry: matchedEntry,
+      },
+    };
+  }
 
   const titleMatch = html.match(/<title>([^<]+)<\/title>/i);
   const title = titleMatch?.[1]?.trim() || "";
@@ -1371,6 +1472,51 @@ const parseGeScoreUpdates = (html: string, matches: WorldCupMatchRow[]): ParsedS
       return [canonicalKey, { row, canonicalKey }];
     }),
   );
+  const championshipEntries = parseGeChampionshipData(html);
+  const updatesFromChampionship = championshipEntries.flatMap((entry) => {
+    const homeTeam = entry.match?.homeTeam?.popularName?.trim() || "";
+    const awayTeam = entry.match?.awayTeam?.popularName?.trim() || "";
+
+    if (!homeTeam || !awayTeam) {
+      return [];
+    }
+
+    const row =
+      matches.find((item) => matchesTeamPair(item.home_team, item.away_team, homeTeam, awayTeam)) || null;
+
+    if (!row) {
+      return [];
+    }
+
+    const status = inferMatchStatusFromGeChampionshipEntry(entry);
+    const hasOfficialScore =
+      typeof entry.match?.scoreboard?.home === "number" &&
+      typeof entry.match?.scoreboard?.away === "number";
+
+    if (!status || (!hasOfficialScore && status === "scheduled")) {
+      return [];
+    }
+
+    return [
+      {
+        id: row.id,
+        home_score: hasOfficialScore ? Number(entry.match?.scoreboard?.home) : 0,
+        away_score: hasOfficialScore ? Number(entry.match?.scoreboard?.away) : 0,
+        status,
+        status_detail: entry.period?.label?.trim() || entry.broadcastStatus?.label?.trim() || null,
+        live_clock: null,
+        source_payload: {
+          source: "championship",
+          championshipEntry: entry,
+        },
+      } satisfies ParsedScoreUpdate,
+    ];
+  });
+
+  if (updatesFromChampionship.length > 0) {
+    return updatesFromChampionship;
+  }
+
   const groups = parseGeGroupsData(html);
   const updatesFromGroups = groups.flatMap((group) =>
     (group.lista_jogos || []).flatMap((match) => {
@@ -1497,7 +1643,7 @@ export const syncWorldCupScoresFromGe = async () => {
   const worldCupRows = await loadWorldCupRows();
   const html = await fetchWorldCupSourceHtml();
   const resolvedRows = resolveKnockoutRowsFromGe(worldCupRows, html);
-  const parsedUpdates = parseGeScoreUpdates(html, worldCupRows);
+  const parsedUpdates = parseGeScoreUpdates(html, resolvedRows);
 
   const teamResolutionUpdates = resolvedRows.filter((resolvedRow, index) => {
     const currentRow = worldCupRows[index];
@@ -1513,7 +1659,7 @@ export const syncWorldCupScoresFromGe = async () => {
     return { updated: 0, source: WORLD_CUP_SOURCE_URL };
   }
 
-  const scoreUpdates = worldCupRows.flatMap((row) => {
+  const scoreUpdates = resolvedRows.flatMap((row) => {
     const parsed = parsedUpdates.find((item) => item.id === row.id);
     if (!parsed) return [];
 
