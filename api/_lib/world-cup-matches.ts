@@ -576,6 +576,10 @@ interface HeadlineMatchup {
   awayTeam: string;
 }
 
+interface ThirdPlaceCandidate extends GroupStandingRow {
+  groupLetter: string;
+}
+
 const simplifyHtml = (html: string) =>
   html
     .replace(/<script[\s\S]*?<\/script>/gi, " ")
@@ -749,9 +753,101 @@ const buildGroupStandings = (rows: WorldCupMatchRow[]) => {
   return groups;
 };
 
+const getGroupLetter = (group: string) => group.match(/Grupo\s+([A-Z])/i)?.[1]?.toUpperCase() || null;
+
+const compareStandingRows = (left: GroupStandingRow, right: GroupStandingRow) => {
+  if (right.points !== left.points) return right.points - left.points;
+  if (right.goalDifference !== left.goalDifference) return right.goalDifference - left.goalDifference;
+  if (right.goalsFor !== left.goalsFor) return right.goalsFor - left.goalsFor;
+  return left.team.localeCompare(right.team);
+};
+
+const buildQualifiedThirdPlaceTeams = (standingsByGroup: Map<string, GroupStandingRow[]>) =>
+  Array.from(standingsByGroup.values())
+    .map((standings) => standings[2] || null)
+    .filter((row): row is GroupStandingRow => Boolean(row))
+    .map<ThirdPlaceCandidate>((row) => ({
+      ...row,
+      groupLetter: getGroupLetter(row.group) || "",
+    }))
+    .filter((row) => Boolean(row.groupLetter))
+    .sort(compareStandingRows)
+    .slice(0, 8);
+
+const parseThirdPlaceSlotGroups = (slot: string) => {
+  const match = slot.match(/^Group ([A-Z](?:\/[A-Z])+) third place$/i);
+  if (!match) return null;
+
+  return match[1]
+    .split("/")
+    .map((group) => group.toUpperCase())
+    .filter(Boolean);
+};
+
+const buildThirdPlaceAssignments = (
+  rows: WorldCupMatchRow[],
+  standingsByGroup: Map<string, GroupStandingRow[]>,
+) => {
+  const qualifiedThirdPlaceTeams = buildQualifiedThirdPlaceTeams(standingsByGroup);
+  const slotCandidates = new Map<string, ThirdPlaceCandidate[]>();
+
+  for (const row of rows) {
+    if (row.stage !== "Round of 32") continue;
+
+    for (const slot of [row.home_team, row.away_team]) {
+      if (slotCandidates.has(slot)) continue;
+
+      const allowedGroups = parseThirdPlaceSlotGroups(slot);
+      if (!allowedGroups) continue;
+
+      slotCandidates.set(
+        slot,
+        qualifiedThirdPlaceTeams.filter((candidate) => allowedGroups.includes(candidate.groupLetter)),
+      );
+    }
+  }
+
+  const orderedSlots = Array.from(slotCandidates.entries())
+    .sort((left, right) => left[1].length - right[1].length)
+    .map(([slot]) => slot);
+
+  const assignedTeams = new Map<string, ThirdPlaceCandidate>();
+  const usedGroups = new Set<string>();
+
+  const assign = (index: number): boolean => {
+    if (index >= orderedSlots.length) return true;
+
+    const slot = orderedSlots[index];
+    const candidates = slotCandidates.get(slot) || [];
+
+    for (const candidate of candidates) {
+      if (usedGroups.has(candidate.groupLetter)) continue;
+
+      assignedTeams.set(slot, candidate);
+      usedGroups.add(candidate.groupLetter);
+
+      if (assign(index + 1)) {
+        return true;
+      }
+
+      assignedTeams.delete(slot);
+      usedGroups.delete(candidate.groupLetter);
+    }
+
+    return false;
+  };
+
+  if (!assign(0)) {
+    return new Map<string, string>();
+  }
+
+  return new Map(Array.from(assignedTeams.entries()).map(([slot, candidate]) => [slot, candidate.team]));
+};
+
 const inferResolvedTeamFromSlot = (
   slot: string,
   standingsByGroup: Map<string, GroupStandingRow[]>,
+  thirdPlaceAssignments: Map<string, string>,
 ) => {
   const winnerMatch = slot.match(/^Group ([A-Z]) winners$/i);
   if (winnerMatch) {
@@ -763,11 +859,17 @@ const inferResolvedTeamFromSlot = (
     return standingsByGroup.get(`Grupo ${runnerUpMatch[1].toUpperCase()}`)?.[1]?.team || null;
   }
 
+  const thirdPlaceTeam = thirdPlaceAssignments.get(slot);
+  if (thirdPlaceTeam) {
+    return thirdPlaceTeam;
+  }
+
   return null;
 };
 
 const resolveKnockoutRowsFromStandings = (rows: WorldCupMatchRow[]) => {
   const standingsByGroup = buildGroupStandings(rows);
+  const thirdPlaceAssignments = buildThirdPlaceAssignments(rows, standingsByGroup);
   const teamFlagByName = new Map<string, string>();
 
   for (const row of rows) {
@@ -779,8 +881,8 @@ const resolveKnockoutRowsFromStandings = (rows: WorldCupMatchRow[]) => {
   }
 
   return rows.map((row) => {
-    const resolvedHomeTeam = inferResolvedTeamFromSlot(row.home_team, standingsByGroup);
-    const resolvedAwayTeam = inferResolvedTeamFromSlot(row.away_team, standingsByGroup);
+    const resolvedHomeTeam = inferResolvedTeamFromSlot(row.home_team, standingsByGroup, thirdPlaceAssignments);
+    const resolvedAwayTeam = inferResolvedTeamFromSlot(row.away_team, standingsByGroup, thirdPlaceAssignments);
 
     if (!resolvedHomeTeam && !resolvedAwayTeam) {
       return row;
@@ -801,6 +903,7 @@ const resolveKnockoutRowsFromStandings = (rows: WorldCupMatchRow[]) => {
 
 const resolveKnockoutRowsFromGe = (rows: WorldCupMatchRow[], html: string) => {
   const standingsByGroup = buildGroupStandings(rows);
+  const thirdPlaceAssignments = buildThirdPlaceAssignments(rows, standingsByGroup);
   const headlineMatchups = extractGeHeadlineMatchups(html);
   const teamFlagByName = new Map<string, string>();
 
@@ -814,8 +917,8 @@ const resolveKnockoutRowsFromGe = (rows: WorldCupMatchRow[], html: string) => {
       return row;
     }
 
-    const resolvedHomeTeam = inferResolvedTeamFromSlot(row.home_team, standingsByGroup);
-    const resolvedAwayTeam = inferResolvedTeamFromSlot(row.away_team, standingsByGroup);
+    const resolvedHomeTeam = inferResolvedTeamFromSlot(row.home_team, standingsByGroup, thirdPlaceAssignments);
+    const resolvedAwayTeam = inferResolvedTeamFromSlot(row.away_team, standingsByGroup, thirdPlaceAssignments);
 
     let nextHomeTeam = resolvedHomeTeam || row.home_team;
     let nextAwayTeam = resolvedAwayTeam || row.away_team;

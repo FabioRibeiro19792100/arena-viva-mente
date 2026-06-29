@@ -8,6 +8,7 @@ import { useMockAuth } from "@/contexts/MockAuthContext";
 import {
   formatBrasiliaTime,
   getCurrentMatchStatus,
+  parseWorldCupMatchDate,
   type WorldCupMatch,
 } from "@/data/worldCup2026";
 import {
@@ -108,6 +109,15 @@ const hasResolvedTeams = (match: Pick<WorldCupPoolMatch, "homeTeam" | "awayTeam"
   !/(group\s+[a-z]|\bthird place\b|winner match|loser match|runners-up|winners)/i.test(
     `${match.homeTeam} ${match.awayTeam}`,
   );
+
+const isStillOpenForPrediction = (match: Pick<WorldCupPoolMatch, "date" | "startTime" | "status" | "id">) => {
+  const kickoff = parseWorldCupMatchDate(match);
+  if (!kickoff) {
+    return getCurrentMatchStatus(match) === "scheduled";
+  }
+
+  return kickoff.getTime() > Date.now();
+};
 
 const SCORE_OPTIONS = Array.from({ length: 11 }, (_, index) => index);
 const WHEEL_ITEM_HEIGHT = 44;
@@ -511,7 +521,7 @@ const Bolao = () => {
     () =>
       activeKnockoutStageMatches
         .filter((match) => hasResolvedTeams(match))
-        .filter((match) => getCurrentMatchStatus(match) === "scheduled")
+        .filter((match) => isStillOpenForPrediction(match))
         .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()),
     [activeKnockoutStageMatches],
   );
