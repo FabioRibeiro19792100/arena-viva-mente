@@ -589,23 +589,26 @@ interface GeGamePageMatchup {
   awayTeam: string;
 }
 
-const gePublishedRoundOf32MatchupsById: Record<string, { homeTeam: string; awayTeam: string }> = {
-  "wc2026-73": { homeTeam: "South Africa", awayTeam: "Canada" },
-  "wc2026-74": { homeTeam: "Germany", awayTeam: "Paraguay" },
-  "wc2026-75": { homeTeam: "Netherlands", awayTeam: "Morocco" },
-  "wc2026-76": { homeTeam: "Brazil", awayTeam: "Japan" },
-  "wc2026-77": { homeTeam: "France", awayTeam: "Sweden" },
-  "wc2026-78": { homeTeam: "Ivory Coast", awayTeam: "Norway" },
-  "wc2026-79": { homeTeam: "Mexico", awayTeam: "Ecuador" },
-  "wc2026-80": { homeTeam: "England", awayTeam: "DR Congo" },
-  "wc2026-81": { homeTeam: "United States", awayTeam: "Bosnia and Herzegovina" },
-  "wc2026-82": { homeTeam: "Belgium", awayTeam: "Senegal" },
-  "wc2026-83": { homeTeam: "Portugal", awayTeam: "Croatia" },
-  "wc2026-84": { homeTeam: "Spain", awayTeam: "Austria" },
-  "wc2026-85": { homeTeam: "Switzerland", awayTeam: "Algeria" },
-  "wc2026-86": { homeTeam: "Argentina", awayTeam: "Cape Verde" },
-  "wc2026-87": { homeTeam: "Colombia", awayTeam: "Ghana" },
-  "wc2026-88": { homeTeam: "Australia", awayTeam: "Egypt" },
+const gePublishedRoundOf32MatchupsById: Record<
+  string,
+  { homeTeam: string; awayTeam: string; kickoffAt?: string }
+> = {
+  "wc2026-73": { homeTeam: "South Africa", awayTeam: "Canada", kickoffAt: "2026-06-28T16:00:00-03:00" },
+  "wc2026-74": { homeTeam: "Germany", awayTeam: "Paraguay", kickoffAt: "2026-06-29T17:30:00-03:00" },
+  "wc2026-75": { homeTeam: "Netherlands", awayTeam: "Morocco", kickoffAt: "2026-06-29T22:00:00-03:00" },
+  "wc2026-76": { homeTeam: "Brazil", awayTeam: "Japan", kickoffAt: "2026-06-29T14:00:00-03:00" },
+  "wc2026-77": { homeTeam: "France", awayTeam: "Sweden", kickoffAt: "2026-06-30T18:00:00-03:00" },
+  "wc2026-78": { homeTeam: "Ivory Coast", awayTeam: "Norway", kickoffAt: "2026-06-30T14:00:00-03:00" },
+  "wc2026-79": { homeTeam: "Mexico", awayTeam: "Ecuador", kickoffAt: "2026-06-30T22:00:00-03:00" },
+  "wc2026-80": { homeTeam: "England", awayTeam: "DR Congo", kickoffAt: "2026-07-01T13:00:00-03:00" },
+  "wc2026-81": { homeTeam: "United States", awayTeam: "Bosnia and Herzegovina", kickoffAt: "2026-07-01T21:00:00-03:00" },
+  "wc2026-82": { homeTeam: "Belgium", awayTeam: "Senegal", kickoffAt: "2026-07-01T17:00:00-03:00" },
+  "wc2026-83": { homeTeam: "Portugal", awayTeam: "Croatia", kickoffAt: "2026-07-02T20:00:00-03:00" },
+  "wc2026-84": { homeTeam: "Spain", awayTeam: "Austria", kickoffAt: "2026-07-02T16:00:00-03:00" },
+  "wc2026-85": { homeTeam: "Switzerland", awayTeam: "Algeria", kickoffAt: "2026-07-03T00:00:00-03:00" },
+  "wc2026-86": { homeTeam: "Argentina", awayTeam: "Cape Verde", kickoffAt: "2026-07-03T19:00:00-03:00" },
+  "wc2026-87": { homeTeam: "Colombia", awayTeam: "Ghana", kickoffAt: "2026-07-03T22:30:00-03:00" },
+  "wc2026-88": { homeTeam: "Australia", awayTeam: "Egypt", kickoffAt: "2026-07-03T15:00:00-03:00" },
 };
 
 const simplifyHtml = (html: string) =>
@@ -875,6 +878,7 @@ const resolveKnockoutRowsFromStandings = (rows: WorldCupMatchRow[]) => {
         ...row,
         home_team: gePublishedMatchup.homeTeam,
         away_team: gePublishedMatchup.awayTeam,
+        kickoff_at: gePublishedMatchup.kickoffAt || row.kickoff_at,
         home_flag: teamFlagByName.get(toCanonicalTeamName(gePublishedMatchup.homeTeam)) || row.home_flag,
         away_flag: teamFlagByName.get(toCanonicalTeamName(gePublishedMatchup.awayTeam)) || row.away_flag,
       };
