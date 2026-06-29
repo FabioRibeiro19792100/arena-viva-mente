@@ -444,7 +444,15 @@ export const getWorldCupPoolMatches = async () => {
   await syncWorldCupScoresFromGe().catch(() => ({ updated: 0, source: WORLD_CUP_SOURCE_URL }));
   let rows = await loadWorldCupRows();
   rows = await applyGeMatchPageOverrides(rows);
+  rows = resolveKnockoutRowsFromStandings(rows);
+  try {
+    const html = await fetchWorldCupSourceHtml();
+    rows = resolveKnockoutRowsFromGe(rows, html);
+  } catch {
+    // If GE is temporarily unavailable, keep the latest local rows.
+  }
   rows = buildCanonicalWorldCupRows(rows, []);
+  rows = resolveKnockoutRowsFromStandings(rows);
 
   return applyEmergencyScoreOverrides(rows).map(mapWorldCupRowToMatch);
 };
@@ -676,12 +684,14 @@ const buildGroupStandings = (rows: WorldCupMatchRow[]) => {
     if (typeof row.home_score !== "number" || typeof row.away_score !== "number") continue;
 
     const group = row.stage;
-    const homeKey = `${group}__${row.home_team}`;
-    const awayKey = `${group}__${row.away_team}`;
+    const homeTeam = toCanonicalTeamName(row.home_team);
+    const awayTeam = toCanonicalTeamName(row.away_team);
+    const homeKey = `${group}__${homeTeam}`;
+    const awayKey = `${group}__${awayTeam}`;
     const homeEntry =
       table.get(homeKey) || {
         group,
-        team: row.home_team,
+        team: homeTeam,
         points: 0,
         goalDifference: 0,
         goalsFor: 0,
@@ -690,7 +700,7 @@ const buildGroupStandings = (rows: WorldCupMatchRow[]) => {
     const awayEntry =
       table.get(awayKey) || {
         group,
-        team: row.away_team,
+        team: awayTeam,
         points: 0,
         goalDifference: 0,
         goalsFor: 0,
@@ -756,14 +766,47 @@ const inferResolvedTeamFromSlot = (
   return null;
 };
 
+const resolveKnockoutRowsFromStandings = (rows: WorldCupMatchRow[]) => {
+  const standingsByGroup = buildGroupStandings(rows);
+  const teamFlagByName = new Map<string, string>();
+
+  for (const row of rows) {
+    const canonicalHomeTeam = toCanonicalTeamName(row.home_team);
+    const canonicalAwayTeam = toCanonicalTeamName(row.away_team);
+
+    if (row.home_flag) teamFlagByName.set(canonicalHomeTeam, row.home_flag);
+    if (row.away_flag) teamFlagByName.set(canonicalAwayTeam, row.away_flag);
+  }
+
+  return rows.map((row) => {
+    const resolvedHomeTeam = inferResolvedTeamFromSlot(row.home_team, standingsByGroup);
+    const resolvedAwayTeam = inferResolvedTeamFromSlot(row.away_team, standingsByGroup);
+
+    if (!resolvedHomeTeam && !resolvedAwayTeam) {
+      return row;
+    }
+
+    const nextHomeTeam = resolvedHomeTeam || row.home_team;
+    const nextAwayTeam = resolvedAwayTeam || row.away_team;
+
+    return {
+      ...row,
+      home_team: nextHomeTeam,
+      away_team: nextAwayTeam,
+      home_flag: teamFlagByName.get(toCanonicalTeamName(nextHomeTeam)) || row.home_flag,
+      away_flag: teamFlagByName.get(toCanonicalTeamName(nextAwayTeam)) || row.away_flag,
+    };
+  });
+};
+
 const resolveKnockoutRowsFromGe = (rows: WorldCupMatchRow[], html: string) => {
   const standingsByGroup = buildGroupStandings(rows);
   const headlineMatchups = extractGeHeadlineMatchups(html);
   const teamFlagByName = new Map<string, string>();
 
   for (const row of rows) {
-    if (row.home_flag) teamFlagByName.set(row.home_team, row.home_flag);
-    if (row.away_flag) teamFlagByName.set(row.away_team, row.away_flag);
+    if (row.home_flag) teamFlagByName.set(toCanonicalTeamName(row.home_team), row.home_flag);
+    if (row.away_flag) teamFlagByName.set(toCanonicalTeamName(row.away_team), row.away_flag);
   }
 
   return rows.map((row) => {
@@ -805,8 +848,8 @@ const resolveKnockoutRowsFromGe = (rows: WorldCupMatchRow[], html: string) => {
       ...row,
       home_team: nextHomeTeam,
       away_team: nextAwayTeam,
-      home_flag: teamFlagByName.get(nextHomeTeam) || row.home_flag,
-      away_flag: teamFlagByName.get(nextAwayTeam) || row.away_flag,
+      home_flag: teamFlagByName.get(toCanonicalTeamName(nextHomeTeam)) || row.home_flag,
+      away_flag: teamFlagByName.get(toCanonicalTeamName(nextAwayTeam)) || row.away_flag,
     };
   });
 };
