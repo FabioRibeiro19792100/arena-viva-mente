@@ -12,6 +12,7 @@ export interface WorldCupPrediction {
 }
 
 export type WorldCupLeaderboardScope = "general" | "brazil";
+export type WorldCupLeaderboardCycle = "knockout" | "group-stage-history";
 export type WorldCupCreditEventKind = "exact_hit_grant" | "edit_consume";
 
 export interface WorldCupCreditSummary {
@@ -157,11 +158,24 @@ const canUseSupabasePredictions = async (userId: string) => {
   return session?.user?.id === userId;
 };
 
-const fetchApiLeaderboard = async (scope: WorldCupLeaderboardScope) => {
+const isGroupStageMatch = (match: Pick<WorldCupPoolMatch, "stage">) => match.stage.startsWith("Grupo");
+
+export const filterMatchesByLeaderboardCycle = (
+  matches: WorldCupPoolMatch[],
+  cycle: WorldCupLeaderboardCycle,
+) =>
+  matches.filter((match) =>
+    cycle === "knockout" ? !isGroupStageMatch(match) : isGroupStageMatch(match),
+  );
+
+const fetchApiLeaderboard = async (
+  scope: WorldCupLeaderboardScope,
+  cycle: WorldCupLeaderboardCycle,
+) => {
   if (typeof window === "undefined") return null;
 
   try {
-    const response = await fetch(`/api/world-cup-leaderboard?scope=${scope}`);
+    const response = await fetch(`/api/world-cup-leaderboard?scope=${scope}&cycle=${cycle}`);
     if (!response.ok) {
       return null;
     }
@@ -199,23 +213,19 @@ const buildPredictionMap = (predictions: WorldCupPrediction[]) =>
 const normalizeLeaderboardMatches = (
   matches: WorldCupPoolMatch[],
   scope: WorldCupLeaderboardScope,
+  cycle: WorldCupLeaderboardCycle,
 ) => {
-  const scorableMatches = matches.filter(
-    (match) =>
-      match.homeScore !== undefined &&
-      match.awayScore !== undefined &&
-      getCurrentMatchStatus(match) === "ended",
-  );
+  const cycleMatches = filterMatchesByLeaderboardCycle(matches, cycle);
 
   if (scope === "brazil") {
-    return scorableMatches.filter(
+    return cycleMatches.filter(
       (match) =>
         normalizeSearchText(match.homeTeam) === "brasil" ||
         normalizeSearchText(match.awayTeam) === "brasil",
     );
   }
 
-  return scorableMatches;
+  return cycleMatches;
 };
 
 const exactGrantEventKey = (matchId: string) => `exact:${matchId}`;
@@ -231,6 +241,18 @@ const deriveCreditSummary = (ledger: WorldCupCreditLedgerEntry[]) => {
     consumedCredits,
     availableCredits: Math.max(0, exactHitCredits - consumedCredits),
   } satisfies WorldCupCreditSummary;
+};
+
+const filterCreditLedgerByCycle = (
+  ledger: WorldCupCreditLedgerEntry[],
+  matches: WorldCupPoolMatch[],
+) => {
+  const cycleMatchIds = new Set(matches.map((match) => match.id));
+  return ledger.filter(
+    (entry) =>
+      (entry.sourceMatchId && cycleMatchIds.has(entry.sourceMatchId)) ||
+      (entry.targetMatchId && cycleMatchIds.has(entry.targetMatchId)),
+  );
 };
 
 const syncLocalCreditLedger = (
@@ -430,11 +452,11 @@ export const getWorldCupEditCreditSummary = async (
 
   if (!(await canUseSupabasePredictions(userId))) {
     const ledger = syncLocalCreditLedger(userId, predictions, matches);
-    return deriveCreditSummary(ledger);
+    return deriveCreditSummary(filterCreditLedgerByCycle(ledger, matches));
   }
 
   const ledger = await syncSupabaseCreditLedger(userId, predictions, matches);
-  return deriveCreditSummary(ledger);
+  return deriveCreditSummary(filterCreditLedgerByCycle(ledger, matches));
 };
 
 export const consumeWorldCupEditCredit = async (
@@ -536,19 +558,20 @@ export const getWorldCupLeaderboard = async (
   matches: WorldCupPoolMatch[],
   currentUser?: MockUser | null,
   scope: WorldCupLeaderboardScope = "general",
+  cycle: WorldCupLeaderboardCycle = "knockout",
 ): Promise<WorldCupLeaderboardEntry[]> => {
-  const apiLeaderboard = await fetchApiLeaderboard(scope);
+  const apiLeaderboard = await fetchApiLeaderboard(scope, cycle);
   if (apiLeaderboard) {
     return apiLeaderboard;
   }
 
-  const scopedMatches = normalizeLeaderboardMatches(matches, scope);
+  const scopedMatches = normalizeLeaderboardMatches(matches, scope, cycle);
 
   if (!currentUser || !(await canUseSupabasePredictions(currentUser.id))) {
     if (!currentUser) return [];
 
     const predictions = readLocalPredictions(currentUser.id);
-    const ledger = syncLocalCreditLedger(currentUser.id, predictions, matches);
+    const ledger = syncLocalCreditLedger(currentUser.id, predictions, scopedMatches);
     const scoreSummary = predictions.reduce(
       (summary, prediction) => {
         const match = scopedMatches.find((item) => item.id === prediction.matchId);
@@ -575,7 +598,7 @@ export const getWorldCupLeaderboard = async (
         name: currentUser.name,
         username: currentUser.username,
         avatarUrl: currentUser.avatar,
-        editCreditsAvailable: deriveCreditSummary(ledger).availableCredits,
+        editCreditsAvailable: deriveCreditSummary(filterCreditLedgerByCycle(ledger, scopedMatches)).availableCredits,
         ...scoreSummary,
       },
     ];
@@ -590,7 +613,7 @@ export const getWorldCupLeaderboard = async (
       .select("id, name, username, avatar_url"),
     supabase
       .from("world_cup_prediction_credits")
-      .select("user_id, kind"),
+      .select("user_id, kind, source_match_id, target_match_id"),
   ]);
 
   if (predictionsResult.error || profilesResult.error || creditsResult.error) {
@@ -614,8 +637,10 @@ export const getWorldCupLeaderboard = async (
   );
 
   const consumedCreditsByUser = new Map<string, number>();
+  const scopedMatchIds = new Set(scopedMatches.map((match) => match.id));
   for (const row of creditsResult.data || []) {
     if (row.kind !== "edit_consume") continue;
+    if (!row.target_match_id || !scopedMatchIds.has(row.target_match_id)) continue;
     consumedCreditsByUser.set(row.user_id, (consumedCreditsByUser.get(row.user_id) || 0) + 1);
   }
 
@@ -647,10 +672,9 @@ export const getWorldCupLeaderboard = async (
         editCreditsAvailable: 0,
       };
 
-    currentEntry.predictionsCount += 1;
-
     const match = scopedMatches.find((item) => item.id === row.match_id);
     if (match) {
+      currentEntry.predictionsCount += 1;
       const points = scoreWorldCupPrediction(match, {
         matchId: row.match_id,
         predictedHomeScore: row.predicted_home_score,

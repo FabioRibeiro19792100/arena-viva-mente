@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { Card, CardContent } from "@/components/ui/card";
@@ -12,6 +12,7 @@ import {
 } from "@/data/worldCup2026";
 import {
   consumeWorldCupEditCredit,
+  filterMatchesByLeaderboardCycle,
   getWorldCupEditCreditSummary,
   getWorldCupLeaderboard,
   getWorldCupPredictions,
@@ -19,6 +20,7 @@ import {
   scoreWorldCupPrediction,
   WorldCupCreditMutationError,
   type WorldCupCreditSummary,
+  type WorldCupLeaderboardCycle,
   type WorldCupLeaderboardScope,
   type WorldCupPrediction,
 } from "@/lib/bolao";
@@ -344,9 +346,17 @@ const Bolao = () => {
   const [matches, setMatches] = useState<WorldCupPoolMatch[]>([]);
   const [predictions, setPredictions] = useState<WorldCupPrediction[]>([]);
   const [formValues, setFormValues] = useState<Record<string, { home: string; away: string }>>({});
-  const [leaderboards, setLeaderboards] = useState<Record<WorldCupLeaderboardScope, Awaited<ReturnType<typeof getWorldCupLeaderboard>>>>({
-    general: [],
-    brazil: [],
+  const [leaderboards, setLeaderboards] = useState<
+    Record<WorldCupLeaderboardCycle, Record<WorldCupLeaderboardScope, Awaited<ReturnType<typeof getWorldCupLeaderboard>>>>
+  >({
+    knockout: {
+      general: [],
+      brazil: [],
+    },
+    "group-stage-history": {
+      general: [],
+      brazil: [],
+    },
   });
   const [creditSummary, setCreditSummary] = useState<WorldCupCreditSummary>({
     availableCredits: 0,
@@ -357,6 +367,7 @@ const Bolao = () => {
   const [savingMatchId, setSavingMatchId] = useState<string | null>(null);
   const [savedFeedbackMatchId, setSavedFeedbackMatchId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"palpites" | "ranking">("palpites");
+  const [activeLeaderboardCycle, setActiveLeaderboardCycle] = useState<WorldCupLeaderboardCycle>("knockout");
   const [activeRankingScope, setActiveRankingScope] = useState<WorldCupLeaderboardScope>("general");
   const [predictionView, setPredictionView] = useState<"deck" | "saved">("deck");
   const [activeDeckMatchId, setActiveDeckMatchId] = useState<string | null>(null);
@@ -381,26 +392,35 @@ const Bolao = () => {
     }, 1400);
   };
 
-  const refreshMetaState = async (
+  const refreshMetaState = useCallback(async (
     resolvedMatches: WorldCupPoolMatch[],
     nextPredictions: WorldCupPrediction[],
   ) => {
     if (!user) return;
 
-    const [generalLeaderboard, brazilLeaderboard, nextCredits] = await Promise.all([
-      getWorldCupLeaderboard(resolvedMatches, user, "general"),
-      getWorldCupLeaderboard(resolvedMatches, user, "brazil"),
-      getWorldCupEditCreditSummary(user.id, resolvedMatches, nextPredictions),
+    const knockoutMatches = filterMatchesByLeaderboardCycle(resolvedMatches, "knockout");
+    const [knockoutGeneralLeaderboard, knockoutBrazilLeaderboard, historicalGeneralLeaderboard, historicalBrazilLeaderboard, nextCredits] = await Promise.all([
+      getWorldCupLeaderboard(resolvedMatches, user, "general", "knockout"),
+      getWorldCupLeaderboard(resolvedMatches, user, "brazil", "knockout"),
+      getWorldCupLeaderboard(resolvedMatches, user, "general", "group-stage-history"),
+      getWorldCupLeaderboard(resolvedMatches, user, "brazil", "group-stage-history"),
+      getWorldCupEditCreditSummary(user.id, knockoutMatches, nextPredictions),
     ]);
 
     setLeaderboards({
-      general: generalLeaderboard,
-      brazil: brazilLeaderboard,
+      knockout: {
+        general: knockoutGeneralLeaderboard,
+        brazil: knockoutBrazilLeaderboard,
+      },
+      "group-stage-history": {
+        general: historicalGeneralLeaderboard,
+        brazil: historicalBrazilLeaderboard,
+      },
     });
     setCreditSummary(nextCredits);
-  };
+  }, [user]);
 
-  const loadBolaoData = async () => {
+  const loadBolaoData = useCallback(async () => {
     if (!user) return;
 
     setIsLoading(true);
@@ -416,12 +436,12 @@ const Bolao = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [user, refreshMetaState]);
 
   useEffect(() => {
     if (!user) return;
     void loadBolaoData();
-  }, [user]);
+  }, [user, loadBolaoData]);
 
   useEffect(
     () => () => {
@@ -449,12 +469,17 @@ const Bolao = () => {
     [sessionEditableMatchIds],
   );
 
+  const knockoutMatches = useMemo(
+    () => filterMatchesByLeaderboardCycle(matches, "knockout"),
+    [matches],
+  );
+
   const deckMatches = useMemo(
     () =>
-      matches
+      knockoutMatches
         .filter((match) => getCurrentMatchStatus(match) === "scheduled")
         .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()),
-    [matches],
+    [knockoutMatches],
   );
 
   const pendingMatches = useMemo(
@@ -469,10 +494,10 @@ const Bolao = () => {
 
   const savedMatches = useMemo(
     () =>
-      matches
+      knockoutMatches
         .filter((match) => Boolean(predictionsByMatchId[match.id]))
         .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()),
-    [matches, predictionsByMatchId],
+    [knockoutMatches, predictionsByMatchId],
   );
 
   useEffect(() => {
@@ -494,11 +519,11 @@ const Bolao = () => {
     (activeDeckMatchId ? deckMatches.find((match) => match.id === activeDeckMatchId) : null) || null;
 
   const activePickerMatch = useMemo(
-    () => matches.find((match) => match.id === activePicker?.matchId) || null,
-    [activePicker, matches],
+    () => knockoutMatches.find((match) => match.id === activePicker?.matchId) || null,
+    [activePicker, knockoutMatches],
   );
 
-  const currentLeaderboard = leaderboards[activeRankingScope];
+  const currentLeaderboard = leaderboards[activeLeaderboardCycle][activeRankingScope];
   const isMobilePredictionDeck = isMobile && activeTab === "palpites" && predictionView === "deck";
 
   const applySavedPredictionLocally = (matchId: string, home: number, away: number) => {
@@ -538,7 +563,6 @@ const Bolao = () => {
         match.id,
         values.home,
         values.away,
-        match.linkedSportsMatchId ? [match.linkedSportsMatchId] : [],
       );
       showSaveFeedback(match.id);
     } catch {
@@ -564,24 +588,26 @@ const Bolao = () => {
         user.id,
         match,
         values,
-        matches,
+        knockoutMatches,
         currentPrediction,
-        match.linkedSportsMatchId ? [match.linkedSportsMatchId] : [],
       );
 
       applySavedPredictionLocally(match.id, values.home, values.away);
       setCreditSummary(nextSummary);
       setLeaderboards((current) => ({
-        general: current.general.map((entry) =>
-          entry.userId === user.id
-            ? { ...entry, editCreditsAvailable: nextSummary.availableCredits }
-            : entry,
-        ),
-        brazil: current.brazil.map((entry) =>
-          entry.userId === user.id
-            ? { ...entry, editCreditsAvailable: nextSummary.availableCredits }
-            : entry,
-        ),
+        ...current,
+        knockout: {
+          general: current.knockout.general.map((entry) =>
+            entry.userId === user.id
+              ? { ...entry, editCreditsAvailable: nextSummary.availableCredits }
+              : entry,
+          ),
+          brazil: current.knockout.brazil.map((entry) =>
+            entry.userId === user.id
+              ? { ...entry, editCreditsAvailable: nextSummary.availableCredits }
+              : entry,
+          ),
+        },
       }));
       showSaveFeedback(match.id);
     } catch (error) {
@@ -1293,6 +1319,26 @@ const Bolao = () => {
               <div className="flex items-center gap-4 text-sm">
                 <button
                   type="button"
+                  onClick={() => setActiveLeaderboardCycle("knockout")}
+                  className={`underline underline-offset-4 transition-colors ${
+                    activeLeaderboardCycle === "knockout" ? "text-foreground" : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Eliminatória
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveLeaderboardCycle("group-stage-history")}
+                  className={`underline underline-offset-4 transition-colors ${
+                    activeLeaderboardCycle === "group-stage-history" ? "text-foreground" : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Grupos encerrados
+                </button>
+              </div>
+              <div className="flex items-center gap-4 text-sm">
+                <button
+                  type="button"
                   onClick={() => setActiveRankingScope("general")}
                   className={`underline underline-offset-4 transition-colors ${
                     activeRankingScope === "general" ? "text-foreground" : "text-muted-foreground hover:text-foreground"
@@ -1314,6 +1360,11 @@ const Bolao = () => {
                 <CardContent className="space-y-5 p-5">
                   <div className="space-y-1">
                     <h2 className="text-lg font-semibold text-foreground">Classificação</h2>
+                    <p className="text-sm text-muted-foreground">
+                      {activeLeaderboardCycle === "knockout"
+                        ? "Novo ranking valendo da fase eliminatória em diante."
+                        : "Ranking encerrado da fase de grupos, mantido só para consulta."}
+                    </p>
                   </div>
 
                   <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
@@ -1387,14 +1438,14 @@ const Bolao = () => {
                     Carregando bolão...
                   </CardContent>
                 </Card>
-              ) : matches.length === 0 ? (
+              ) : knockoutMatches.length === 0 ? (
                 <Card className="border-border/80 shadow-[var(--shadow-card)]">
                   <CardContent className="space-y-2 p-8">
                     <p className="text-sm font-medium text-foreground">
-                      Os jogos do bolão ainda não apareceram na base.
+                      Os jogos da eliminatória ainda não apareceram na base.
                     </p>
                     <p className="text-sm text-muted-foreground">
-                      Assim que a tabela do bolão estiver pronta no ambiente e o sync rodar, os jogos entram aqui.
+                      Assim que a agenda da fase final estiver pronta no ambiente e o sync rodar, ela entra aqui.
                     </p>
                   </CardContent>
                 </Card>

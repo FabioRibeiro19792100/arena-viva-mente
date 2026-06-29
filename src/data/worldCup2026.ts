@@ -246,8 +246,14 @@ const officialWorldCupMatches: WorldCupMatch[] = rawMatches.map(
   }),
 );
 
+export const worldCupSeedMatches = officialWorldCupMatches;
+
 export const worldCupGroupStageSeedMatches = officialWorldCupMatches.filter((match) =>
   match.stage.startsWith("Grupo"),
+);
+
+export const worldCupKnockoutSeedMatches = officialWorldCupMatches.filter(
+  (match) => !match.stage.startsWith("Grupo"),
 );
 
 export const testOpenMatch: WorldCupMatch = {

@@ -2,6 +2,27 @@ import { getSupabaseAdmin } from "../_lib/supabase-admin.js";
 import { getWorldCupPoolMatches } from "../_lib/world-cup-matches.js";
 
 type Scope = "general" | "brazil";
+type Cycle = "knockout" | "group-stage-history";
+type HandlerRequest = {
+  method?: string;
+  query?: Record<string, unknown>;
+};
+type HandlerResponse = {
+  status: (code: number) => {
+    json: (body: unknown) => unknown;
+  };
+};
+type LeaderboardEntry = {
+  userId: string;
+  name: string;
+  username: string;
+  avatarUrl: string | null;
+  totalPoints: number;
+  exactScoreHits: number;
+  outcomeHits: number;
+  predictionsCount: number;
+  editCreditsAvailable: number;
+};
 const LEGACY_WORLD_CUP_MATCH_ID_MAP: Record<string, string> = {
   "api-football-1489369": "wc2026-01",
   "api-football-1538999": "wc2026-02",
@@ -17,6 +38,7 @@ const normalizeTeamLabel = (value: string) =>
     .trim();
 
 const endedMatchStatus = "ended";
+const isGroupStageMatch = (match: { stage: string }) => match.stage.startsWith("Grupo");
 
 const isMissingCreditsTableError = (error: unknown) => {
   const message =
@@ -61,15 +83,12 @@ const scorePrediction = (
   return matchOutcome === predictionOutcome ? 3 : 0;
 };
 
-const normalizeMatchesForScope = (scope: Scope) =>
+const normalizeMatchesForScope = (scope: Scope, cycle: Cycle) =>
   getWorldCupPoolMatches().then((matches) =>
     matches.filter((match) => {
-      const isEnded =
-        match.status === endedMatchStatus &&
-        typeof match.homeScore === "number" &&
-        typeof match.awayScore === "number";
+      const inCycle = cycle === "knockout" ? !isGroupStageMatch(match) : isGroupStageMatch(match);
 
-      if (!isEnded) return false;
+      if (!inCycle) return false;
       if (scope === "brazil") {
         return normalizeTeamLabel(match.homeTeam) === "brasil" || normalizeTeamLabel(match.awayTeam) === "brasil";
       }
@@ -78,21 +97,22 @@ const normalizeMatchesForScope = (scope: Scope) =>
     }),
   );
 
-export default async function handler(req: any, res: any) {
+export default async function handler(req: HandlerRequest, res: HandlerResponse) {
   if (req.method !== "GET") {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
   try {
     const scope: Scope = req.query?.scope === "brazil" ? "brazil" : "general";
+    const cycle: Cycle = req.query?.cycle === "group-stage-history" ? "group-stage-history" : "knockout";
     const admin = getSupabaseAdmin();
     const [matches, predictionsResult, profilesResult, creditsResult] = await Promise.all([
-      normalizeMatchesForScope(scope),
+      normalizeMatchesForScope(scope, cycle),
       admin
         .from("world_cup_predictions")
         .select("user_id, match_id, predicted_home_score, predicted_away_score, updated_at"),
       admin.from("profiles").select("id, name, username, avatar_url"),
-      admin.from("world_cup_prediction_credits").select("user_id, kind"),
+      admin.from("world_cup_prediction_credits").select("user_id, kind, target_match_id"),
     ]);
 
     const canIgnoreCreditsError = isMissingCreditsTableError(creditsResult.error);
@@ -117,9 +137,11 @@ export default async function handler(req: any, res: any) {
       ]),
     );
 
+    const scopedMatchIds = new Set(matches.map((match) => match.id));
     const consumedCreditsByUser = new Map<string, number>();
     for (const row of canIgnoreCreditsError ? [] : creditsResult.data || []) {
       if (row.kind !== "edit_consume") continue;
+      if (!row.target_match_id || !scopedMatchIds.has(row.target_match_id)) continue;
       consumedCreditsByUser.set(row.user_id, (consumedCreditsByUser.get(row.user_id) || 0) + 1);
     }
 
@@ -134,7 +156,7 @@ export default async function handler(req: any, res: any) {
       ).values(),
     );
 
-    const leaderboardMap = new Map<string, any>();
+    const leaderboardMap = new Map<string, LeaderboardEntry>();
 
     for (const row of dedupedRows) {
       const profile = profilesById.get(row.user_id);
@@ -152,20 +174,19 @@ export default async function handler(req: any, res: any) {
           editCreditsAvailable: 0,
         };
 
-      entry.predictionsCount += 1;
-
       const match = matches.find((item) => item.id === row.match_id);
-      const points = match
-        ? scorePrediction(match, {
-            home: row.predicted_home_score,
-            away: row.predicted_away_score,
-          })
-        : null;
+      if (match) {
+        entry.predictionsCount += 1;
+        const points = scorePrediction(match, {
+          home: row.predicted_home_score,
+          away: row.predicted_away_score,
+        });
 
-      if (points !== null) {
-        entry.totalPoints += points;
-        entry.exactScoreHits += points === 5 ? 1 : 0;
-        entry.outcomeHits += points === 3 ? 1 : 0;
+        if (points !== null) {
+          entry.totalPoints += points;
+          entry.exactScoreHits += points === 5 ? 1 : 0;
+          entry.outcomeHits += points === 3 ? 1 : 0;
+        }
       }
 
       leaderboardMap.set(row.user_id, entry);
@@ -186,11 +207,12 @@ export default async function handler(req: any, res: any) {
         return b.predictionsCount - a.predictionsCount;
       });
 
-    return res.status(200).json({ entries, scope });
-  } catch (error: any) {
+    return res.status(200).json({ entries, scope, cycle });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Unexpected error";
     return res.status(500).json({
       error: "world_cup_leaderboard_failed",
-      message: error?.message || "Unexpected error",
+      message,
     });
   }
 }
