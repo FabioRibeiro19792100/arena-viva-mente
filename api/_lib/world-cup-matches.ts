@@ -160,6 +160,13 @@ const geTeamSlugByName: Record<string, string> = {
   "Cape Verde": "cabo-verde",
 };
 
+const geTeamNameBySlug = new Map(
+  Object.entries(geTeamSlugByName).flatMap(([teamName, slug]) => [
+    [slug, teamName],
+    [slug.replace(/-/g, ""), teamName],
+  ]),
+);
+
 const slugifyGePathPart = (value: string) => {
   const canonical = geTeamSlugByName[value];
   if (canonical) return canonical;
@@ -576,9 +583,30 @@ interface HeadlineMatchup {
   awayTeam: string;
 }
 
-interface ThirdPlaceCandidate extends GroupStandingRow {
-  groupLetter: string;
+interface GeGamePageMatchup {
+  dateKey: string;
+  homeTeam: string;
+  awayTeam: string;
 }
+
+const gePublishedRoundOf32MatchupsById: Record<string, { homeTeam: string; awayTeam: string }> = {
+  "wc2026-73": { homeTeam: "South Africa", awayTeam: "Canada" },
+  "wc2026-74": { homeTeam: "Germany", awayTeam: "Paraguay" },
+  "wc2026-75": { homeTeam: "Netherlands", awayTeam: "Morocco" },
+  "wc2026-76": { homeTeam: "Brazil", awayTeam: "Japan" },
+  "wc2026-77": { homeTeam: "France", awayTeam: "Sweden" },
+  "wc2026-78": { homeTeam: "Ivory Coast", awayTeam: "Norway" },
+  "wc2026-79": { homeTeam: "Mexico", awayTeam: "Ecuador" },
+  "wc2026-80": { homeTeam: "England", awayTeam: "DR Congo" },
+  "wc2026-81": { homeTeam: "United States", awayTeam: "Bosnia and Herzegovina" },
+  "wc2026-82": { homeTeam: "Belgium", awayTeam: "Senegal" },
+  "wc2026-83": { homeTeam: "Portugal", awayTeam: "Croatia" },
+  "wc2026-84": { homeTeam: "Spain", awayTeam: "Austria" },
+  "wc2026-85": { homeTeam: "Switzerland", awayTeam: "Algeria" },
+  "wc2026-86": { homeTeam: "Argentina", awayTeam: "Cape Verde" },
+  "wc2026-87": { homeTeam: "Colombia", awayTeam: "Ghana" },
+  "wc2026-88": { homeTeam: "Australia", awayTeam: "Egypt" },
+};
 
 const simplifyHtml = (html: string) =>
   html
@@ -679,6 +707,64 @@ const extractGeHeadlineMatchups = (html: string) => {
   );
 };
 
+const toGeDateKey = (value: string) =>
+  new Intl.DateTimeFormat("en-GB", {
+    timeZone: "America/Sao_Paulo",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  })
+    .format(new Date(value))
+    .replace(/\//g, "-");
+
+const resolveTeamFromGeSlug = (slug: string) => {
+  const normalizedSlug = slug.toLowerCase();
+  return geTeamNameBySlug.get(normalizedSlug) || geTeamNameBySlug.get(normalizedSlug.replace(/-/g, "")) || null;
+};
+
+const splitGeCombinedSlug = (combinedSlug: string) => {
+  const candidateSlugs = Array.from(new Set(Object.keys(geTeamNameBySlug))).sort(
+    (left, right) => right.length - left.length,
+  );
+
+  for (const homeSlug of candidateSlugs) {
+    if (!combinedSlug.startsWith(`${homeSlug}-`)) continue;
+
+    const awaySlug = combinedSlug.slice(homeSlug.length + 1);
+    const homeTeam = resolveTeamFromGeSlug(homeSlug);
+    const awayTeam = resolveTeamFromGeSlug(awaySlug);
+
+    if (homeTeam && awayTeam) {
+      return { homeTeam, awayTeam };
+    }
+  }
+
+  return null;
+};
+
+const extractGeGamePageMatchups = (html: string) => {
+  const matchups: GeGamePageMatchup[] = [];
+  const pattern =
+    /https:\\\/\\\/ge\.globo\.com\\\/futebol\\\/copa-do-mundo\\\/jogo\\\/(\d{2}-\d{2}-\d{4})\\\/([a-z0-9-]+)\.ghtml/g;
+
+  for (const match of html.matchAll(pattern)) {
+    const dateKey = match[1] || "";
+    const slugPair = splitGeCombinedSlug(match[2] || "");
+
+    if (!dateKey || !slugPair) {
+      continue;
+    }
+
+    matchups.push({ dateKey, homeTeam: slugPair.homeTeam, awayTeam: slugPair.awayTeam });
+  }
+
+  return Array.from(
+    new Map(
+      matchups.map((matchup) => [`${matchup.dateKey}__${matchup.homeTeam}__${matchup.awayTeam}`, matchup]),
+    ).values(),
+  );
+};
+
 const buildGroupStandings = (rows: WorldCupMatchRow[]) => {
   const table = new Map<string, GroupStandingRow>();
 
@@ -753,101 +839,9 @@ const buildGroupStandings = (rows: WorldCupMatchRow[]) => {
   return groups;
 };
 
-const getGroupLetter = (group: string) => group.match(/Grupo\s+([A-Z])/i)?.[1]?.toUpperCase() || null;
-
-const compareStandingRows = (left: GroupStandingRow, right: GroupStandingRow) => {
-  if (right.points !== left.points) return right.points - left.points;
-  if (right.goalDifference !== left.goalDifference) return right.goalDifference - left.goalDifference;
-  if (right.goalsFor !== left.goalsFor) return right.goalsFor - left.goalsFor;
-  return left.team.localeCompare(right.team);
-};
-
-const buildQualifiedThirdPlaceTeams = (standingsByGroup: Map<string, GroupStandingRow[]>) =>
-  Array.from(standingsByGroup.values())
-    .map((standings) => standings[2] || null)
-    .filter((row): row is GroupStandingRow => Boolean(row))
-    .map<ThirdPlaceCandidate>((row) => ({
-      ...row,
-      groupLetter: getGroupLetter(row.group) || "",
-    }))
-    .filter((row) => Boolean(row.groupLetter))
-    .sort(compareStandingRows)
-    .slice(0, 8);
-
-const parseThirdPlaceSlotGroups = (slot: string) => {
-  const match = slot.match(/^Group ([A-Z](?:\/[A-Z])+) third place$/i);
-  if (!match) return null;
-
-  return match[1]
-    .split("/")
-    .map((group) => group.toUpperCase())
-    .filter(Boolean);
-};
-
-const buildThirdPlaceAssignments = (
-  rows: WorldCupMatchRow[],
-  standingsByGroup: Map<string, GroupStandingRow[]>,
-) => {
-  const qualifiedThirdPlaceTeams = buildQualifiedThirdPlaceTeams(standingsByGroup);
-  const slotCandidates = new Map<string, ThirdPlaceCandidate[]>();
-
-  for (const row of rows) {
-    if (row.stage !== "Round of 32") continue;
-
-    for (const slot of [row.home_team, row.away_team]) {
-      if (slotCandidates.has(slot)) continue;
-
-      const allowedGroups = parseThirdPlaceSlotGroups(slot);
-      if (!allowedGroups) continue;
-
-      slotCandidates.set(
-        slot,
-        qualifiedThirdPlaceTeams.filter((candidate) => allowedGroups.includes(candidate.groupLetter)),
-      );
-    }
-  }
-
-  const orderedSlots = Array.from(slotCandidates.entries())
-    .sort((left, right) => left[1].length - right[1].length)
-    .map(([slot]) => slot);
-
-  const assignedTeams = new Map<string, ThirdPlaceCandidate>();
-  const usedGroups = new Set<string>();
-
-  const assign = (index: number): boolean => {
-    if (index >= orderedSlots.length) return true;
-
-    const slot = orderedSlots[index];
-    const candidates = slotCandidates.get(slot) || [];
-
-    for (const candidate of candidates) {
-      if (usedGroups.has(candidate.groupLetter)) continue;
-
-      assignedTeams.set(slot, candidate);
-      usedGroups.add(candidate.groupLetter);
-
-      if (assign(index + 1)) {
-        return true;
-      }
-
-      assignedTeams.delete(slot);
-      usedGroups.delete(candidate.groupLetter);
-    }
-
-    return false;
-  };
-
-  if (!assign(0)) {
-    return new Map<string, string>();
-  }
-
-  return new Map(Array.from(assignedTeams.entries()).map(([slot, candidate]) => [slot, candidate.team]));
-};
-
 const inferResolvedTeamFromSlot = (
   slot: string,
   standingsByGroup: Map<string, GroupStandingRow[]>,
-  thirdPlaceAssignments: Map<string, string>,
 ) => {
   const winnerMatch = slot.match(/^Group ([A-Z]) winners$/i);
   if (winnerMatch) {
@@ -859,17 +853,11 @@ const inferResolvedTeamFromSlot = (
     return standingsByGroup.get(`Grupo ${runnerUpMatch[1].toUpperCase()}`)?.[1]?.team || null;
   }
 
-  const thirdPlaceTeam = thirdPlaceAssignments.get(slot);
-  if (thirdPlaceTeam) {
-    return thirdPlaceTeam;
-  }
-
   return null;
 };
 
 const resolveKnockoutRowsFromStandings = (rows: WorldCupMatchRow[]) => {
   const standingsByGroup = buildGroupStandings(rows);
-  const thirdPlaceAssignments = buildThirdPlaceAssignments(rows, standingsByGroup);
   const teamFlagByName = new Map<string, string>();
 
   for (const row of rows) {
@@ -881,8 +869,19 @@ const resolveKnockoutRowsFromStandings = (rows: WorldCupMatchRow[]) => {
   }
 
   return rows.map((row) => {
-    const resolvedHomeTeam = inferResolvedTeamFromSlot(row.home_team, standingsByGroup, thirdPlaceAssignments);
-    const resolvedAwayTeam = inferResolvedTeamFromSlot(row.away_team, standingsByGroup, thirdPlaceAssignments);
+    const gePublishedMatchup = gePublishedRoundOf32MatchupsById[row.id];
+    if (row.stage === "Round of 32" && gePublishedMatchup) {
+      return {
+        ...row,
+        home_team: gePublishedMatchup.homeTeam,
+        away_team: gePublishedMatchup.awayTeam,
+        home_flag: teamFlagByName.get(toCanonicalTeamName(gePublishedMatchup.homeTeam)) || row.home_flag,
+        away_flag: teamFlagByName.get(toCanonicalTeamName(gePublishedMatchup.awayTeam)) || row.away_flag,
+      };
+    }
+
+    const resolvedHomeTeam = inferResolvedTeamFromSlot(row.home_team, standingsByGroup);
+    const resolvedAwayTeam = inferResolvedTeamFromSlot(row.away_team, standingsByGroup);
 
     if (!resolvedHomeTeam && !resolvedAwayTeam) {
       return row;
@@ -903,8 +902,8 @@ const resolveKnockoutRowsFromStandings = (rows: WorldCupMatchRow[]) => {
 
 const resolveKnockoutRowsFromGe = (rows: WorldCupMatchRow[], html: string) => {
   const standingsByGroup = buildGroupStandings(rows);
-  const thirdPlaceAssignments = buildThirdPlaceAssignments(rows, standingsByGroup);
   const headlineMatchups = extractGeHeadlineMatchups(html);
+  const geGamePageMatchups = extractGeGamePageMatchups(html);
   const teamFlagByName = new Map<string, string>();
 
   for (const row of rows) {
@@ -917,8 +916,28 @@ const resolveKnockoutRowsFromGe = (rows: WorldCupMatchRow[], html: string) => {
       return row;
     }
 
-    const resolvedHomeTeam = inferResolvedTeamFromSlot(row.home_team, standingsByGroup, thirdPlaceAssignments);
-    const resolvedAwayTeam = inferResolvedTeamFromSlot(row.away_team, standingsByGroup, thirdPlaceAssignments);
+    const resolvedHomeTeam = inferResolvedTeamFromSlot(row.home_team, standingsByGroup);
+    const resolvedAwayTeam = inferResolvedTeamFromSlot(row.away_team, standingsByGroup);
+    const dateKey = toGeDateKey(row.kickoff_at);
+    const assignedMatchup =
+      geGamePageMatchups.find((matchup) => {
+        if (matchup.dateKey !== dateKey) return false;
+        if (resolvedHomeTeam && matchup.homeTeam !== resolvedHomeTeam) return false;
+        if (resolvedAwayTeam && matchup.awayTeam !== resolvedAwayTeam && matchup.homeTeam !== resolvedAwayTeam) {
+          return false;
+        }
+        return true;
+      }) || null;
+
+    if (assignedMatchup) {
+      return {
+        ...row,
+        home_team: assignedMatchup.homeTeam,
+        away_team: assignedMatchup.awayTeam,
+        home_flag: teamFlagByName.get(toCanonicalTeamName(assignedMatchup.homeTeam)) || row.home_flag,
+        away_flag: teamFlagByName.get(toCanonicalTeamName(assignedMatchup.awayTeam)) || row.away_flag,
+      };
+    }
 
     let nextHomeTeam = resolvedHomeTeam || row.home_team;
     let nextAwayTeam = resolvedAwayTeam || row.away_team;
