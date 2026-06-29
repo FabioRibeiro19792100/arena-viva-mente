@@ -554,6 +554,20 @@ interface GeGroup {
   lista_jogos?: GeGroupMatch[] | null;
 }
 
+interface GroupStandingRow {
+  group: string;
+  team: string;
+  points: number;
+  goalDifference: number;
+  goalsFor: number;
+  goalsAgainst: number;
+}
+
+interface HeadlineMatchup {
+  homeTeam: string;
+  awayTeam: string;
+}
+
 const simplifyHtml = (html: string) =>
   html
     .replace(/<script[\s\S]*?<\/script>/gi, " ")
@@ -614,6 +628,187 @@ const parseGeGroupsData = (html: string) => {
   } catch {
     return [] as GeGroup[];
   }
+};
+
+const nationalTeamNames = new Set(Object.keys(teamNamePtBr));
+
+const normalizeGeHeadlineTeam = (value: string) => {
+  const cleanValue = value
+    .replace(/\\u00e1/g, "á")
+    .replace(/\\u00e9/g, "é")
+    .replace(/\\u00ed/g, "í")
+    .replace(/\\u00f3/g, "ó")
+    .replace(/\\u00fa/g, "ú")
+    .replace(/\\u00e7/g, "ç")
+    .trim();
+
+  return toCanonicalTeamName(cleanValue);
+};
+
+const extractGeHeadlineMatchups = (html: string) => {
+  const matchups: HeadlineMatchup[] = [];
+  const titlePattern = /"title":"([^"]+?) x ([^":]+?)(?::|\\")/g;
+
+  for (const match of html.matchAll(titlePattern)) {
+    const homeTeam = normalizeGeHeadlineTeam(match[1] || "");
+    const awayTeam = normalizeGeHeadlineTeam(match[2] || "");
+
+    if (!nationalTeamNames.has(homeTeam) || !nationalTeamNames.has(awayTeam)) {
+      continue;
+    }
+
+    matchups.push({ homeTeam, awayTeam });
+  }
+
+  return Array.from(
+    new Map(
+      matchups.map((matchup) => [`${matchup.homeTeam}__${matchup.awayTeam}`, matchup]),
+    ).values(),
+  );
+};
+
+const buildGroupStandings = (rows: WorldCupMatchRow[]) => {
+  const table = new Map<string, GroupStandingRow>();
+
+  for (const row of rows) {
+    if (!row.stage.startsWith("Grupo")) continue;
+    if (row.status !== "ended") continue;
+    if (typeof row.home_score !== "number" || typeof row.away_score !== "number") continue;
+
+    const group = row.stage;
+    const homeKey = `${group}__${row.home_team}`;
+    const awayKey = `${group}__${row.away_team}`;
+    const homeEntry =
+      table.get(homeKey) || {
+        group,
+        team: row.home_team,
+        points: 0,
+        goalDifference: 0,
+        goalsFor: 0,
+        goalsAgainst: 0,
+      };
+    const awayEntry =
+      table.get(awayKey) || {
+        group,
+        team: row.away_team,
+        points: 0,
+        goalDifference: 0,
+        goalsFor: 0,
+        goalsAgainst: 0,
+      };
+
+    homeEntry.goalsFor += row.home_score;
+    homeEntry.goalsAgainst += row.away_score;
+    homeEntry.goalDifference = homeEntry.goalsFor - homeEntry.goalsAgainst;
+
+    awayEntry.goalsFor += row.away_score;
+    awayEntry.goalsAgainst += row.home_score;
+    awayEntry.goalDifference = awayEntry.goalsFor - awayEntry.goalsAgainst;
+
+    if (row.home_score > row.away_score) {
+      homeEntry.points += 3;
+    } else if (row.home_score < row.away_score) {
+      awayEntry.points += 3;
+    } else {
+      homeEntry.points += 1;
+      awayEntry.points += 1;
+    }
+
+    table.set(homeKey, homeEntry);
+    table.set(awayKey, awayEntry);
+  }
+
+  const groups = new Map<string, GroupStandingRow[]>();
+
+  for (const row of table.values()) {
+    const current = groups.get(row.group) || [];
+    current.push(row);
+    groups.set(row.group, current);
+  }
+
+  for (const [group, standings] of groups.entries()) {
+    standings.sort((left, right) => {
+      if (right.points !== left.points) return right.points - left.points;
+      if (right.goalDifference !== left.goalDifference) return right.goalDifference - left.goalDifference;
+      if (right.goalsFor !== left.goalsFor) return right.goalsFor - left.goalsFor;
+      return left.team.localeCompare(right.team);
+    });
+    groups.set(group, standings);
+  }
+
+  return groups;
+};
+
+const inferResolvedTeamFromSlot = (
+  slot: string,
+  standingsByGroup: Map<string, GroupStandingRow[]>,
+) => {
+  const winnerMatch = slot.match(/^Group ([A-Z]) winners$/i);
+  if (winnerMatch) {
+    return standingsByGroup.get(`Grupo ${winnerMatch[1].toUpperCase()}`)?.[0]?.team || null;
+  }
+
+  const runnerUpMatch = slot.match(/^Group ([A-Z]) runners-up$/i);
+  if (runnerUpMatch) {
+    return standingsByGroup.get(`Grupo ${runnerUpMatch[1].toUpperCase()}`)?.[1]?.team || null;
+  }
+
+  return null;
+};
+
+const resolveKnockoutRowsFromGe = (rows: WorldCupMatchRow[], html: string) => {
+  const standingsByGroup = buildGroupStandings(rows);
+  const headlineMatchups = extractGeHeadlineMatchups(html);
+  const teamFlagByName = new Map<string, string>();
+
+  for (const row of rows) {
+    if (row.home_flag) teamFlagByName.set(row.home_team, row.home_flag);
+    if (row.away_flag) teamFlagByName.set(row.away_team, row.away_flag);
+  }
+
+  return rows.map((row) => {
+    if (row.stage !== "Round of 32") {
+      return row;
+    }
+
+    const resolvedHomeTeam = inferResolvedTeamFromSlot(row.home_team, standingsByGroup);
+    const resolvedAwayTeam = inferResolvedTeamFromSlot(row.away_team, standingsByGroup);
+
+    let nextHomeTeam = resolvedHomeTeam || row.home_team;
+    let nextAwayTeam = resolvedAwayTeam || row.away_team;
+
+    const headlineMatch =
+      headlineMatchups.find((matchup) => {
+        if (resolvedHomeTeam && matchup.homeTeam === resolvedHomeTeam) return true;
+        if (resolvedHomeTeam && matchup.awayTeam === resolvedHomeTeam) return true;
+        if (resolvedAwayTeam && matchup.homeTeam === resolvedAwayTeam) return true;
+        if (resolvedAwayTeam && matchup.awayTeam === resolvedAwayTeam) return true;
+        return false;
+      }) || null;
+
+    if (headlineMatch) {
+      if (resolvedHomeTeam && !resolvedAwayTeam) {
+        nextHomeTeam = resolvedHomeTeam;
+        nextAwayTeam =
+          headlineMatch.homeTeam === resolvedHomeTeam ? headlineMatch.awayTeam : headlineMatch.homeTeam;
+      } else if (!resolvedHomeTeam && resolvedAwayTeam) {
+        nextAwayTeam = resolvedAwayTeam;
+        nextHomeTeam =
+          headlineMatch.awayTeam === resolvedAwayTeam ? headlineMatch.homeTeam : headlineMatch.awayTeam;
+      } else if (resolvedHomeTeam && resolvedAwayTeam) {
+        nextHomeTeam = headlineMatch.homeTeam;
+        nextAwayTeam = headlineMatch.awayTeam;
+      }
+    }
+
+    return {
+      ...row,
+      home_team: nextHomeTeam,
+      away_team: nextAwayTeam,
+      home_flag: teamFlagByName.get(nextHomeTeam) || row.home_flag,
+      away_flag: teamFlagByName.get(nextAwayTeam) || row.away_flag,
+    };
+  });
 };
 
 const fetchWorldCupSourceHtml = async () => {
@@ -1132,13 +1327,24 @@ export const syncWorldCupScoresFromGe = async () => {
   await ensureWorldCupGroupStageSeeded();
   const worldCupRows = await loadWorldCupRows();
   const html = await fetchWorldCupSourceHtml();
+  const resolvedRows = resolveKnockoutRowsFromGe(worldCupRows, html);
   const parsedUpdates = parseGeScoreUpdates(html, worldCupRows);
 
-  if (parsedUpdates.length === 0) {
+  const teamResolutionUpdates = resolvedRows.filter((resolvedRow, index) => {
+    const currentRow = worldCupRows[index];
+    return currentRow && (
+      currentRow.home_team !== resolvedRow.home_team ||
+      currentRow.away_team !== resolvedRow.away_team ||
+      currentRow.home_flag !== resolvedRow.home_flag ||
+      currentRow.away_flag !== resolvedRow.away_flag
+    );
+  });
+
+  if (parsedUpdates.length === 0 && teamResolutionUpdates.length === 0) {
     return { updated: 0, source: WORLD_CUP_SOURCE_URL };
   }
 
-  const updates = worldCupRows.flatMap((row) => {
+  const scoreUpdates = worldCupRows.flatMap((row) => {
     const parsed = parsedUpdates.find((item) => item.id === row.id);
     if (!parsed) return [];
 
@@ -1158,6 +1364,6 @@ export const syncWorldCupScoresFromGe = async () => {
     ];
   });
 
-  await upsertWorldCupRows(updates);
-  return { updated: updates.length, source: WORLD_CUP_SOURCE_URL };
+  await upsertWorldCupRows([...teamResolutionUpdates, ...scoreUpdates]);
+  return { updated: teamResolutionUpdates.length + scoreUpdates.length, source: WORLD_CUP_SOURCE_URL };
 };
