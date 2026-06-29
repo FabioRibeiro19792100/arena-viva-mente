@@ -104,6 +104,11 @@ const KNOCKOUT_STAGE_ORDER = [
   "Final",
 ] as const;
 
+const hasResolvedTeams = (match: Pick<WorldCupPoolMatch, "homeTeam" | "awayTeam">) =>
+  !/(group\s+[a-z]|\bthird place\b|winner match|loser match|runners-up|winners)/i.test(
+    `${match.homeTeam} ${match.awayTeam}`,
+  );
+
 const SCORE_OPTIONS = Array.from({ length: 11 }, (_, index) => index);
 const WHEEL_ITEM_HEIGHT = 44;
 const TEAM_RANKING_ALIASES: Record<string, string> = {
@@ -505,6 +510,7 @@ const Bolao = () => {
   const deckMatches = useMemo(
     () =>
       activeKnockoutStageMatches
+        .filter((match) => hasResolvedTeams(match))
         .filter((match) => getCurrentMatchStatus(match) === "scheduled")
         .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()),
     [activeKnockoutStageMatches],
@@ -523,6 +529,7 @@ const Bolao = () => {
   const savedMatches = useMemo(
     () =>
       activeKnockoutStageMatches
+        .filter((match) => hasResolvedTeams(match))
         .filter((match) => Boolean(predictionsByMatchId[match.id]))
         .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()),
     [activeKnockoutStageMatches, predictionsByMatchId],
