@@ -27,6 +27,7 @@ const LEGACY_WORLD_CUP_MATCH_ID_MAP: Record<string, string> = {
   "api-football-1489369": "wc2026-01",
   "api-football-1538999": "wc2026-02",
 };
+const EXCLUDED_KNOCKOUT_MATCH_IDS = new Set(["wc2026-73"]);
 
 const normalizeWorldCupPredictionMatchId = (matchId: string) =>
   LEGACY_WORLD_CUP_MATCH_ID_MAP[matchId] || matchId;
@@ -86,7 +87,9 @@ const scorePrediction = (
 const normalizeMatchesForScope = (scope: Scope, cycle: Cycle) =>
   getWorldCupPoolMatches().then((matches) =>
     matches.filter((match) => {
-      const inCycle = cycle === "knockout" ? !isGroupStageMatch(match) : isGroupStageMatch(match);
+      const inCycle = cycle === "knockout"
+        ? !isGroupStageMatch(match) && !EXCLUDED_KNOCKOUT_MATCH_IDS.has(match.id)
+        : isGroupStageMatch(match);
 
       if (!inCycle) return false;
       if (scope === "brazil") {
