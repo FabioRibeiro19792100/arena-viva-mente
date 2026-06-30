@@ -28,6 +28,10 @@ const LEGACY_WORLD_CUP_MATCH_ID_MAP: Record<string, string> = {
   "api-football-1538999": "wc2026-02",
 };
 const EXCLUDED_KNOCKOUT_MATCH_IDS = new Set(["wc2026-73"]);
+const EXCLUDED_LEADERBOARD_NAMES = new Set([
+  "geraldo tavares",
+  "edney ardanuy vassalo",
+]);
 
 const normalizeWorldCupPredictionMatchId = (matchId: string) =>
   LEGACY_WORLD_CUP_MATCH_ID_MAP[matchId] || matchId;
@@ -37,6 +41,9 @@ const normalizeTeamLabel = (value: string) =>
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
     .trim();
+
+const shouldExcludeLeaderboardEntry = (name: string | null | undefined) =>
+  !!name && EXCLUDED_LEADERBOARD_NAMES.has(normalizeTeamLabel(name));
 
 const endedMatchStatus = "ended";
 const isGroupStageMatch = (match: { stage: string }) => match.stage.startsWith("Grupo");
@@ -196,6 +203,7 @@ export default async function handler(req: HandlerRequest, res: HandlerResponse)
     }
 
     const entries = Array.from(leaderboardMap.values())
+      .filter((entry) => !shouldExcludeLeaderboardEntry(entry.name))
       .map((entry) => ({
         ...entry,
         editCreditsAvailable: Math.max(

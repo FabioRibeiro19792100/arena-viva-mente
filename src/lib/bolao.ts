@@ -57,6 +57,10 @@ const LOCAL_PREDICTIONS_PREFIX = "arena-viva-mente.world-cup-predictions";
 const LOCAL_CREDITS_PREFIX = "arena-viva-mente.world-cup-prediction-credits";
 const DEV_LOCAL_USER_ID = "dev-local";
 const EXCLUDED_KNOCKOUT_MATCH_IDS = new Set(["wc2026-73"]);
+const EXCLUDED_LEADERBOARD_NAMES = new Set([
+  "geraldo tavares",
+  "edney ardanuy vassalo",
+]);
 const LEGACY_WORLD_CUP_MATCH_ID_MAP: Record<string, string> = {
   "api-football-1489369": "wc2026-01",
   "api-football-1538999": "wc2026-02",
@@ -160,6 +164,9 @@ const canUseSupabasePredictions = async (userId: string) => {
 };
 
 const isGroupStageMatch = (match: Pick<WorldCupPoolMatch, "stage">) => match.stage.startsWith("Grupo");
+
+const shouldExcludeLeaderboardEntry = (name: string | null | undefined) =>
+  !!name && EXCLUDED_LEADERBOARD_NAMES.has(normalizeSearchText(name));
 
 export const filterMatchesByLeaderboardCycle = (
   matches: WorldCupPoolMatch[],
@@ -696,6 +703,7 @@ export const getWorldCupLeaderboard = async (
   }
 
   const sorted = Array.from(leaderboardMap.values())
+    .filter((entry) => !shouldExcludeLeaderboardEntry(entry.name))
     .map((entry) => ({
       ...entry,
       editCreditsAvailable: Math.max(
