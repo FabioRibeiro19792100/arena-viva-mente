@@ -156,7 +156,7 @@ const geTeamSlugByName: Record<string, string> = {
   Uruguay: "uruguai",
   "United States": "estados-unidos",
   Uzbekistan: "uzbequistao",
-  "DR Congo": "rd-congo",
+  "DR Congo": "rdcongo",
   "Cape Verde": "cabo-verde",
 };
 
