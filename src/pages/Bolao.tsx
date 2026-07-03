@@ -500,6 +500,20 @@ const Bolao = () => {
 
   const activeKnockoutStage = useMemo(() => {
     for (const stage of KNOCKOUT_STAGE_ORDER) {
+      const hasPendingPrediction = knockoutMatches.some(
+        (match) =>
+          match.stage === stage &&
+          hasResolvedTeams(match) &&
+          isStillOpenForPrediction(match) &&
+          !predictionsByMatchId[match.id],
+      );
+
+      if (hasPendingPrediction) {
+        return stage;
+      }
+    }
+
+    for (const stage of KNOCKOUT_STAGE_ORDER) {
       const hasOpenWindow = knockoutMatches.some(
         (match) => match.stage === stage && getCurrentMatchStatus(match) !== "ended",
       );
@@ -510,7 +524,7 @@ const Bolao = () => {
     }
 
     return KNOCKOUT_STAGE_ORDER[0];
-  }, [knockoutMatches]);
+  }, [knockoutMatches, predictionsByMatchId]);
 
   const activeKnockoutStageMatches = useMemo(
     () => knockoutMatches.filter((match) => match.stage === activeKnockoutStage),
@@ -522,7 +536,11 @@ const Bolao = () => {
       activeKnockoutStageMatches
         .filter((match) => hasResolvedTeams(match))
         .filter((match) => isStillOpenForPrediction(match))
-        .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()),
+        .sort((a, b) => {
+          const first = parseWorldCupMatchDate(a)?.getTime() || 0;
+          const second = parseWorldCupMatchDate(b)?.getTime() || 0;
+          return first - second;
+        }),
     [activeKnockoutStageMatches],
   );
 
@@ -541,7 +559,11 @@ const Bolao = () => {
       activeKnockoutStageMatches
         .filter((match) => hasResolvedTeams(match))
         .filter((match) => Boolean(predictionsByMatchId[match.id]))
-        .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()),
+        .sort((a, b) => {
+          const first = parseWorldCupMatchDate(a)?.getTime() || 0;
+          const second = parseWorldCupMatchDate(b)?.getTime() || 0;
+          return first - second;
+        }),
     [activeKnockoutStageMatches, predictionsByMatchId],
   );
 
