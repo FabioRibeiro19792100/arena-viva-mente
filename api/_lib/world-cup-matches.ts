@@ -1069,12 +1069,23 @@ const parseGeKickoffAt = (value: string, fallbackTime?: string | null) => {
 };
 
 const buildGeMatchPageUrl = (match: Pick<WorldCupMatchRow, "kickoff_at" | "home_team" | "away_team">) => {
+  const kickoff = new Date(match.kickoff_at);
+  const localTime = new Intl.DateTimeFormat("pt-BR", {
+    timeZone: "America/Sao_Paulo",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(kickoff);
+  const dateBase =
+    localTime === "00:00"
+      ? new Date(kickoff.getTime() - 24 * 60 * 60 * 1000)
+      : kickoff;
   const date = new Intl.DateTimeFormat("pt-BR", {
     timeZone: "America/Sao_Paulo",
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
-  }).format(new Date(match.kickoff_at));
+  }).format(dateBase);
   const [day, month, year] = date.split("/");
   return `${WORLD_CUP_SOURCE_URL}jogo/${day}-${month}-${year}/${slugifyGePathPart(match.home_team)}-${slugifyGePathPart(match.away_team)}.ghtml`;
 };
