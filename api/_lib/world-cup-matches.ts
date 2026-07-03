@@ -640,6 +640,18 @@ const gePublishedRoundOf32MatchupsById: Record<
   "wc2026-88": { homeTeam: "Australia", awayTeam: "Egypt", kickoffAt: "2026-07-03T15:00:00-03:00" },
 };
 
+const gePublishedRoundOf16MatchupsById: Record<
+  string,
+  { homeTeam: string; awayTeam: string; kickoffAt?: string }
+> = {
+  "wc2026-89": { homeTeam: "Paraguay", awayTeam: "France", kickoffAt: "2026-07-04T17:00:00-03:00" },
+  "wc2026-90": { homeTeam: "Canada", awayTeam: "Morocco", kickoffAt: "2026-07-04T12:00:00-03:00" },
+  "wc2026-91": { homeTeam: "Brazil", awayTeam: "Norway", kickoffAt: "2026-07-05T16:00:00-03:00" },
+  "wc2026-92": { homeTeam: "Mexico", awayTeam: "England", kickoffAt: "2026-07-05T18:00:00-03:00" },
+  "wc2026-93": { homeTeam: "Portugal", awayTeam: "Spain", kickoffAt: "2026-07-06T14:00:00-03:00" },
+  "wc2026-94": { homeTeam: "United States", awayTeam: "Belgium", kickoffAt: "2026-07-06T17:00:00-03:00" },
+};
+
 const simplifyHtml = (html: string) =>
   html
     .replace(/<script[\s\S]*?<\/script>/gi, " ")
@@ -921,6 +933,18 @@ const resolveKnockoutRowsFromStandings = (rows: WorldCupMatchRow[]) => {
         kickoff_at: gePublishedMatchup.kickoffAt || row.kickoff_at,
         home_flag: teamFlagByName.get(toCanonicalTeamName(gePublishedMatchup.homeTeam)) || row.home_flag,
         away_flag: teamFlagByName.get(toCanonicalTeamName(gePublishedMatchup.awayTeam)) || row.away_flag,
+      };
+    }
+
+    const gePublishedRoundOf16Matchup = gePublishedRoundOf16MatchupsById[row.id];
+    if (row.stage === "Round of 16" && gePublishedRoundOf16Matchup) {
+      return {
+        ...row,
+        home_team: gePublishedRoundOf16Matchup.homeTeam,
+        away_team: gePublishedRoundOf16Matchup.awayTeam,
+        kickoff_at: gePublishedRoundOf16Matchup.kickoffAt || row.kickoff_at,
+        home_flag: teamFlagByName.get(toCanonicalTeamName(gePublishedRoundOf16Matchup.homeTeam)) || row.home_flag,
+        away_flag: teamFlagByName.get(toCanonicalTeamName(gePublishedRoundOf16Matchup.awayTeam)) || row.away_flag,
       };
     }
 
