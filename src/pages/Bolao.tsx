@@ -556,7 +556,7 @@ const Bolao = () => {
 
   const savedMatches = useMemo(
     () =>
-      activeKnockoutStageMatches
+      knockoutMatches
         .filter((match) => hasResolvedTeams(match))
         .filter((match) => Boolean(predictionsByMatchId[match.id]))
         .sort((a, b) => {
@@ -564,7 +564,7 @@ const Bolao = () => {
           const second = parseWorldCupMatchDate(b)?.getTime() || 0;
           return first - second;
         }),
-    [activeKnockoutStageMatches, predictionsByMatchId],
+    [knockoutMatches, predictionsByMatchId],
   );
 
   useEffect(() => {

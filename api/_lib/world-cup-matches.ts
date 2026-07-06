@@ -650,6 +650,8 @@ const gePublishedRoundOf16MatchupsById: Record<
   "wc2026-92": { homeTeam: "Mexico", awayTeam: "England", kickoffAt: "2026-07-05T18:00:00-03:00" },
   "wc2026-93": { homeTeam: "Portugal", awayTeam: "Spain", kickoffAt: "2026-07-06T14:00:00-03:00" },
   "wc2026-94": { homeTeam: "United States", awayTeam: "Belgium", kickoffAt: "2026-07-06T17:00:00-03:00" },
+  "wc2026-95": { homeTeam: "Argentina", awayTeam: "Egypt", kickoffAt: "2026-07-07T12:00:00-03:00" },
+  "wc2026-96": { homeTeam: "Switzerland", awayTeam: "Colombia", kickoffAt: "2026-07-07T13:00:00-03:00" },
 };
 
 const simplifyHtml = (html: string) =>
@@ -897,6 +899,7 @@ const buildGroupStandings = (rows: WorldCupMatchRow[]) => {
 const inferResolvedTeamFromSlot = (
   slot: string,
   standingsByGroup: Map<string, GroupStandingRow[]>,
+  rowsById: Map<string, WorldCupMatchRow>,
 ) => {
   const winnerMatch = slot.match(/^Group ([A-Z]) winners$/i);
   if (winnerMatch) {
@@ -908,12 +911,41 @@ const inferResolvedTeamFromSlot = (
     return standingsByGroup.get(`Grupo ${runnerUpMatch[1].toUpperCase()}`)?.[1]?.team || null;
   }
 
+  const winnerByMatchNumber = slot.match(/^Winner Match (\d+)$/i);
+  if (winnerByMatchNumber) {
+    const referencedRow = rowsById.get(`wc2026-${winnerByMatchNumber[1]}`);
+    if (
+      referencedRow &&
+      referencedRow.status === "ended" &&
+      typeof referencedRow.home_score === "number" &&
+      typeof referencedRow.away_score === "number"
+    ) {
+      if (referencedRow.home_score > referencedRow.away_score) return referencedRow.home_team;
+      if (referencedRow.away_score > referencedRow.home_score) return referencedRow.away_team;
+    }
+  }
+
+  const loserByMatchNumber = slot.match(/^Loser Match (\d+)$/i);
+  if (loserByMatchNumber) {
+    const referencedRow = rowsById.get(`wc2026-${loserByMatchNumber[1]}`);
+    if (
+      referencedRow &&
+      referencedRow.status === "ended" &&
+      typeof referencedRow.home_score === "number" &&
+      typeof referencedRow.away_score === "number"
+    ) {
+      if (referencedRow.home_score > referencedRow.away_score) return referencedRow.away_team;
+      if (referencedRow.away_score > referencedRow.home_score) return referencedRow.home_team;
+    }
+  }
+
   return null;
 };
 
 const resolveKnockoutRowsFromStandings = (rows: WorldCupMatchRow[]) => {
   const standingsByGroup = buildGroupStandings(rows);
   const teamFlagByName = new Map<string, string>();
+  const rowsById = new Map(rows.map((row) => [row.id, row]));
 
   for (const row of rows) {
     const canonicalHomeTeam = toCanonicalTeamName(row.home_team);
@@ -948,8 +980,8 @@ const resolveKnockoutRowsFromStandings = (rows: WorldCupMatchRow[]) => {
       };
     }
 
-    const resolvedHomeTeam = inferResolvedTeamFromSlot(row.home_team, standingsByGroup);
-    const resolvedAwayTeam = inferResolvedTeamFromSlot(row.away_team, standingsByGroup);
+    const resolvedHomeTeam = inferResolvedTeamFromSlot(row.home_team, standingsByGroup, rowsById);
+    const resolvedAwayTeam = inferResolvedTeamFromSlot(row.away_team, standingsByGroup, rowsById);
 
     if (!resolvedHomeTeam && !resolvedAwayTeam) {
       return row;
