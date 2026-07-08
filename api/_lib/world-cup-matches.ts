@@ -654,6 +654,16 @@ const gePublishedRoundOf16MatchupsById: Record<
   "wc2026-96": { homeTeam: "Switzerland", awayTeam: "Colombia", kickoffAt: "2026-07-07T13:00:00-03:00" },
 };
 
+const gePublishedQuarterFinalMatchupsById: Record<
+  string,
+  { homeTeam: string; awayTeam: string; kickoffAt?: string }
+> = {
+  "wc2026-97": { homeTeam: "France", awayTeam: "Morocco", kickoffAt: "2026-07-09T17:00:00-03:00" },
+  "wc2026-98": { homeTeam: "Spain", awayTeam: "Belgium", kickoffAt: "2026-07-10T16:00:00-03:00" },
+  "wc2026-99": { homeTeam: "Norway", awayTeam: "England", kickoffAt: "2026-07-11T18:00:00-03:00" },
+  "wc2026-100": { homeTeam: "Argentina", awayTeam: "Switzerland", kickoffAt: "2026-07-11T22:00:00-03:00" },
+};
+
 const simplifyHtml = (html: string) =>
   html
     .replace(/<script[\s\S]*?<\/script>/gi, " ")
@@ -977,6 +987,18 @@ const resolveKnockoutRowsFromStandings = (rows: WorldCupMatchRow[]) => {
         kickoff_at: gePublishedRoundOf16Matchup.kickoffAt || row.kickoff_at,
         home_flag: teamFlagByName.get(toCanonicalTeamName(gePublishedRoundOf16Matchup.homeTeam)) || row.home_flag,
         away_flag: teamFlagByName.get(toCanonicalTeamName(gePublishedRoundOf16Matchup.awayTeam)) || row.away_flag,
+      };
+    }
+
+    const gePublishedQuarterFinalMatchup = gePublishedQuarterFinalMatchupsById[row.id];
+    if (row.stage === "Quarter-final" && gePublishedQuarterFinalMatchup) {
+      return {
+        ...row,
+        home_team: gePublishedQuarterFinalMatchup.homeTeam,
+        away_team: gePublishedQuarterFinalMatchup.awayTeam,
+        kickoff_at: gePublishedQuarterFinalMatchup.kickoffAt || row.kickoff_at,
+        home_flag: teamFlagByName.get(toCanonicalTeamName(gePublishedQuarterFinalMatchup.homeTeam)) || row.home_flag,
+        away_flag: teamFlagByName.get(toCanonicalTeamName(gePublishedQuarterFinalMatchup.awayTeam)) || row.away_flag,
       };
     }
 
