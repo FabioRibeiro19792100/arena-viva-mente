@@ -96,15 +96,6 @@ const getPredictionFeedback = (points: number | null) => {
   };
 };
 
-const KNOCKOUT_STAGE_ORDER = [
-  "Round of 32",
-  "Round of 16",
-  "Quarter-final",
-  "Semi-final",
-  "Third place",
-  "Final",
-] as const;
-
 const hasResolvedTeams = (match: Pick<WorldCupPoolMatch, "homeTeam" | "awayTeam">) =>
   !/(group\s+[a-z]|\bthird place\b|winner match|loser match|runners-up|winners)/i.test(
     `${match.homeTeam} ${match.awayTeam}`,
@@ -498,42 +489,9 @@ const Bolao = () => {
     [matches],
   );
 
-  const activeKnockoutStage = useMemo(() => {
-    for (const stage of KNOCKOUT_STAGE_ORDER) {
-      const hasPendingPrediction = knockoutMatches.some(
-        (match) =>
-          match.stage === stage &&
-          hasResolvedTeams(match) &&
-          isStillOpenForPrediction(match) &&
-          !predictionsByMatchId[match.id],
-      );
-
-      if (hasPendingPrediction) {
-        return stage;
-      }
-    }
-
-    for (const stage of KNOCKOUT_STAGE_ORDER) {
-      const hasOpenWindow = knockoutMatches.some(
-        (match) => match.stage === stage && getCurrentMatchStatus(match) !== "ended",
-      );
-
-      if (hasOpenWindow) {
-        return stage;
-      }
-    }
-
-    return KNOCKOUT_STAGE_ORDER[0];
-  }, [knockoutMatches, predictionsByMatchId]);
-
-  const activeKnockoutStageMatches = useMemo(
-    () => knockoutMatches.filter((match) => match.stage === activeKnockoutStage),
-    [activeKnockoutStage, knockoutMatches],
-  );
-
   const deckMatches = useMemo(
     () =>
-      activeKnockoutStageMatches
+      knockoutMatches
         .filter((match) => hasResolvedTeams(match))
         .filter((match) => isStillOpenForPrediction(match))
         .sort((a, b) => {
@@ -541,7 +499,7 @@ const Bolao = () => {
           const second = parseWorldCupMatchDate(b)?.getTime() || 0;
           return first - second;
         }),
-    [activeKnockoutStageMatches],
+    [knockoutMatches],
   );
 
   const pendingMatches = useMemo(
