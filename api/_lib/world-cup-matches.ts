@@ -664,6 +664,14 @@ const gePublishedQuarterFinalMatchupsById: Record<
   "wc2026-100": { homeTeam: "Argentina", awayTeam: "Switzerland", kickoffAt: "2026-07-11T22:00:00-03:00" },
 };
 
+const gePublishedSemiFinalMatchupsById: Record<
+  string,
+  { homeTeam: string; awayTeam: string; kickoffAt?: string }
+> = {
+  "wc2026-101": { homeTeam: "France", awayTeam: "Spain", kickoffAt: "2026-07-14T14:00:00-03:00" },
+  "wc2026-102": { homeTeam: "England", awayTeam: "Argentina", kickoffAt: "2026-07-15T15:00:00-03:00" },
+};
+
 const simplifyHtml = (html: string) =>
   html
     .replace(/<script[\s\S]*?<\/script>/gi, " ")
@@ -999,6 +1007,18 @@ const resolveKnockoutRowsFromStandings = (rows: WorldCupMatchRow[]) => {
         kickoff_at: gePublishedQuarterFinalMatchup.kickoffAt || row.kickoff_at,
         home_flag: teamFlagByName.get(toCanonicalTeamName(gePublishedQuarterFinalMatchup.homeTeam)) || row.home_flag,
         away_flag: teamFlagByName.get(toCanonicalTeamName(gePublishedQuarterFinalMatchup.awayTeam)) || row.away_flag,
+      };
+    }
+
+    const gePublishedSemiFinalMatchup = gePublishedSemiFinalMatchupsById[row.id];
+    if (row.stage === "Semi-final" && gePublishedSemiFinalMatchup) {
+      return {
+        ...row,
+        home_team: gePublishedSemiFinalMatchup.homeTeam,
+        away_team: gePublishedSemiFinalMatchup.awayTeam,
+        kickoff_at: gePublishedSemiFinalMatchup.kickoffAt || row.kickoff_at,
+        home_flag: teamFlagByName.get(toCanonicalTeamName(gePublishedSemiFinalMatchup.homeTeam)) || row.home_flag,
+        away_flag: teamFlagByName.get(toCanonicalTeamName(gePublishedSemiFinalMatchup.awayTeam)) || row.away_flag,
       };
     }
 
