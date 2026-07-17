@@ -672,6 +672,20 @@ const gePublishedSemiFinalMatchupsById: Record<
   "wc2026-102": { homeTeam: "England", awayTeam: "Argentina", kickoffAt: "2026-07-15T15:00:00-03:00" },
 };
 
+const gePublishedThirdPlaceMatchupsById: Record<
+  string,
+  { homeTeam: string; awayTeam: string; kickoffAt?: string }
+> = {
+  "wc2026-103": { homeTeam: "France", awayTeam: "England", kickoffAt: "2026-07-18T18:00:00-03:00" },
+};
+
+const gePublishedFinalMatchupsById: Record<
+  string,
+  { homeTeam: string; awayTeam: string; kickoffAt?: string }
+> = {
+  "wc2026-104": { homeTeam: "Spain", awayTeam: "Argentina", kickoffAt: "2026-07-19T16:00:00-03:00" },
+};
+
 const simplifyHtml = (html: string) =>
   html
     .replace(/<script[\s\S]*?<\/script>/gi, " ")
@@ -1019,6 +1033,30 @@ const resolveKnockoutRowsFromStandings = (rows: WorldCupMatchRow[]) => {
         kickoff_at: gePublishedSemiFinalMatchup.kickoffAt || row.kickoff_at,
         home_flag: teamFlagByName.get(toCanonicalTeamName(gePublishedSemiFinalMatchup.homeTeam)) || row.home_flag,
         away_flag: teamFlagByName.get(toCanonicalTeamName(gePublishedSemiFinalMatchup.awayTeam)) || row.away_flag,
+      };
+    }
+
+    const gePublishedThirdPlaceMatchup = gePublishedThirdPlaceMatchupsById[row.id];
+    if (row.stage === "Third place" && gePublishedThirdPlaceMatchup) {
+      return {
+        ...row,
+        home_team: gePublishedThirdPlaceMatchup.homeTeam,
+        away_team: gePublishedThirdPlaceMatchup.awayTeam,
+        kickoff_at: gePublishedThirdPlaceMatchup.kickoffAt || row.kickoff_at,
+        home_flag: teamFlagByName.get(toCanonicalTeamName(gePublishedThirdPlaceMatchup.homeTeam)) || row.home_flag,
+        away_flag: teamFlagByName.get(toCanonicalTeamName(gePublishedThirdPlaceMatchup.awayTeam)) || row.away_flag,
+      };
+    }
+
+    const gePublishedFinalMatchup = gePublishedFinalMatchupsById[row.id];
+    if (row.stage === "Final" && gePublishedFinalMatchup) {
+      return {
+        ...row,
+        home_team: gePublishedFinalMatchup.homeTeam,
+        away_team: gePublishedFinalMatchup.awayTeam,
+        kickoff_at: gePublishedFinalMatchup.kickoffAt || row.kickoff_at,
+        home_flag: teamFlagByName.get(toCanonicalTeamName(gePublishedFinalMatchup.homeTeam)) || row.home_flag,
+        away_flag: teamFlagByName.get(toCanonicalTeamName(gePublishedFinalMatchup.awayTeam)) || row.away_flag,
       };
     }
 

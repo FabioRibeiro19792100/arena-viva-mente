@@ -225,8 +225,8 @@ const rawMatches: RawMatch[] = [
   ["wc2026-100", "Quarter-final", "Winner Match 95", "Winner Match 96", "11 de julho de 2026", "20:00", "Arrowhead Stadium, Kansas City", "11 jul 2026"],
   ["wc2026-101", "Semi-final", "Winner Match 97", "Winner Match 98", "14 de julho de 2026", "14:00", "AT&T Stadium, Dallas", "14 jul 2026"],
   ["wc2026-102", "Semi-final", "Winner Match 99", "Winner Match 100", "15 de julho de 2026", "15:00", "Mercedes-Benz Stadium, Atlanta", "15 jul 2026"],
-  ["wc2026-103", "Third place", "Loser Match 101", "Loser Match 102", "18 de julho de 2026", "17:00", "Hard Rock Stadium, Miami", "18 jul 2026"],
-  ["wc2026-104", "Final", "Winner Match 101", "Winner Match 102", "19 de julho de 2026", "15:00", "MetLife Stadium, New York / New Jersey", "19 jul 2026"],
+  ["wc2026-103", "Third place", "Loser Match 101", "Loser Match 102", "18 de julho de 2026", "18:00", "Hard Rock Stadium, Miami", "18 jul 2026"],
+  ["wc2026-104", "Final", "Winner Match 101", "Winner Match 102", "19 de julho de 2026", "16:00", "MetLife Stadium, New York / New Jersey", "19 jul 2026"],
 ];
 
 const officialWorldCupMatches: WorldCupMatch[] = rawMatches.map(
